@@ -1,0 +1,14 @@
+name: PaperCorpes
+version: '${version}'
+main: dev.cornybirdy.papercorpes.PaperCorpes
+api-version: '26.1'
+description: Server-side corpses. Your items stay with your body when you die.
+author: cornybirdy
+
+permissions:
+  papercorpes.use:
+    description: Use /corpse and see your own death history.
+    default: true
+  papercorpes.admin:
+    description: Loot any corpse, view anyone's history and restore old death inventories.
+    default: op
