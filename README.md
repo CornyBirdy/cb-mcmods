@@ -13,7 +13,7 @@ Right-click the body to open it and take your stuff back.
 
 ## Features
 
-- **Corpse with your skin.** A lying-down player body (vanilla Mannequin entity) appears where you died. Its name and time of death show above it.
+- **Corpse with your skin.** A lying-down player body (vanilla Mannequin entity) appears where you died. Its name and time of death float above it and can be seen from 128 blocks away (configurable), even though the game only draws the body itself up close.
 - **Loot menu that looks like your inventory.**
   ```
   ┌──────────────────────────────────────────────┐
@@ -59,7 +59,9 @@ Paper: `plugins/PaperCorpes/config.yml`. Fabric: `config/corpes.json`. Both have
 | `store-xp` | `false` | Keep XP in the corpse instead of dropping orbs. The first person to open it gets the XP |
 | `skeleton-after-minutes` | `60` | Minutes before the body becomes a skeleton. `0` = never |
 | `history-size` | `10` | Deaths remembered per player |
-| `show-name` | `true` | Show the name above the corpse |
+| `show-name` | `true` | Show the name and time of death above the corpse |
+| `label-view-distance` | `128` | How far away (in blocks) that name can be seen. The body itself is only drawn within about 12 blocks, so the name is what you spot from a distance |
+| `label-see-through` | `false` | `true` = the name shows through walls and terrain, like a waypoint |
 | `hitbox-width` / `hitbox-height` | `2.0` / `0.6` | Size of the right-click box over the body |
 | `date-format` | `dd MMM HH:mm` | Date format for history and the corpse label |
 | `messages.*` | | All text, in [MiniMessage](https://docs.advntr.dev/minimessage/format.html) format. Lore entries can be a list of lines |

@@ -14,6 +14,8 @@ record Settings(
         boolean showName,
         float hitboxWidth,
         float hitboxHeight,
+        int labelViewDistance,
+        boolean labelSeeThrough,
         DateTimeFormatter dateFormat
 ) {
 
@@ -32,6 +34,8 @@ record Settings(
                 config.getBoolean("show-name", true),
                 (float) Math.max(0.2, config.getDouble("hitbox-width", 2.0)),
                 (float) Math.max(0.1, config.getDouble("hitbox-height", 0.6)),
+                Math.max(8, config.getInt("label-view-distance", 128)),
+                config.getBoolean("label-see-through", false),
                 format.withZone(ZoneId.systemDefault())
         );
     }

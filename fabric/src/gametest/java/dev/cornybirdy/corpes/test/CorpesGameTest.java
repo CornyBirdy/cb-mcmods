@@ -11,6 +11,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Interaction;
 import net.minecraft.world.entity.decoration.Mannequin;
@@ -57,8 +58,10 @@ public class CorpesGameTest {
         }
         List<Mannequin> bodies = level.getEntitiesOfClass(Mannequin.class, area, e -> e.entityTags().contains("corpes"));
         List<Interaction> hitboxes = level.getEntitiesOfClass(Interaction.class, area, e -> e.entityTags().contains("corpes"));
-        if (bodies.size() != 1 || hitboxes.size() != 1) {
-            throw helper.assertionException("Expected one body and one hitbox, found " + bodies.size() + " and " + hitboxes.size());
+        List<Display.TextDisplay> labels = level.getEntitiesOfClass(Display.TextDisplay.class, area, e -> e.entityTags().contains("corpes"));
+        if (bodies.size() != 1 || hitboxes.size() != 1 || labels.size() != 1) {
+            throw helper.assertionException("Expected one body, hitbox and label, found " + bodies.size() + ", "
+                    + hitboxes.size() + " and " + labels.size());
         }
 
         // Respawned player opens the corpse.

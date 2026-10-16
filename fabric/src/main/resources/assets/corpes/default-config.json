@@ -4,6 +4,8 @@
   "skeleton-after-minutes": 60,
   "history-size": 10,
   "show-name": true,
+  "label-view-distance": 128,
+  "label-see-through": false,
   "hitbox-width": 2.0,
   "hitbox-height": 0.6,
   "date-format": "dd MMM HH:mm",

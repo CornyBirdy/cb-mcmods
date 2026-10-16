@@ -7,6 +7,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.RegistryOps;
@@ -57,6 +58,9 @@ final class CorpseVisuals {
     /** Length of a lying body from feet to head, in blocks. */
     private static final double BODY_LENGTH = 1.8;
 
+    /** How high the name floats above the ground. */
+    private static final double LABEL_HEIGHT = 0.9;
+
     private final MinecraftServer server;
     private final RegistryOps<Tag> ops;
 
@@ -100,11 +104,9 @@ final class CorpseVisuals {
         body.store("profile", ResolvableProfile.CODEC, ops, ResolvableProfile.createResolved(profile));
         body.store("pose", Mannequin.POSE_CODEC, ops, Pose.SLEEPING);
         body.putBoolean("immovable", true);
-        body.store("description", ComponentSerialization.CODEC, ops,
-                settings.message("corpse-description", Map.of("date", settings.formatDate(corpse.createdAt))));
-        body.store("CustomName", ComponentSerialization.CODEC, ops,
-                settings.message("corpse-name", Map.of("player", corpse.ownerName)));
-        body.putBoolean("CustomNameVisible", settings.showName);
+        // The body is only drawn within ~12 blocks (a lying body has a tiny hitbox), so the name goes on a separate
+        // label that can be seen from much further away.
+        body.putBoolean("hide_description", true);
         body.putBoolean("Invulnerable", true);
         body.putBoolean("NoGravity", true);
         body.putBoolean("Silent", true);
@@ -119,6 +121,13 @@ final class CorpseVisuals {
         hitbox.putFloat("height", settings.hitboxHeight);
         hitbox.putBoolean("response", true);
         spawn(level, EntityTypes.INTERACTION, hitbox, alongBody(corpse, BODY_LENGTH / 2), 0, corpse);
+
+        if (settings.showName) {
+            Component name = settings.message("corpse-name", Map.of("player", corpse.ownerName))
+                    .append("\n")
+                    .append(settings.message("corpse-description", Map.of("date", settings.formatDate(corpse.createdAt))));
+            spawnLabel(level, corpse, name, settings);
+        }
     }
 
     /**
@@ -135,7 +144,7 @@ final class CorpseVisuals {
         Iterator<UUID> it = corpse.entityIds.iterator();
         while (it.hasNext()) {
             Entity entity = level.getEntity(it.next());
-            if (entity == null || entity instanceof Mannequin) {
+            if (entity == null || entity instanceof Mannequin || entity instanceof Display.TextDisplay) {
                 if (entity != null) {
                     entity.discard();
                 }
@@ -157,11 +166,7 @@ final class CorpseVisuals {
                 flat(new Quaternionf(alongBody).rotateY((float) Math.toRadians(80)), 0.6f));
 
         if (settings.showName) {
-            CompoundTag label = new CompoundTag();
-            label.store("text", ComponentSerialization.CODEC, ops,
-                    settings.message("remains-name", Map.of("player", corpse.ownerName)));
-            label.store("billboard", Display.BillboardConstraints.CODEC, ops, Display.BillboardConstraints.CENTER);
-            spawn(level, EntityTypes.TEXT_DISPLAY, label, alongBody(corpse, BODY_LENGTH / 2).add(0, 0.6, 0), 0, corpse);
+            spawnLabel(level, corpse, settings.message("remains-name", Map.of("player", corpse.ownerName)), settings);
         }
 
         corpse.skeleton = true;
@@ -233,6 +238,16 @@ final class CorpseVisuals {
     /** Air and plants can be fallen through; liquids and anything solid can't. */
     private static boolean isPassable(BlockState state) {
         return !state.isSolid() && !state.liquid();
+    }
+
+    /** A floating name over the corpse, visible from {@code label-view-distance} blocks away. */
+    private void spawnLabel(ServerLevel level, Corpse corpse, Component text, Settings settings) {
+        CompoundTag label = new CompoundTag();
+        label.store("text", ComponentSerialization.CODEC, ops, text);
+        label.store("billboard", Display.BillboardConstraints.CODEC, ops, Display.BillboardConstraints.CENTER);
+        label.putFloat("view_range", settings.labelViewDistance / 64f);
+        label.putBoolean("see_through", settings.labelSeeThrough);
+        spawn(level, EntityTypes.TEXT_DISPLAY, label, alongBody(corpse, BODY_LENGTH / 2).add(0, LABEL_HEIGHT, 0), 0, corpse);
     }
 
     private Entity spawn(ServerLevel level, EntityType<?> type, CompoundTag data, Vec3 at, float yaw, Corpse corpse) {

@@ -39,6 +39,8 @@ final class Settings {
     final boolean showName;
     final float hitboxWidth;
     final float hitboxHeight;
+    final int labelViewDistance;
+    final boolean labelSeeThrough;
     private final DateTimeFormatter dateFormat;
 
     private Settings(JsonObject config, JsonObject defaults) {
@@ -51,6 +53,8 @@ final class Settings {
         showName = bool("show-name");
         hitboxWidth = (float) Math.max(0.2, get("hitbox-width").getAsDouble());
         hitboxHeight = (float) Math.max(0.1, get("hitbox-height").getAsDouble());
+        labelViewDistance = Math.max(8, get("label-view-distance").getAsInt());
+        labelSeeThrough = bool("label-see-through");
         DateTimeFormatter format;
         try {
             format = DateTimeFormatter.ofPattern(get("date-format").getAsString(), Locale.ENGLISH);

@@ -17,6 +17,14 @@ history-size: 10
 # Show the "<player>'s corpse" name above the body.
 show-name: true
 
+# How far away the name above a corpse can be seen, in blocks. The body itself is only drawn up close
+# (about 12 blocks, the game decides this), so the name is what you spot from a distance.
+# Players also need the corpse within the server's entity view range.
+label-view-distance: 128
+
+# true = the name shows through walls and terrain, like a waypoint.
+label-see-through: false
+
 # Size of the invisible box you right-click to open a corpse (in blocks).
 hitbox-width: 2.0
 hitbox-height: 0.6

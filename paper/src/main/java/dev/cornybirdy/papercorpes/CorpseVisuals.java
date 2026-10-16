@@ -2,6 +2,7 @@ package dev.cornybirdy.papercorpes;
 
 import com.destroystokyo.paper.profile.PlayerProfile;
 import io.papermc.paper.datacomponent.item.ResolvableProfile;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -40,6 +41,9 @@ final class CorpseVisuals {
     /** Length of a lying body from feet to head, in blocks. */
     private static final double BODY_LENGTH = 1.8;
 
+    /** How high the name floats above the ground. */
+    private static final double LABEL_HEIGHT = 0.9;
+
     private final PaperCorpes plugin;
 
     CorpseVisuals(PaperCorpes plugin) {
@@ -68,10 +72,10 @@ final class CorpseVisuals {
         Pose pose = lyingPose();
         Mannequin body = loc.getWorld().spawn(loc, Mannequin.class, m -> {
             m.setProfile(ResolvableProfile.resolvableProfile(profile));
-            m.customName(plugin.message("corpse-name", Placeholder.unparsed("player", corpse.ownerName())));
-            m.setCustomNameVisible(settings.showName());
-            m.setDescription(plugin.message("corpse-description",
-                    Placeholder.unparsed("date", settings.formatDate(corpse.createdAt()))));
+            // The body is only drawn within ~12 blocks (a lying body has a tiny hitbox), so the name goes on a
+            // separate label that can be seen from much further away.
+            m.setCustomNameVisible(false);
+            m.setDescription(null);
             m.setInvulnerable(true);
             m.setImmovable(true);
             m.setGravity(false);
@@ -94,6 +98,14 @@ final class CorpseVisuals {
             tag(i, corpse.id());
         });
         corpse.entityIds().add(hitbox.getUniqueId());
+
+        if (settings.showName()) {
+            Component name = plugin.message("corpse-name", Placeholder.unparsed("player", corpse.ownerName()))
+                    .appendNewline()
+                    .append(plugin.message("corpse-description",
+                            Placeholder.unparsed("date", settings.formatDate(corpse.createdAt()))));
+            spawnLabel(corpse, center.clone().add(0, LABEL_HEIGHT, 0), name);
+        }
     }
 
     /**
@@ -110,7 +122,7 @@ final class CorpseVisuals {
         Iterator<UUID> it = corpse.entityIds().iterator();
         while (it.hasNext()) {
             Entity entity = Bukkit.getEntity(it.next());
-            if (entity == null || entity instanceof Mannequin) {
+            if (entity == null || entity instanceof Mannequin || entity instanceof TextDisplay) {
                 if (entity != null) {
                     entity.remove();
                 }
@@ -132,14 +144,8 @@ final class CorpseVisuals {
                 flat(new Quaternionf(alongBody).rotateY((float) Math.toRadians(80)), 0.6f));
 
         if (plugin.settings().showName()) {
-            Location labelAt = alongBody(loc, BODY_LENGTH / 2).add(0, 0.6, 0);
-            TextDisplay label = loc.getWorld().spawn(labelAt, TextDisplay.class, t -> {
-                t.text(plugin.message("remains-name", Placeholder.unparsed("player", corpse.ownerName())));
-                t.setBillboard(Display.Billboard.CENTER);
-                t.setPersistent(true);
-                tag(t, corpse.id());
-            });
-            corpse.entityIds().add(label.getUniqueId());
+            spawnLabel(corpse, alongBody(loc, BODY_LENGTH / 2).add(0, LABEL_HEIGHT, 0),
+                    plugin.message("remains-name", Placeholder.unparsed("player", corpse.ownerName())));
         }
 
         corpse.setSkeleton(true);
@@ -195,6 +201,20 @@ final class CorpseVisuals {
             loc.setY(block.getY());
         }
         return loc;
+    }
+
+    /** A floating name over the corpse, visible from {@code label-view-distance} blocks away. */
+    private void spawnLabel(Corpse corpse, Location at, Component text) {
+        Settings settings = plugin.settings();
+        TextDisplay label = at.getWorld().spawn(at, TextDisplay.class, t -> {
+            t.text(text);
+            t.setBillboard(Display.Billboard.CENTER);
+            t.setViewRange(settings.labelViewDistance() / 64f);
+            t.setSeeThrough(settings.labelSeeThrough());
+            t.setPersistent(true);
+            tag(t, corpse.id());
+        });
+        corpse.entityIds().add(label.getUniqueId());
     }
 
     private void spawnItem(Corpse corpse, Location at, Material material, Transformation transformation) {
