@@ -18,6 +18,7 @@ import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.decoration.Mannequin;
@@ -107,7 +108,7 @@ final class CorpseVisuals {
         body.putBoolean("Invulnerable", true);
         body.putBoolean("NoGravity", true);
         body.putBoolean("Silent", true);
-        Entity mannequin = spawn(level, EntityType.MANNEQUIN, body, new Vec3(corpse.x, corpse.y, corpse.z), corpse.yaw, corpse);
+        Entity mannequin = spawn(level, EntityTypes.MANNEQUIN, body, new Vec3(corpse.x, corpse.y, corpse.z), corpse.yaw, corpse);
         if (mannequin instanceof LivingEntity living) {
             living.setYBodyRot(corpse.yaw);
             living.setYHeadRot(corpse.yaw);
@@ -117,7 +118,7 @@ final class CorpseVisuals {
         hitbox.putFloat("width", settings.hitboxWidth);
         hitbox.putFloat("height", settings.hitboxHeight);
         hitbox.putBoolean("response", true);
-        spawn(level, EntityType.INTERACTION, hitbox, alongBody(corpse, BODY_LENGTH / 2), 0, corpse);
+        spawn(level, EntityTypes.INTERACTION, hitbox, alongBody(corpse, BODY_LENGTH / 2), 0, corpse);
     }
 
     /**
@@ -160,7 +161,7 @@ final class CorpseVisuals {
             label.store("text", ComponentSerialization.CODEC, ops,
                     settings.message("remains-name", Map.of("player", corpse.ownerName)));
             label.store("billboard", Display.BillboardConstraints.CODEC, ops, Display.BillboardConstraints.CENTER);
-            spawn(level, EntityType.TEXT_DISPLAY, label, alongBody(corpse, BODY_LENGTH / 2).add(0, 0.6, 0), 0, corpse);
+            spawn(level, EntityTypes.TEXT_DISPLAY, label, alongBody(corpse, BODY_LENGTH / 2).add(0, 0.6, 0), 0, corpse);
         }
 
         corpse.skeleton = true;
@@ -257,7 +258,7 @@ final class CorpseVisuals {
         display.store("item", ItemStack.CODEC, ops, new ItemStack(item));
         display.store("item_display", ItemDisplayContext.CODEC, ops, ItemDisplayContext.NONE);
         display.store("transformation", Transformation.CODEC, ops, transformation);
-        spawn(level, EntityType.ITEM_DISPLAY, display, at, 0, corpse);
+        spawn(level, EntityTypes.ITEM_DISPLAY, display, at, 0, corpse);
     }
 
     private static Transformation flat(Quaternionf rotation, float scale) {
