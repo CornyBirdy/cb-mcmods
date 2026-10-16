@@ -41,6 +41,8 @@ final class Settings {
     final float hitboxHeight;
     final int labelViewDistance;
     final boolean labelSeeThrough;
+    final boolean floatOnLava;
+    final boolean fallToGround;
     private final DateTimeFormatter dateFormat;
 
     private Settings(JsonObject config, JsonObject defaults) {
@@ -55,6 +57,8 @@ final class Settings {
         hitboxHeight = (float) Math.max(0.1, get("hitbox-height").getAsDouble());
         labelViewDistance = Math.max(8, get("label-view-distance").getAsInt());
         labelSeeThrough = bool("label-see-through");
+        floatOnLava = bool("float-on-lava");
+        fallToGround = bool("fall-to-ground");
         DateTimeFormatter format;
         try {
             format = DateTimeFormatter.ofPattern(get("date-format").getAsString(), Locale.ENGLISH);
@@ -90,6 +94,27 @@ final class Settings {
         } catch (IOException | RuntimeException e) {
             throw new IllegalStateException("default-config.json is missing from the mod jar", e);
         }
+    }
+
+    /** Writes one option into the config file, leaving everything else in it as it was. */
+    static void save(Path file, String key, Object value) throws IOException {
+        if (!Files.exists(file)) {
+            load(file);
+        }
+        JsonObject config = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject();
+        if (value instanceof Boolean flag) {
+            config.addProperty(key, flag);
+        } else if (value instanceof Number number) {
+            config.addProperty(key, number);
+        } else {
+            config.addProperty(key, value.toString());
+        }
+        Files.writeString(file, GSON.toJson(config), StandardCharsets.UTF_8);
+    }
+
+    /** The current value of an option, as text. */
+    String valueOf(String key) {
+        return get(key).getAsString();
     }
 
     String formatDate(long epochMillis) {

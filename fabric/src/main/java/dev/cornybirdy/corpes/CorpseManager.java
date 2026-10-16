@@ -65,7 +65,7 @@ final class CorpseManager {
             return;
         }
         ServerLevel level = player.level();
-        Vec3 spot = CorpseVisuals.safeLocation(level, player.position());
+        Vec3 spot = CorpseVisuals.safeLocation(level, player.position(), settings.get());
         ItemStack[] contents = CorpseLayout.takeFrom(inventory);
         String cause = player.getCombatTracker().getDeathMessage().getString();
 

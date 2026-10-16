@@ -8,6 +8,8 @@
   "label-see-through": false,
   "hitbox-width": 2.0,
   "hitbox-height": 0.6,
+  "float-on-lava": true,
+  "fall-to-ground": true,
   "date-format": "dd MMM HH:mm",
   "messages": {
     "corpse-name": "<gray><player>'s corpse",
@@ -62,6 +64,11 @@
     "history-view": " <aqua>[View]",
     "history-view-hover": "<gray>Open a copy of this death's inventory",
     "invalid-number": "<red>There is no death #<index> for <player>.",
-    "reloaded": "<green>Corpes config reloaded."
+    "reloaded": "<green>Corpes config reloaded.",
+    "config-header": "<gold>Corpes settings <gray>(change with /corpse config [option] [value])",
+    "config-entry": "<gray><key> <dark_gray>=</dark_gray> <white><value>",
+    "config-set": "<green><key> is now <white><value></white>.",
+    "config-unknown": "<red>Unknown option: <key>",
+    "config-invalid": "<red>Can't set <key> to <value>: <reason>."
   }
 }

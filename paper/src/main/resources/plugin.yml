@@ -12,3 +12,6 @@ permissions:
   papercorpes.admin:
     description: Loot any corpse, view anyone's history and restore old death inventories.
     default: op
+  papercorpes.config:
+    description: View and change the settings with /corpse config.
+    default: op

@@ -29,6 +29,7 @@ public final class Corpes implements ModInitializer {
 
     static final Identifier USE_PERMISSION = Identifier.fromNamespaceAndPath("corpes", "use");
     static final Identifier ADMIN_PERMISSION = Identifier.fromNamespaceAndPath("corpes", "admin");
+    static final Identifier CONFIG_PERMISSION = Identifier.fromNamespaceAndPath("corpes", "config");
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Corpes");
 
@@ -93,6 +94,18 @@ public final class Corpes implements ModInitializer {
             }
             return false;
         }
+    }
+
+    /** Writes one option to {@code config/corpes.json} and reloads it. Returns false if the file couldn't be written. */
+    static boolean setOption(String key, Object value) {
+        Path file = FabricLoader.getInstance().getConfigDir().resolve("corpes.json");
+        try {
+            Settings.save(file, key, value);
+        } catch (Exception e) {
+            LOGGER.error("Could not write {}", file, e);
+            return false;
+        }
+        return reload();
     }
 
     static boolean isAdmin(ServerPlayer player) {

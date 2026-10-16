@@ -27,6 +27,7 @@ import java.util.function.Supplier;
  * /corpse history [player]       list recent deaths (other players need corpes:admin)
  * /corpse view (player) (number) open a copy of an old death inventory (corpes:admin)
  * /corpse reload                 reload config/corpes.json (corpes:admin)
+ * /corpse config [option] [value]  show or change an option (corpes:config, op level 4)
  * </pre>
  */
 final class CorpseCommand {
@@ -64,16 +65,42 @@ final class CorpseCommand {
                                                 IntegerArgumentType.getInteger(context, "number"))))))
                 .then(Commands.literal("reload")
                         .requires(CorpseCommand::isAdmin)
-                        .executes(context -> command.reload(context.getSource()))));
+                        .executes(context -> command.reload(context.getSource())))
+                .then(Commands.literal("config")
+                        .requires(CorpseCommand::canConfigure)
+                        .executes(context -> command.configList(context.getSource()))
+                        .then(Commands.argument("option", StringArgumentType.word())
+                                .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                        ConfigOption.ALL.stream().map(ConfigOption::key), builder))
+                                .executes(context -> command.configShow(context.getSource(),
+                                        StringArgumentType.getString(context, "option")))
+                                .then(Commands.argument("value", StringArgumentType.greedyString())
+                                        .suggests((context, builder) -> {
+                                            ConfigOption option = ConfigOption.find(StringArgumentType.getString(context, "option"));
+                                            if (option == null) {
+                                                return builder.buildFuture();
+                                            }
+                                            return SharedSuggestionProvider.suggest(option.kind() == ConfigOption.Kind.BOOLEAN
+                                                    ? List.of("true", "false") : List.of(settings.get().valueOf(option.key())), builder);
+                                        })
+                                        .executes(context -> command.configSet(context.getSource(),
+                                                StringArgumentType.getString(context, "option"),
+                                                StringArgumentType.getString(context, "value")))))));
     }
 
     private static boolean isAdmin(CommandSourceStack source) {
         return source.checkPermission(Corpes.ADMIN_PERMISSION, PermissionLevel.GAMEMASTERS);
     }
 
+    /** The console and the highest op level (4), or whoever a permission mod gives {@code corpes:config}. */
+    private static boolean canConfigure(CommandSourceStack source) {
+        return source.checkPermission(Corpes.CONFIG_PERMISSION, PermissionLevel.OWNERS);
+    }
+
     private int usage(CommandSourceStack source) {
         source.sendSystemMessage(Text.parse("<gray>/corpse history [player]"
-                + (isAdmin(source) ? " <dark_gray>|</dark_gray> /corpse view (player) (number) <dark_gray>|</dark_gray> /corpse reload" : ""),
+                + (isAdmin(source) ? " <dark_gray>|</dark_gray> /corpse view (player) (number) <dark_gray>|</dark_gray> /corpse reload" : "")
+                + (canConfigure(source) ? " <dark_gray>|</dark_gray> /corpse config [option] [value]" : ""),
                 Map.of()));
         return 1;
     }
@@ -174,6 +201,48 @@ final class CorpseCommand {
         }
         source.sendSystemMessage(Text.parse("<red>Could not read config/corpes.json, see the server log.", Map.of()));
         return 0;
+    }
+
+    private int configList(CommandSourceStack source) {
+        Settings s = settings.get();
+        source.sendSystemMessage(s.message("config-header"));
+        for (ConfigOption option : ConfigOption.ALL) {
+            source.sendSystemMessage(s.message("config-entry", Map.of("key", option.key(), "value", s.valueOf(option.key()))));
+        }
+        return ConfigOption.ALL.size();
+    }
+
+    private int configShow(CommandSourceStack source, String key) {
+        Settings s = settings.get();
+        ConfigOption option = ConfigOption.find(key);
+        if (option == null) {
+            source.sendSystemMessage(s.message("config-unknown", Map.of("key", key)));
+            return 0;
+        }
+        source.sendSystemMessage(s.message("config-entry", Map.of("key", option.key(), "value", s.valueOf(option.key()))));
+        return 1;
+    }
+
+    private int configSet(CommandSourceStack source, String key, String raw) {
+        ConfigOption option = ConfigOption.find(key);
+        if (option == null) {
+            source.sendSystemMessage(settings.get().message("config-unknown", Map.of("key", key)));
+            return 0;
+        }
+        Object value;
+        try {
+            value = option.parse(raw);
+        } catch (IllegalArgumentException e) {
+            source.sendSystemMessage(settings.get().message("config-invalid",
+                    Map.of("key", option.key(), "value", raw, "reason", e.getMessage())));
+            return 0;
+        }
+        if (!Corpes.setOption(option.key(), value)) {
+            source.sendSystemMessage(Text.parse("<red>Could not write config/corpes.json, see the server log.", Map.of()));
+            return 0;
+        }
+        source.sendSystemMessage(settings.get().message("config-set", Map.of("key", option.key(), "value", String.valueOf(value))));
+        return 1;
     }
 
     private NameAndId findPlayer(CommandSourceStack source, String name) {

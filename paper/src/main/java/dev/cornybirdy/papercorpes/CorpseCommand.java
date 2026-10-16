@@ -12,6 +12,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -21,11 +22,13 @@ import java.util.Locale;
  * /corpse history [player]       list recent deaths (other players need papercorpes.admin)
  * /corpse view (player) (number) open a copy of an old death inventory (papercorpes.admin)
  * /corpse reload                 reload config.yml (papercorpes.admin)
+ * /corpse config [option] [value]  show or change an option (papercorpes.config)
  * </pre>
  */
 final class CorpseCommand implements BasicCommand {
 
     private static final String ADMIN = "papercorpes.admin";
+    private static final String CONFIG = "papercorpes.config";
 
     private final PaperCorpes plugin;
     private final CorpseStorage storage;
@@ -43,6 +46,7 @@ final class CorpseCommand implements BasicCommand {
             case "history" -> history(sender, args);
             case "view" -> view(sender, args);
             case "reload" -> reload(sender);
+            case "config" -> config(sender, args);
             default -> sender.sendMessage(plugin.message("usage"));
         }
     }
@@ -52,8 +56,25 @@ final class CorpseCommand implements BasicCommand {
         CommandSender sender = source.getSender();
         boolean admin = sender.hasPermission(ADMIN);
         if (args.length <= 1) {
-            List<String> options = admin ? List.of("history", "view", "reload") : List.of("history");
+            List<String> options = new ArrayList<>(List.of("history"));
+            if (admin) {
+                options.addAll(List.of("view", "reload"));
+            }
+            if (sender.hasPermission(CONFIG)) {
+                options.add("config");
+            }
             return startingWith(options, args.length == 0 ? "" : args[0]);
+        }
+        if (args[0].equalsIgnoreCase("config") && sender.hasPermission(CONFIG)) {
+            if (args.length == 2) {
+                return startingWith(ConfigOption.ALL.stream().map(ConfigOption::key).toList(), args[1]);
+            }
+            ConfigOption option = ConfigOption.find(args[1]);
+            if (args.length == 3 && option != null) {
+                return startingWith(option.kind() == ConfigOption.Kind.BOOLEAN
+                        ? List.of("true", "false") : List.of(String.valueOf(plugin.getConfig().get(option.key()))), args[2]);
+            }
+            return List.of();
         }
         if (args.length == 2 && admin && (args[0].equalsIgnoreCase("history") || args[0].equalsIgnoreCase("view"))) {
             List<String> names = Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();
@@ -154,6 +175,51 @@ final class CorpseCommand implements BasicCommand {
         }
         plugin.reload();
         sender.sendMessage(plugin.message("reloaded"));
+    }
+
+    /** /corpse config lists the options, /corpse config (option) shows one, /corpse config (option) (value) changes it. */
+    private void config(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(CONFIG)) {
+            sender.sendMessage(plugin.message("no-permission"));
+            return;
+        }
+        if (args.length == 1) {
+            sender.sendMessage(plugin.message("config-header"));
+            for (ConfigOption option : ConfigOption.ALL) {
+                sender.sendMessage(configEntry(option));
+            }
+            return;
+        }
+        ConfigOption option = ConfigOption.find(args[1]);
+        if (option == null) {
+            sender.sendMessage(plugin.message("config-unknown", Placeholder.unparsed("key", args[1])));
+            return;
+        }
+        if (args.length == 2) {
+            sender.sendMessage(configEntry(option));
+            return;
+        }
+
+        // The value is the rest of the line, because the date format contains spaces.
+        String raw = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
+        Object value;
+        try {
+            value = option.parse(raw);
+        } catch (IllegalArgumentException e) {
+            sender.sendMessage(plugin.message("config-invalid", Placeholder.unparsed("key", option.key()),
+                    Placeholder.unparsed("value", raw), Placeholder.unparsed("reason", e.getMessage())));
+            return;
+        }
+        plugin.getConfig().set(option.key(), value);
+        plugin.saveConfig();
+        plugin.reload();
+        sender.sendMessage(plugin.message("config-set", Placeholder.unparsed("key", option.key()),
+                Placeholder.unparsed("value", String.valueOf(value))));
+    }
+
+    private Component configEntry(ConfigOption option) {
+        return plugin.message("config-entry", Placeholder.unparsed("key", option.key()),
+                Placeholder.unparsed("value", String.valueOf(plugin.getConfig().get(option.key()))));
     }
 
     private OfflinePlayer findPlayer(CommandSender sender, String name) {

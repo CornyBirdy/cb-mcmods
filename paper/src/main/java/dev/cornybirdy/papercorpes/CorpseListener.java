@@ -40,7 +40,7 @@ final class CorpseListener implements Listener {
         }
 
         Player player = event.getEntity();
-        Location spot = CorpseVisuals.safeLocation(player.getLocation());
+        Location spot = CorpseVisuals.safeLocation(player.getLocation(), plugin.settings());
         List<ItemStack> overflow = new ArrayList<>();
         ItemStack[] contents = CorpseLayout.fromDeath(player.getInventory().getContents(), drops, overflow);
         drops.clear();

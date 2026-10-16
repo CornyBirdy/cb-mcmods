@@ -16,6 +16,8 @@ record Settings(
         float hitboxHeight,
         int labelViewDistance,
         boolean labelSeeThrough,
+        boolean floatOnLava,
+        boolean fallToGround,
         DateTimeFormatter dateFormat
 ) {
 
@@ -36,6 +38,8 @@ record Settings(
                 (float) Math.max(0.1, config.getDouble("hitbox-height", 0.6)),
                 Math.max(8, config.getInt("label-view-distance", 128)),
                 config.getBoolean("label-see-through", false),
+                config.getBoolean("float-on-lava", true),
+                config.getBoolean("fall-to-ground", true),
                 format.withZone(ZoneId.systemDefault())
         );
     }

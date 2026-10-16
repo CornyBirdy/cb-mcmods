@@ -45,9 +45,13 @@ Right-click the body to open it and take your stuff back.
 | `/corpse history <player>` | `papercorpes.admin` (op) | `corpes:admin` (op level 2) | List someone else's deaths. Click **[View]** to open one |
 | `/corpse view <player> <number>` | `papercorpes.admin` | `corpes:admin` | Open a copy of that death's inventory. Items taken out are created, which is how you restore lost items |
 | `/corpse reload` | `papercorpes.admin` | `corpes:admin` | Reload the config |
+| `/corpse config` | `papercorpes.config` (op) | `corpes:config` (op level 4) | List every option and its value |
+| `/corpse config <option>` | same | same | Show one option |
+| `/corpse config <option> <value>` | same | same | Change an option. It is saved to the config file and takes effect straight away |
 
 The admin permission also lets you loot any corpse when `allow-anyone-loot` is `false`.
-On Fabric, permission mods that support the Fabric Permission API can grant `corpes:admin` and `corpes:use`; without one, op level 2 counts as admin.
+On Fabric, permission mods that support the Fabric Permission API can grant `corpes:admin`, `corpes:config` and `corpes:use`; without one, op level 2 counts as admin and only op level 4 and the server console can use `/corpse config`.
+`/corpse config` changes every option in the table below, but not the `messages`; edit those in the config file.
 
 ## Config
 
@@ -63,6 +67,8 @@ Paper: `plugins/PaperCorpes/config.yml`. Fabric: `config/corpes.json`. Both have
 | `label-view-distance` | `128` | How far away (in blocks) that name can be seen. The body itself is only drawn within about 12 blocks, so the name is what you spot from a distance |
 | `label-see-through` | `false` | `true` = the name shows through walls and terrain, like a waypoint |
 | `hitbox-width` / `hitbox-height` | `2.0` / `0.6` | Size of the right-click box over the body |
+| `float-on-lava` | `true` | `true` = a player who dies in lava gets their corpse on top of the lava. `false` = it stays where they died, in the lava |
+| `fall-to-ground` | `true` | `true` = a player who dies in mid-air gets their corpse on the ground below. `false` = it stays in the air |
 | `date-format` | `dd MMM HH:mm` | Date format for history and the corpse label |
 | `messages.*` | | All text, in [MiniMessage](https://docs.advntr.dev/minimessage/format.html) format. Lore entries can be a list of lines |
 

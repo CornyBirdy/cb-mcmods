@@ -188,10 +188,10 @@ final class CorpseVisuals {
     }
 
     /**
-     * Picks a spot for the corpse near where the player died: out of the void, lava and solid blocks, and
-     * down onto the ground if they died in mid-air.
+     * Picks a spot for the corpse near where the player died: out of the void and solid blocks, up out of lava
+     * ({@code float-on-lava}) and down onto the ground if they died in mid-air ({@code fall-to-ground}).
      */
-    static Vec3 safeLocation(ServerLevel level, Vec3 death) {
+    static Vec3 safeLocation(ServerLevel level, Vec3 death, Settings settings) {
         int minY = level.getMinY();
         int maxY = level.getMaxY() - 1;
         double x = death.x;
@@ -210,12 +210,12 @@ final class CorpseVisuals {
         }
 
         BlockPos pos = BlockPos.containing(x, y, z);
-        for (int i = 0; i < 64 && pos.getY() < maxY && (isLava(level.getBlockState(pos)) || isSolidBlock(level, pos)); i++) {
+        for (int i = 0; i < 64 && pos.getY() < maxY && ((settings.floatOnLava && isLava(level.getBlockState(pos))) || isSolidBlock(level, pos)); i++) {
             pos = pos.above();
             y = pos.getY();
         }
 
-        for (int i = 0; i < 64 && pos.getY() > minY && isPassable(level.getBlockState(pos)); i++) {
+        for (int i = 0; settings.fallToGround && i < 64 && pos.getY() > minY && isPassable(level.getBlockState(pos)); i++) {
             BlockPos below = pos.below();
             if (!isPassable(level.getBlockState(below))) {
                 break;

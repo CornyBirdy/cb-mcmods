@@ -164,10 +164,10 @@ final class CorpseVisuals {
     }
 
     /**
-     * Picks a spot for the corpse near where the player died: out of the void, lava and solid blocks, and
-     * down onto the ground if they died in mid-air.
+     * Picks a spot for the corpse near where the player died: out of the void and solid blocks, up out of lava
+     * ({@code float-on-lava}) and down onto the ground if they died in mid-air ({@code fall-to-ground}).
      */
-    static Location safeLocation(Location death) {
+    static Location safeLocation(Location death, Settings settings) {
         World world = death.getWorld();
         int minY = world.getMinHeight();
         int maxY = world.getMaxHeight() - 2;
@@ -187,12 +187,12 @@ final class CorpseVisuals {
         }
 
         Block block = loc.getBlock();
-        for (int i = 0; i < 64 && block.getY() < maxY && (block.getType() == Material.LAVA || block.getType().isOccluding()); i++) {
+        for (int i = 0; i < 64 && block.getY() < maxY && ((settings.floatOnLava() && block.getType() == Material.LAVA) || block.getType().isOccluding()); i++) {
             block = block.getRelative(BlockFace.UP);
             loc.setY(block.getY());
         }
 
-        for (int i = 0; i < 64 && block.getY() > minY && block.isPassable() && !block.isLiquid(); i++) {
+        for (int i = 0; settings.fallToGround() && i < 64 && block.getY() > minY && block.isPassable() && !block.isLiquid(); i++) {
             Block below = block.getRelative(BlockFace.DOWN);
             if (!below.isPassable() || below.isLiquid()) {
                 break;

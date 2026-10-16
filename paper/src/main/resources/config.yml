@@ -1,5 +1,6 @@
 # PaperCorpes configuration
 # Messages use MiniMessage formatting: https://docs.advntr.dev/minimessage/format.html
+# The options (not the messages) can also be changed in-game or from the console with /corpse config.
 
 # true = anyone can loot a corpse. false = only the owner (and players with papercorpes.admin).
 allow-anyone-loot: true
@@ -28,6 +29,12 @@ label-see-through: false
 # Size of the invisible box you right-click to open a corpse (in blocks).
 hitbox-width: 2.0
 hitbox-height: 0.6
+
+# true = a player who dies in lava gets their corpse on top of the lava. false = it stays where they died, in the lava.
+float-on-lava: true
+
+# true = a player who dies in mid-air gets their corpse on the ground below. false = it stays in the air.
+fall-to-ground: true
 
 # Date format used in history and on the corpse (Java DateTimeFormatter pattern).
 date-format: "dd MMM HH:mm"
@@ -74,7 +81,12 @@ messages:
     - "<gray>Moves everything into the free"
     - "<gray>slots of your inventory."
   not-yours: "<red>This is not your corpse."
-  usage: "<gray>/corpse history [player] <dark_gray>|</dark_gray> /corpse view (player) (number) <dark_gray>|</dark_gray> /corpse reload"
+  usage: "<gray>/corpse history [player] <dark_gray>|</dark_gray> /corpse view (player) (number) <dark_gray>|</dark_gray> /corpse config [option] [value] <dark_gray>|</dark_gray> /corpse reload"
+  config-header: "<gold>PaperCorpes settings <gray>(change with /corpse config [option] [value])"
+  config-entry: "<gray><key> <dark_gray>=</dark_gray> <white><value>"
+  config-set: "<green><key> is now <white><value></white>."
+  config-unknown: "<red>Unknown option: <key>"
+  config-invalid: "<red>Can't set <key> to <value>: <reason>."
   players-only: "<red>Only players can do that."
   no-permission: "<red>You don't have permission to do that."
   unknown-player: "<red>Unknown player: <player>"
