@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.cornybirdy"
-version = "1.0.0"
+version = (findProperty("releaseVersion") as String?) ?: "1.0.0"
 
 repositories {
     mavenCentral()

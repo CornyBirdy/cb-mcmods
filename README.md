@@ -25,7 +25,7 @@ Right-click the body to open it and take your stuff back.
 
 ## Install
 
-1. Download `PaperCorpes-x.y.z.jar`. Open the latest successful run of the **Build** workflow under the repo's **Actions** tab and download the `PaperCorpes` artifact.
+1. Download `PaperCorpes-x.y.z.jar` from the [Releases page](https://github.com/CornyBirdy/Paper-Corpes/releases).
 2. Put the jar in your server's `plugins/` folder.
 3. Restart the server. A config is created at `plugins/PaperCorpes/config.yml`.
 
@@ -69,3 +69,5 @@ Items are stored in Paper's versioned format, so they survive Minecraft updates.
 ```
 
 Needs JDK 25. The jar ends up in `build/libs/`. GitHub Actions builds it on every push.
+
+To publish a release, push a version tag (for example `git tag v1.0.1 && git push origin v1.0.1`). The **Release** workflow builds the jar with that version and attaches it to a new GitHub release. Releases are published as pre-releases; once a version is tested in-game, edit the release on GitHub and tick "Set as the latest release".
