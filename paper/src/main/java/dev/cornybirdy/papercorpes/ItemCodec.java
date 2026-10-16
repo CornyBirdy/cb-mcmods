@@ -15,6 +15,16 @@ final class ItemCodec {
         return item == null || item.getType().isAir() || item.getAmount() <= 0;
     }
 
+    static int countStacks(ItemStack[] items) {
+        int count = 0;
+        for (ItemStack item : items) {
+            if (!isEmpty(item)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     static void write(ConfigurationSection parent, String path, ItemStack[] items) {
         ConfigurationSection section = parent.createSection(path);
         for (int i = 0; i < items.length; i++) {

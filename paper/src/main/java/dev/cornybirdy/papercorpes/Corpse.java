@@ -102,12 +102,16 @@ final class Corpse {
     }
 
     boolean isEmpty() {
-        for (ItemStack item : contents) {
-            if (!ItemCodec.isEmpty(item)) {
-                return false;
-            }
-        }
-        return true;
+        return stacksLeft() == 0;
+    }
+
+    /** When, where and how this player died, with the items still in the corpse. */
+    HistoryEntry death() {
+        return new HistoryEntry(createdAt, world, x, y, z, cause, contents);
+    }
+
+    int stacksLeft() {
+        return ItemCodec.countStacks(contents);
     }
 
     /** The corpse location, or null if its world isn't loaded. */
@@ -130,6 +134,7 @@ final class Corpse {
         out.set("xp", xp);
         out.set("skeleton", skeleton);
         out.set("entities", entityIds.stream().map(UUID::toString).toList());
+        out.set("layout", CorpseLayout.VERSION);
         ItemCodec.write(out, "items", contents);
     }
 
@@ -149,7 +154,7 @@ final class Corpse {
                 (float) in.getDouble("yaw"),
                 in.getLong("created"),
                 in.getString("cause", ""),
-                ItemCodec.read(in, "items", CorpseLayout.SIZE),
+                CorpseLayout.upgrade(ItemCodec.read(in, "items", CorpseLayout.SIZE), in.getInt("layout", 1)),
                 entities,
                 in.getInt("xp"),
                 in.getBoolean("skeleton")

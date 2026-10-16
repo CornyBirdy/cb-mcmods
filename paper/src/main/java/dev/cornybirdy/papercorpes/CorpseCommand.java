@@ -144,7 +144,7 @@ final class CorpseCommand implements BasicCommand {
                     Placeholder.unparsed("index", args[2]), Placeholder.unparsed("player", name)));
             return;
         }
-        player.openInventory(new HistoryMenu(plugin, name, index, entries.get(index - 1)).getInventory());
+        player.openInventory(new HistoryMenu(plugin, target.getUniqueId(), name, index, entries.get(index - 1)).getInventory());
     }
 
     private void reload(CommandSender sender) {

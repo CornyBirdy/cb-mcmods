@@ -6,23 +6,31 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Slot layout of the 54-slot corpse menu.
+ * Slot layout of the 54-slot corpse menu. It mirrors the vanilla inventory screen: equipment on top, then the main
+ * inventory, then the hotbar, then the controls.
  * <pre>
- * rows 0-2 (0-26)  main inventory   (player slots 9-35)
- * row  3   (27-35) hotbar           (player slots 0-8)
- * row  4   (36-44) helmet, chestplate, leggings, boots, -, offhand, -, -, -
- * row  5   (45-53) extra drops ... , [equip all], [take all]
+ * row 0   (0-8)   helmet, chestplate, leggings, boots, offhand, -, -, -, [info]
+ * rows 1-3 (9-35) main inventory   (player slots 9-35, same numbers)
+ * row 4   (36-44) hotbar           (player slots 0-8)
+ * row 5   (45-53) extra drops x6, -, [equip all], [take all]
  * </pre>
- * Slots marked "-" also take extra drops if row 5 runs out of room.
+ * Slots marked "-" are dividers, but also take extra drops if row 5 runs out of room.
  */
 final class CorpseLayout {
 
+    /** Version of this layout, saved with every corpse so older files can be converted. */
+    static final int VERSION = 2;
+
     static final int SIZE = 54;
+    static final int INFO_SLOT = 8;
     static final int EQUIP_ALL_SLOT = 52;
     static final int TAKE_ALL_SLOT = 53;
 
+    /** Equipment slots in the top row, in order: helmet, chestplate, leggings, boots, offhand. */
+    static final int[] EQUIPMENT_SLOTS = {0, 1, 2, 3, 4};
+
     /** Slots for drops that didn't come from a known inventory slot, in fill order. */
-    static final int[] EXTRA_SLOTS = {45, 46, 47, 48, 49, 50, 51, 40, 42, 43, 44};
+    static final int[] EXTRA_SLOTS = {45, 46, 47, 48, 49, 50, 5, 6, 7};
 
     private CorpseLayout() {
     }
@@ -33,35 +41,35 @@ final class CorpseLayout {
 
     /** Player inventory slot an item in this menu slot originally came from, or -1. */
     static int playerSlotFor(int guiSlot) {
-        if (guiSlot >= 0 && guiSlot <= 26) {
-            return guiSlot + 9;
+        if (guiSlot >= 9 && guiSlot <= 35) {
+            return guiSlot;
         }
-        if (guiSlot >= 27 && guiSlot <= 35) {
-            return guiSlot - 27;
+        if (guiSlot >= 36 && guiSlot <= 44) {
+            return guiSlot - 36;
         }
         return switch (guiSlot) {
-            case 36 -> 39; // helmet
-            case 37 -> 38; // chestplate
-            case 38 -> 37; // leggings
-            case 39 -> 36; // boots
-            case 41 -> 40; // offhand
+            case 0 -> 39; // helmet
+            case 1 -> 38; // chestplate
+            case 2 -> 37; // leggings
+            case 3 -> 36; // boots
+            case 4 -> 40; // offhand
             default -> -1;
         };
     }
 
     static int guiSlotFor(int playerSlot) {
         if (playerSlot >= 9 && playerSlot <= 35) {
-            return playerSlot - 9;
+            return playerSlot;
         }
         if (playerSlot >= 0 && playerSlot <= 8) {
-            return playerSlot + 27;
+            return playerSlot + 36;
         }
         return switch (playerSlot) {
-            case 39 -> 36;
-            case 38 -> 37;
-            case 37 -> 38;
-            case 36 -> 39;
-            case 40 -> 41;
+            case 39 -> 0;
+            case 38 -> 1;
+            case 37 -> 2;
+            case 36 -> 3;
+            case 40 -> 4;
             default -> -1;
         };
     }
@@ -96,14 +104,70 @@ final class CorpseLayout {
             }
         }
 
+        placeExtras(layout, remaining, overflow);
+        return layout;
+    }
+
+    /**
+     * Converts items saved with an older layout. Version 1 had the main inventory in rows 0-2, the hotbar in row 3
+     * and armour plus offhand in row 4.
+     */
+    static ItemStack[] upgrade(ItemStack[] items, int fromVersion) {
+        if (fromVersion >= VERSION) {
+            return items;
+        }
+        ItemStack[] layout = new ItemStack[SIZE];
+        List<ItemStack> extras = new ArrayList<>();
+        for (int oldSlot = 0; oldSlot < items.length; oldSlot++) {
+            if (ItemCodec.isEmpty(items[oldSlot])) {
+                continue;
+            }
+            int playerSlot = v1PlayerSlotFor(oldSlot);
+            if (playerSlot >= 0) {
+                layout[guiSlotFor(playerSlot)] = items[oldSlot];
+            } else {
+                extras.add(items[oldSlot]);
+            }
+        }
+        List<ItemStack> overflow = new ArrayList<>();
+        placeExtras(layout, extras, overflow);
+        // Version 1 had more extra slots. Anything left over goes into free inventory spots rather than being lost.
+        for (int slot = 9; slot < 45 && !overflow.isEmpty(); slot++) {
+            if (layout[slot] == null) {
+                layout[slot] = overflow.removeFirst();
+            }
+        }
+        return layout;
+    }
+
+    private static void placeExtras(ItemStack[] layout, List<ItemStack> items, List<ItemStack> overflow) {
         int next = 0;
-        for (ItemStack item : remaining) {
+        for (ItemStack item : items) {
+            while (next < EXTRA_SLOTS.length && layout[EXTRA_SLOTS[next]] != null) {
+                next++;
+            }
             if (next < EXTRA_SLOTS.length) {
                 layout[EXTRA_SLOTS[next++]] = item;
             } else {
                 overflow.add(item);
             }
         }
-        return layout;
+    }
+
+    private static int v1PlayerSlotFor(int guiSlot) {
+        if (guiSlot >= 0 && guiSlot <= 26) {
+            return guiSlot + 9;
+        }
+        if (guiSlot >= 27 && guiSlot <= 35) {
+            return guiSlot - 27;
+        }
+        return switch (guiSlot) {
+            case 36 -> 39;
+            case 37 -> 38;
+            case 38 -> 37;
+            case 39 -> 36;
+            case 41 -> 40;
+            default -> -1;
+        };
     }
 }

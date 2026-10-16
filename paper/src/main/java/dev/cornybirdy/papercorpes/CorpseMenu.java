@@ -1,17 +1,13 @@
 package dev.cornybirdy.papercorpes;
 
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.persistence.PersistentDataType;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -41,23 +37,16 @@ final class CorpseMenu implements InventoryHolder {
         return corpse;
     }
 
-    private void render() {
-        ItemStack[] contents = corpse.contents();
-        for (int slot = 0; slot < CorpseLayout.SIZE; slot++) {
-            ItemStack item;
-            if (slot == CorpseLayout.EQUIP_ALL_SLOT) {
-                item = button(Material.ARMOR_STAND, "equip-all", "equip-all-lore");
-            } else if (slot == CorpseLayout.TAKE_ALL_SLOT) {
-                item = button(Material.HOPPER, "take-all", "take-all-lore");
-            } else if (!ItemCodec.isEmpty(contents[slot])) {
-                item = contents[slot].clone();
-            } else if (slot >= 36 && CorpseLayout.playerSlotFor(slot) < 0) {
-                item = filler();
-            } else {
-                item = null;
-            }
-            inventory.setItem(slot, item);
-        }
+    /** Redraws the menu from the corpse: items, labels for empty slots, the info head and the buttons. */
+    void render() {
+        MenuItems items = plugin.menuItems();
+        items.fill(inventory, corpse.contents());
+        String nameKey = corpse.skeleton() ? "info-name-remains" : "info-name";
+        inventory.setItem(CorpseLayout.INFO_SLOT,
+                items.info(corpse.ownerId(), corpse.ownerName(), nameKey, "info-lore", corpse.death(),
+                        corpse.stacksLeft()));
+        inventory.setItem(CorpseLayout.EQUIP_ALL_SLOT, items.equipAllButton());
+        inventory.setItem(CorpseLayout.TAKE_ALL_SLOT, items.takeAllButton());
     }
 
     /** Copies the menu back into the corpse. Call after anything changes the menu. */
@@ -98,30 +87,10 @@ final class CorpseMenu implements InventoryHolder {
     }
 
     boolean isUi(ItemStack item) {
-        return item != null && item.hasItemMeta()
-                && item.getItemMeta().getPersistentDataContainer().has(plugin.uiKey(), PersistentDataType.BYTE);
+        return plugin.menuItems().isUi(item);
     }
 
     private static ItemStack leftover(Map<Integer, ItemStack> notAdded) {
         return notAdded.isEmpty() ? null : notAdded.values().iterator().next();
-    }
-
-    private ItemStack button(Material material, String nameKey, String loreKey) {
-        ItemStack item = new ItemStack(material);
-        item.editMeta(meta -> {
-            meta.displayName(plugin.itemText(nameKey));
-            meta.lore(List.of(plugin.itemText(loreKey)));
-            meta.getPersistentDataContainer().set(plugin.uiKey(), PersistentDataType.BYTE, (byte) 1);
-        });
-        return item;
-    }
-
-    private ItemStack filler() {
-        ItemStack item = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        item.editMeta(meta -> {
-            meta.displayName(Component.text(" "));
-            meta.getPersistentDataContainer().set(plugin.uiKey(), PersistentDataType.BYTE, (byte) 1);
-        });
-        return item;
     }
 }

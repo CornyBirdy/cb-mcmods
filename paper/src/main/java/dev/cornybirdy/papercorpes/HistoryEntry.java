@@ -19,6 +19,7 @@ record HistoryEntry(long time, String world, double x, double y, double z, Strin
         out.set("y", y);
         out.set("z", z);
         out.set("cause", cause);
+        out.set("layout", CorpseLayout.VERSION);
         ItemCodec.write(out, "items", items);
     }
 
@@ -30,7 +31,7 @@ record HistoryEntry(long time, String world, double x, double y, double z, Strin
                 in.getDouble("y"),
                 in.getDouble("z"),
                 in.getString("cause", ""),
-                ItemCodec.read(in, "items", CorpseLayout.SIZE)
+                CorpseLayout.upgrade(ItemCodec.read(in, "items", CorpseLayout.SIZE), in.getInt("layout", 1))
         );
     }
 }

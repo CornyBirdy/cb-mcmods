@@ -72,6 +72,7 @@ final class CorpseManager {
             remove(corpse);
         } else {
             storage.saveCorpse(corpse);
+            menu.render();
         }
     }
 
