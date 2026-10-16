@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "corpes-gametest",
+  "version": "1.0.0",
+  "name": "Corpes game tests",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": ["dev.cornybirdy.corpes.test.CorpesGameTest"]
+  },
+  "depends": {
+    "corpes": "*"
+  }
+}

@@ -13,6 +13,16 @@ dependencies {
     implementation("net.fabricmc.fabric-api:fabric-api:${property("fabric_api_version")}")
 }
 
+fabricApi {
+    // A headless server runs src/gametest on every build, so CI catches broken mixins and menus.
+    configureTests {
+        createSourceSet.set(true)
+        modId.set("corpes-gametest")
+        enableClientGameTests.set(false)
+        eula.set(true)
+    }
+}
+
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(25))
 }
