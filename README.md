@@ -70,4 +70,4 @@ Items are stored in Paper's versioned format, so they survive Minecraft updates.
 
 Needs JDK 25. The jar ends up in `build/libs/`. GitHub Actions builds it on every push.
 
-To publish a release, push a version tag (for example `git tag v1.0.1 && git push origin v1.0.1`). The **Release** workflow builds the jar with that version and attaches it to a new GitHub release. Releases are published as pre-releases; once a version is tested in-game, edit the release on GitHub and tick "Set as the latest release".
+To publish a release, open the **Actions** tab, pick **Release**, click **Run workflow** and enter a version (for example `1.0.1`). You can also push a tag like `v1.0.1`. The workflow builds the jar with that version, creates the tag and attaches the jar to a new GitHub release. Releases are published as pre-releases; once a version is tested in-game, edit the release on GitHub and tick "Set as the latest release".
