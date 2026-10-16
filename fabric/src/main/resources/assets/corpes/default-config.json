@@ -1,0 +1,67 @@
+{
+  "allow-anyone-loot": true,
+  "store-xp": false,
+  "skeleton-after-minutes": 60,
+  "history-size": 10,
+  "show-name": true,
+  "label-view-distance": 128,
+  "label-see-through": false,
+  "hitbox-width": 2.0,
+  "hitbox-height": 0.6,
+  "date-format": "dd MMM HH:mm",
+  "messages": {
+    "corpse-name": "<gray><player>'s corpse",
+    "corpse-description": "<dark_gray>died <date>",
+    "remains-name": "<gray><player>'s remains",
+    "menu-title": "<player>'s corpse",
+    "history-menu-title": "<player>'s death #<index>",
+    "info-name": "<gold><player>'s corpse",
+    "info-name-remains": "<gold><player>'s remains",
+    "info-lore": [
+      "<gray>Died <white><date>",
+      "<gray><cause>",
+      "<gray>At <white><x>, <y>, <z></white> in <white><world>",
+      "",
+      "<yellow><items></yellow> <gray>stacks left"
+    ],
+    "history-info-name": "<gold><player>'s death #<index>",
+    "history-info-lore": [
+      "<gray>Died <white><date>",
+      "<gray><cause>",
+      "<gray>At <white><x>, <y>, <z></white> in <white><world>",
+      "<yellow><items></yellow> <gray>stacks",
+      "",
+      "<aqua>This is a copy. Items you take",
+      "<aqua>out are created, nothing is lost."
+    ],
+    "slot-helmet": "<gray>Helmet",
+    "slot-chestplate": "<gray>Chestplate",
+    "slot-leggings": "<gray>Leggings",
+    "slot-boots": "<gray>Boots",
+    "slot-offhand": "<gray>Offhand",
+    "slot-empty": "<dark_gray>Empty",
+    "equip-all": "<green><bold>Equip all",
+    "equip-all-lore": [
+      "<gray>Puts every item back in the",
+      "<gray>slot it was in when you died.",
+      "",
+      "<dark_gray>Anything that doesn't fit stays here."
+    ],
+    "take-all": "<gold><bold>Take all",
+    "take-all-lore": [
+      "<gray>Moves everything into the free",
+      "<gray>slots of your inventory."
+    ],
+    "not-yours": "<red>This is not your corpse.",
+    "no-permission": "<red>You don't have permission to do that.",
+    "players-only": "<red>Only players can do that.",
+    "unknown-player": "<red>Unknown player: <player>",
+    "no-history": "<gray>No deaths recorded for <player>.",
+    "history-header": "<gold>Recent deaths of <player>:",
+    "history-entry": "<gray>#<index> <white><date></white> <world> <x>, <y>, <z> <dark_gray>- <cause>",
+    "history-view": " <aqua>[View]",
+    "history-view-hover": "<gray>Open a copy of this death's inventory",
+    "invalid-number": "<red>There is no death #<index> for <player>.",
+    "reloaded": "<green>Corpes config reloaded."
+  }
+}

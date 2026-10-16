@@ -1,0 +1,87 @@
+# PaperCorpes configuration
+# Messages use MiniMessage formatting: https://docs.advntr.dev/minimessage/format.html
+
+# true = anyone can loot a corpse. false = only the owner (and players with papercorpes.admin).
+allow-anyone-loot: true
+
+# true = the dead player's XP is kept in the corpse instead of dropping as orbs.
+# The first player to open the corpse gets it.
+store-xp: false
+
+# Minutes until a corpse turns into a skeleton (skull and bones). 0 = never.
+skeleton-after-minutes: 60
+
+# How many deaths per player /corpse history remembers.
+history-size: 10
+
+# Show the "<player>'s corpse" name above the body.
+show-name: true
+
+# How far away the name above a corpse can be seen, in blocks. The body itself is only drawn up close
+# (about 12 blocks, the game decides this), so the name is what you spot from a distance.
+# Players also need the corpse within the server's entity view range.
+label-view-distance: 128
+
+# true = the name shows through walls and terrain, like a waypoint.
+label-see-through: false
+
+# Size of the invisible box you right-click to open a corpse (in blocks).
+hitbox-width: 2.0
+hitbox-height: 0.6
+
+# Date format used in history and on the corpse (Java DateTimeFormatter pattern).
+date-format: "dd MMM HH:mm"
+
+messages:
+  corpse-name: "<gray><player>'s corpse"
+  corpse-description: "<dark_gray>died <date>"
+  remains-name: "<gray><player>'s remains"
+  menu-title: "<player>'s corpse"
+  history-menu-title: "<player>'s death #<index>"
+  # The player head in the top right corner of the menu.
+  info-name: "<gold><player>'s corpse"
+  info-name-remains: "<gold><player>'s remains"
+  info-lore:
+    - "<gray>Died <white><date>"
+    - "<gray><cause>"
+    - "<gray>At <white><x>, <y>, <z></white> in <white><world>"
+    - ""
+    - "<yellow><items></yellow> <gray>stacks left"
+  history-info-name: "<gold><player>'s death #<index>"
+  history-info-lore:
+    - "<gray>Died <white><date>"
+    - "<gray><cause>"
+    - "<gray>At <white><x>, <y>, <z></white> in <white><world>"
+    - "<yellow><items></yellow> <gray>stacks"
+    - ""
+    - "<aqua>This is a copy. Items you take"
+    - "<aqua>out are created, nothing is lost."
+  # Labels shown in empty armour and offhand slots.
+  slot-helmet: "<gray>Helmet"
+  slot-chestplate: "<gray>Chestplate"
+  slot-leggings: "<gray>Leggings"
+  slot-boots: "<gray>Boots"
+  slot-offhand: "<gray>Offhand"
+  slot-empty: "<dark_gray>Empty"
+  equip-all: "<green><bold>Equip all"
+  equip-all-lore:
+    - "<gray>Puts every item back in the"
+    - "<gray>slot it was in when you died."
+    - ""
+    - "<dark_gray>Anything that doesn't fit stays here."
+  take-all: "<gold><bold>Take all"
+  take-all-lore:
+    - "<gray>Moves everything into the free"
+    - "<gray>slots of your inventory."
+  not-yours: "<red>This is not your corpse."
+  usage: "<gray>/corpse history [player] <dark_gray>|</dark_gray> /corpse view (player) (number) <dark_gray>|</dark_gray> /corpse reload"
+  players-only: "<red>Only players can do that."
+  no-permission: "<red>You don't have permission to do that."
+  unknown-player: "<red>Unknown player: <player>"
+  no-history: "<gray>No deaths recorded for <player>."
+  history-header: "<gold>Recent deaths of <player>:"
+  history-entry: "<gray>#<index> <white><date></white> <world> <x>, <y>, <z> <dark_gray>- <cause>"
+  history-view: " <aqua>[View]"
+  history-view-hover: "<gray>Open a copy of this death's inventory"
+  invalid-number: "<red>There is no death #<index> for <player>."
+  reloaded: "<green>PaperCorpes config reloaded."
