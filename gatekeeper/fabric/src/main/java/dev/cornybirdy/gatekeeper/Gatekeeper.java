@@ -82,7 +82,7 @@ public final class Gatekeeper implements ModInitializer {
             endPortals = null;
             netherPortals = null;
         });
-        ServerChunkEvents.CHUNK_LOAD.register((level, chunk) -> {
+        ServerChunkEvents.CHUNK_LOAD.register((level, chunk, generated) -> {
             if (netherPortals != null) {
                 netherPortals.chunkLoaded(level, chunk);
             }

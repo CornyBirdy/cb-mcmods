@@ -46,9 +46,9 @@ final class NetherPortals {
     /** A spot inside each portal taken out or kept dark while the Nether is off, by dimension id. */
     private final Map<String, Set<BlockPos>> closed = new HashMap<>();
     /** Loaded chunks outside the Nether, so turning it off can find the lit portals in them. */
-    private final Map<ServerLevel, Map<Long, LevelChunk>> loaded = new HashMap<>();
+    private final Map<ServerLevel, Map<ChunkPos, LevelChunk>> loaded = new HashMap<>();
     /** Chunks that loaded while the Nether is off. Their portals are closed on the next tick. */
-    private final Map<ServerLevel, Map<Long, LevelChunk>> toScan = new HashMap<>();
+    private final Map<ServerLevel, Map<ChunkPos, LevelChunk>> toScan = new HashMap<>();
     private boolean wasEnabled;
 
     NetherPortals(MinecraftServer server) {
@@ -62,7 +62,7 @@ final class NetherPortals {
         if (level.dimension() == Level.NETHER) {
             return;
         }
-        long key = chunk.getPos().toLong();
+        ChunkPos key = chunk.getPos();
         loaded.computeIfAbsent(level, l -> new HashMap<>()).put(key, chunk);
         if (!Gatekeeper.settings().isEnabled(Feature.NETHER)) {
             toScan.computeIfAbsent(level, l -> new HashMap<>()).put(key, chunk);
@@ -70,8 +70,8 @@ final class NetherPortals {
     }
 
     void chunkUnloaded(ServerLevel level, LevelChunk chunk) {
-        long key = chunk.getPos().toLong();
-        Map<Long, LevelChunk> chunks = loaded.get(level);
+        ChunkPos key = chunk.getPos();
+        Map<ChunkPos, LevelChunk> chunks = loaded.get(level);
         if (chunks != null) {
             chunks.remove(key);
         }
@@ -87,7 +87,7 @@ final class NetherPortals {
             // Also covers the Nether being turned off by editing the config and running /gatekeeper reload.
             closeAll();
         } else if (!enabled && !toScan.isEmpty()) {
-            Map<ServerLevel, Map<Long, LevelChunk>> chunks = new HashMap<>(toScan);
+            Map<ServerLevel, Map<ChunkPos, LevelChunk>> chunks = new HashMap<>(toScan);
             toScan.clear();
             close(chunks);
         } else if (enabled && !closed.isEmpty() && tickCount % REOPEN_CHECK_TICKS == 0) {
@@ -158,9 +158,9 @@ final class NetherPortals {
         return false;
     }
 
-    private void close(Map<ServerLevel, Map<Long, LevelChunk>> chunks) {
+    private void close(Map<ServerLevel, Map<ChunkPos, LevelChunk>> chunks) {
         boolean changed = false;
-        for (Map.Entry<ServerLevel, Map<Long, LevelChunk>> entry : chunks.entrySet()) {
+        for (Map.Entry<ServerLevel, Map<ChunkPos, LevelChunk>> entry : chunks.entrySet()) {
             ServerLevel level = entry.getKey();
             for (LevelChunk chunk : List.copyOf(entry.getValue().values())) {
                 for (BlockPos pos : findPortalBlocks(chunk)) {
