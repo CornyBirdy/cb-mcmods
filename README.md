@@ -1,82 +1,39 @@
-# Corpes
+# cornybirdy's Minecraft mods
 
-Server-side corpses for **Paper 26.1+** and **Fabric 26.3**, inspired by the [Corpse](https://modrinth.com/mod/corpse) mod.
-**Players don't need to install anything.** It only uses vanilla entities and menus, so any vanilla client sees it.
+Server-side mods for **Paper** and **Fabric**. Players never need to install anything: every mod works with plain vanilla clients.
 
-When a player dies, their body (with their skin) lies where they died and holds all of their items.
-Right-click the body to open it and take your stuff back.
+## Mods
 
-| Server | Download |
-|---|---|
-| Paper 26.1 or newer | `PaperCorpes-x.y.z.jar` → `plugins/` |
-| Fabric 26.3 (needs [Fabric API](https://modrinth.com/mod/fabric-api)) | `FabricCorpes-x.y.z.jar` → `mods/` (server only) |
+| Mod | What it does | Paper | Fabric | Download |
+|---|---|---|---|---|
+| [**Corpes**](corpes/) | When you die, your body lies where you died and holds all your items. Right-click it to get them back. | 26.1+ | 26.3 | [Releases](https://github.com/CornyBirdy/Paper-Corpes/releases?q=corpes&expanded=true) |
+| [**EndLock**](endlock/) | Turn ender chests and the End on or off with `/endlock`, also from the server console. | 26.1+ | 26.3 | [Releases](https://github.com/CornyBirdy/Paper-Corpes/releases?q=endlock&expanded=true) |
 
-## Features
+Click a mod's name for its features, commands and config.
 
-- **Corpse with your skin.** A lying-down player body (vanilla Mannequin entity) appears where you died. Its name and time of death float above it and can be seen from 128 blocks away (configurable), even though the game only draws the body itself up close.
-- **Loot menu that looks like your inventory.**
-  ```
-  ┌──────────────────────────────────────────────┐
-  │ Helmet Chest Legs Boots Offhand  ▪  ▪  ▪  ☺  │  ☺ = who died, when, where, stacks left
-  │ main inventory                               │
-  │ main inventory                               │
-  │ main inventory                               │
-  │ hotbar                                       │
-  │ extra items ×6                   ▪  ⚑  ⬇     │  ⚑ = Equip all, ⬇ = Take all
-  └──────────────────────────────────────────────┘
-  ```
-  - Every item sits in the same spot it had in your inventory.
-  - Empty armour and offhand slots are labelled, so you can see what's missing.
-  - The head in the corner shows when and where you died, how, and how many stacks are left.
-  - **Equip all** puts everything back in the slot it came from. **Take all** moves everything into your inventory.
-  - You can take items out but never put any in.
-  - Two players looting at once share the same menu, so items can't be duplicated.
-- **Corpses stay until emptied.** They survive restarts and disappear once the last item is taken.
-- **Skeletons.** After a set time (60 minutes by default) the body becomes a skull and bones.
-- **Death history.** `/corpse history` lists your recent deaths with time, coordinates and cause. Admins can open a copy of any old death inventory to restore lost items.
-- **Safe placement.** Deaths in the void, in lava or inside blocks put the corpse somewhere reachable.
-- `keepInventory` is respected: no corpse spawns when you keep your items.
+## Which file do I download?
 
-## Commands & permissions
+Every release has two jars. Pick the one for your server:
 
-| Command | Paper permission | Fabric permission | What it does |
-|---|---|---|---|
-| `/corpse history` | `papercorpes.use` (everyone) | `corpes:use` (everyone) | List your recent deaths |
-| `/corpse history <player>` | `papercorpes.admin` (op) | `corpes:admin` (op level 2) | List someone else's deaths. Click **[View]** to open one |
-| `/corpse view <player> <number>` | `papercorpes.admin` | `corpes:admin` | Open a copy of that death's inventory. Items taken out are created, which is how you restore lost items |
-| `/corpse reload` | `papercorpes.admin` | `corpes:admin` | Reload the config |
-
-The admin permission also lets you loot any corpse when `allow-anyone-loot` is `false`.
-On Fabric, permission mods that support the Fabric Permission API can grant `corpes:admin` and `corpes:use`; without one, op level 2 counts as admin.
-
-## Config
-
-Paper: `plugins/PaperCorpes/config.yml`. Fabric: `config/corpes.json`. Both have the same options:
-
-| Option | Default | Meaning |
+| Your server | File | Where it goes |
 |---|---|---|
-| `allow-anyone-loot` | `true` | `false` = only the owner (and admins) can open a corpse |
-| `store-xp` | `false` | Keep XP in the corpse instead of dropping orbs. The first person to open it gets the XP |
-| `skeleton-after-minutes` | `60` | Minutes before the body becomes a skeleton. `0` = never |
-| `history-size` | `10` | Deaths remembered per player |
-| `show-name` | `true` | Show the name and time of death above the corpse |
-| `label-view-distance` | `128` | How far away (in blocks) that name can be seen. The body itself is only drawn within about 12 blocks, so the name is what you spot from a distance |
-| `label-see-through` | `false` | `true` = the name shows through walls and terrain, like a waypoint |
-| `hitbox-width` / `hitbox-height` | `2.0` / `0.6` | Size of the right-click box over the body |
-| `date-format` | `dd MMM HH:mm` | Date format for history and the corpse label |
-| `messages.*` | | All text, in [MiniMessage](https://docs.advntr.dev/minimessage/format.html) format. Lore entries can be a list of lines |
+| Paper (or a Paper fork like Purpur) | `Paper<Mod>-x.y.z.jar`, e.g. `PaperEndLock-1.0.0.jar` | `plugins/` |
+| Fabric | `Fabric<Mod>-x.y.z.jar`, e.g. `FabricEndLock-1.0.0.jar` | `mods/`, together with [Fabric API](https://modrinth.com/mod/fabric-api) |
 
-The Fabric mod understands the common MiniMessage tags: colours (`<gray>`, `<#ff8800>`), `<bold>`, `<italic>`, `<underlined>`, `<strikethrough>`, `<obfuscated>`, `<reset>` and closing tags.
-Options missing from an older config file use the defaults, so updating never breaks your config.
+All mods need Java 25. Releases are marked as pre-releases until they've been tested in game.
 
-## Data
+Want the newest build before it's released? Open the [Actions tab](https://github.com/CornyBirdy/Paper-Corpes/actions/workflows/build.yml), click the latest green run and download the mod from **Artifacts** at the bottom.
 
-| | Paper | Fabric |
-|---|---|---|
-| Corpses | `plugins/PaperCorpes/corpses/<id>.yml` | `<world>/corpes/corpses/<id>.dat` |
-| History | `plugins/PaperCorpes/history/<player-uuid>.yml` | `<world>/corpes/history/<player-uuid>.dat` |
+## Repository layout
 
-Items are stored with the game's data version, so they survive Minecraft updates. Corpses saved by PaperCorpes 1.0 are converted to the new menu layout automatically.
+```
+corpes/            Corpes
+  paper/             Paper plugin
+  fabric/            Fabric mod
+  README.md          features, commands, config
+  release-notes.md   text shown on its GitHub releases
+endlock/           EndLock (same layout)
+```
 
 ## Building
 
@@ -84,7 +41,16 @@ Items are stored with the game's data version, so they survive Minecraft updates
 ./gradlew build
 ```
 
-Needs JDK 25. The jars end up in `paper/build/libs/` and `fabric/build/libs/`. GitHub Actions builds both on every push.
-The Fabric versions (Minecraft, loader, Fabric API) are in `gradle.properties`.
+Needs JDK 25. Each mod's jars end up in `<mod>/paper/build/libs/` and `<mod>/fabric/build/libs/`. To build just one mod, run for example `./gradlew :endlock-paper:build :endlock-fabric:build`. GitHub Actions builds every mod on every push.
+The Fabric versions (Minecraft, loader, Fabric API) are in `gradle.properties` and shared by all mods.
 
-To publish a release, open the **Actions** tab, pick **Release**, click **Run workflow** and enter a version (for example `1.0.1`). You can also push a tag like `v1.0.1`. The workflow builds both jars with that version, creates the tag and attaches them to a new GitHub release. Releases are published as pre-releases; once a version is tested in-game, edit the release on GitHub and tick "Set as the latest release".
+### Releasing a mod
+
+Open the **Actions** tab, pick **Release**, click **Run workflow**, choose the mod and enter a version (for example `1.0.1`). You can also push a tag named `<mod>-v<version>`, like `endlock-v1.0.1`. The workflow builds that mod's two jars, creates the tag and attaches them to a new GitHub release named after the mod. Releases are published as pre-releases; once a version is tested in game, edit the release on GitHub and tick "Set as the latest release".
+
+### Adding a new mod
+
+1. Create `<mod>/paper/` and `<mod>/fabric/` (copy an existing mod's `build.gradle.kts` and change the jar name).
+2. Add the mod's name to the list in `settings.gradle.kts`.
+3. Add it to the artifact uploads in `.github/workflows/build.yml` and to the choices and the name lookup in `.github/workflows/release.yml`.
+4. Add a `README.md` and `release-notes.md` in its folder and a row to the table above.

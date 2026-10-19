@@ -1,0 +1,19 @@
+{
+  "ender-chests-enabled": true,
+  "end-enabled": true,
+  "announce-ender-chests": false,
+  "announce-end": true,
+  "messages": {
+    "ender-chest-blocked": "<red>Ender chests are disabled on this server.",
+    "end-blocked": "<red>The End is disabled on this server.",
+    "sent-out-of-end": "<red>The End is disabled, so you were sent back to spawn.",
+    "ender-chests-state": "<gray>Ender chests are <state><gray>.",
+    "end-state": "<gray>The End is <state><gray>.",
+    "announce-ender-chests": "<gold>Ender chests have been <state><gold> by an admin.",
+    "announce-end": "<gold>The End has been <state><gold> by an admin.",
+    "enabled": "<green>enabled",
+    "disabled": "<red>disabled",
+    "reloaded": "<green>EndLock config reloaded.",
+    "usage": "<gray>/endlock status <dark_gray>|</dark_gray> /endlock enderchests [on|off|toggle] <dark_gray>|</dark_gray> /endlock end [on|off|toggle] <dark_gray>|</dark_gray> /endlock reload"
+  }
+}

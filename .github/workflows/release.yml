@@ -1,13 +1,20 @@
 name: Release
 
-# Publish a release either by pushing a version tag (v1.2.3), or from the Actions tab with
-# "Run workflow" and a version number, which creates the tag for you.
+# Releases one mod. Either push a tag named <mod>-v<version> (e.g. endlock-v1.0.0), or use "Run workflow" in the
+# Actions tab, pick the mod and enter a version number, which creates the tag for you.
 on:
   push:
     tags:
-      - 'v*'
+      - '*-v*'
   workflow_dispatch:
     inputs:
+      mod:
+        description: 'Mod to release'
+        required: true
+        type: choice
+        options:
+          - corpes
+          - endlock
       version:
         description: 'Version to release, without the v (e.g. 1.0.1)'
         required: true
@@ -18,28 +25,45 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ inputs.version || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
-      - name: Work out version
-        id: version
-        run: echo "version=${VERSION#v}" >> "$GITHUB_OUTPUT"
+      - name: Work out mod and version
+        id: release
+        env:
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          MOD: ${{ inputs.mod }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$TAG" ]; then
+            MOD="${TAG%%-v*}"
+            VERSION="${TAG#*-v}"
+          fi
+          VERSION="${VERSION#v}"
+          case "$MOD" in
+            corpes) NAME=Corpes ;;
+            endlock) NAME=EndLock ;;
+            *) echo "Unknown mod '$MOD'"; exit 1 ;;
+          esac
+          echo "mod=$MOD" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v4
       - name: Build Paper plugin and Fabric mod
-        run: ./gradlew build --no-daemon -PreleaseVersion="${{ steps.version.outputs.version }}"
+        run: >-
+          ./gradlew :${{ steps.release.outputs.mod }}-paper:build :${{ steps.release.outputs.mod }}-fabric:build
+          --no-daemon -PreleaseVersion="${{ steps.release.outputs.version }}"
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.release.outputs.mod }}-v${{ steps.release.outputs.version }}
           target_commitish: ${{ github.sha }}
-          name: Corpes ${{ steps.version.outputs.version }}
+          name: ${{ steps.release.outputs.name }} ${{ steps.release.outputs.version }}
           files: |
-            paper/build/libs/PaperCorpes-*.jar
-            fabric/build/libs/FabricCorpes-*.jar
-          body_path: .github/release-notes.md
+            ${{ steps.release.outputs.mod }}/paper/build/libs/Paper${{ steps.release.outputs.name }}-*.jar
+            ${{ steps.release.outputs.mod }}/fabric/build/libs/Fabric${{ steps.release.outputs.name }}-*.jar
+          body_path: ${{ steps.release.outputs.mod }}/release-notes.md
           generate_release_notes: true
           prerelease: true
