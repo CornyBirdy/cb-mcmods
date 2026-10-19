@@ -16,8 +16,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Turns ender chests and the End on or off.
  * <ul>
  *     <li>Ender chests off: they can't be opened (also not through other plugins), placed or crafted.</li>
- *     <li>The End off: end portals outside the End stop working, and anyone in the End is sent to the
- *     overworld spawn.</li>
+ *     <li>The End off: end portals outside the End go dark (eyes can still be put in the frames) and light up
+ *     again when it's turned back on. Anyone in the End is sent to the overworld spawn.</li>
  * </ul>
  */
 public final class EndLock extends JavaPlugin {
@@ -29,13 +29,15 @@ public final class EndLock extends JavaPlugin {
     private static final long WARNING_COOLDOWN_MILLIS = 3000;
 
     private final Map<UUID, Long> lastWarning = new ConcurrentHashMap<>();
+    private Portals portals;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        getServer().getPluginManager().registerEvents(new LockListener(this), this);
+        portals = new Portals(this);
+        getServer().getPluginManager().registerEvents(new LockListener(this, portals), this);
         registerCommand("endlock", new EndLockCommand(this));
-        sendPlayersOutOfEnd();
+        applyEndState(false);
     }
 
     boolean isEnabled(Feature feature) {
@@ -46,14 +48,24 @@ public final class EndLock extends JavaPlugin {
     void setEnabled(Feature feature, boolean enabled) {
         getConfig().set(feature.configKey, enabled);
         saveConfig();
-        if (feature == Feature.END && !enabled) {
-            sendPlayersOutOfEnd();
+        if (feature == Feature.END) {
+            applyEndState(true);
         }
     }
 
     void reload() {
         reloadConfig();
-        sendPlayersOutOfEnd();
+        applyEndState(false);
+    }
+
+    /** Closes or reopens the portals and sends players out of the End, to match the current setting. */
+    private void applyEndState(boolean announce) {
+        if (isEnabled(Feature.END)) {
+            portals.reopen(announce);
+        } else {
+            portals.closeAll();
+            sendPlayersOutOfEnd();
+        }
     }
 
     boolean enderChestsBanned(Player player) {

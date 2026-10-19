@@ -6,6 +6,7 @@
   "messages": {
     "ender-chest-blocked": "<red>Ender chests are disabled on this server.",
     "end-blocked": "<red>The End is disabled on this server.",
+    "portal-waiting": "<gray>The End is disabled, so this portal will open when it's turned back on.",
     "sent-out-of-end": "<red>The End is disabled, so you were sent back to spawn.",
     "ender-chests-state": "<gray>Ender chests are <state><gray>.",
     "end-state": "<gray>The End is <state><gray>.",

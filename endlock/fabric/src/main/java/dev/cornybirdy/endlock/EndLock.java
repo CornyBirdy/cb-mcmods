@@ -2,6 +2,8 @@ package dev.cornybirdy.endlock;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerBlockEntityEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -19,6 +21,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.EndPortalFrameBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.BlockHitResult;
 import org.slf4j.Logger;
@@ -35,8 +39,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Turns ender chests and the End on or off. Server-side only: vanilla clients just get told no.
  * <ul>
  *     <li>Ender chests off: they can't be opened, placed or taken out of a crafting grid.</li>
- *     <li>The End off: end portals in the overworld (and other dimensions) stop working, and anyone already in
- *     the End is sent to the overworld spawn.</li>
+ *     <li>The End off: end portals outside the End go dark (eyes can still be put in the frames) and light up
+ *     again when it's turned back on. Anyone in the End is sent to the overworld spawn.</li>
  * </ul>
  */
 public final class EndLock implements ModInitializer {
@@ -51,14 +55,31 @@ public final class EndLock implements ModInitializer {
 
     private static final Map<UUID, Long> lastWarning = new ConcurrentHashMap<>();
     private static Settings settings;
+    private static Portals portals;
 
     @Override
     public void onInitialize() {
         reload();
 
+        // Created when the server starts rather than once it has started, so portals in spawn chunks are seen loading.
+        ServerLifecycleEvents.SERVER_STARTING.register(server -> portals = new Portals(server));
+        ServerLifecycleEvents.SERVER_STOPPED.register(server -> portals = null);
+        ServerBlockEntityEvents.BLOCK_ENTITY_LOAD.register((blockEntity, level) -> {
+            if (portals != null && blockEntity.getBlockState().is(Blocks.END_PORTAL)) {
+                portals.portalLoaded(level, blockEntity.getBlockPos());
+            }
+        });
+        ServerBlockEntityEvents.BLOCK_ENTITY_UNLOAD.register((blockEntity, level) -> {
+            if (portals != null) {
+                portals.portalUnloaded(level, blockEntity.getBlockPos());
+            }
+        });
         UseBlockCallback.EVENT.register(EndLock::onUseBlock);
-        // Catches everyone who ends up in the End some other way: logging in there, /tp, other mods.
         ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (portals != null) {
+                portals.tick(server.getTickCount());
+            }
+            // Catches everyone who ends up in the End some other way: logging in there, /tp, other mods.
             if (server.getTickCount() % END_CHECK_TICKS == 0) {
                 sendPlayersOutOfEnd(server);
             }
@@ -97,6 +118,11 @@ public final class EndLock implements ModInitializer {
         }
         if (feature == Feature.END && !enabled) {
             sendPlayersOutOfEnd(server);
+            if (portals != null) {
+                portals.closeAll();
+            }
+        } else if (feature == Feature.END && portals != null) {
+            portals.reopen(true);
         }
         return saved;
     }
@@ -122,14 +148,23 @@ public final class EndLock implements ModInitializer {
     }
 
     private static InteractionResult onUseBlock(Player player, Level level, InteractionHand hand, BlockHitResult hit) {
-        if (!(player instanceof ServerPlayer serverPlayer) || !enderChestsBanned(serverPlayer)) {
+        if (!(player instanceof ServerPlayer serverPlayer)) {
+            return InteractionResult.PASS;
+        }
+        ItemStack held = player.getItemInHand(hand);
+        BlockState clicked = level.getBlockState(hit.getBlockPos());
+        if (held.is(Items.ENDER_EYE) && clicked.is(Blocks.END_PORTAL_FRAME) && !clicked.getValue(EndPortalFrameBlock.HAS_EYE)
+                && !settings.isEnabled(Feature.END) && level.dimension() != Level.END && portals != null) {
+            return portals.placeEye(serverPlayer, (ServerLevel) level, hit.getBlockPos(), clicked, held);
+        }
+        if (!enderChestsBanned(serverPlayer)) {
             return InteractionResult.PASS;
         }
         // Like vanilla: sneaking with something in either hand uses the item instead of opening the chest.
         boolean itemFirst = player.isSecondaryUseActive()
                 && (!player.getMainHandItem().isEmpty() || !player.getOffhandItem().isEmpty());
-        boolean opening = !itemFirst && level.getBlockState(hit.getBlockPos()).is(Blocks.ENDER_CHEST);
-        boolean placing = player.getItemInHand(hand).is(Items.ENDER_CHEST);
+        boolean opening = !itemFirst && clicked.is(Blocks.ENDER_CHEST);
+        boolean placing = held.is(Items.ENDER_CHEST);
         if (!opening && !placing) {
             return InteractionResult.PASS;
         }

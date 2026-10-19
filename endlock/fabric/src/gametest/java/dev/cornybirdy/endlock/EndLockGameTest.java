@@ -16,6 +16,8 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EndPortalBlock;
+import net.minecraft.world.level.block.EndPortalFrameBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -83,6 +85,74 @@ public class EndLockGameTest {
             EndLock.setEnabled(level.getServer(), Feature.END, true);
         }
         helper.succeed();
+    }
+
+    @GameTest
+    public void litPortalsGoDarkAndComeBack(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos portal = new BlockPos(1, 1, 1);
+        try {
+            EndLock.setEnabled(level.getServer(), Feature.END, true);
+            helper.setBlock(portal, Blocks.END_PORTAL);
+            EndLock.setEnabled(level.getServer(), Feature.END, false);
+            if (!helper.getBlockState(portal).isAir()) {
+                throw helper.assertionException("A lit portal should go dark when the End is turned off");
+            }
+            EndLock.setEnabled(level.getServer(), Feature.END, true);
+            if (!helper.getBlockState(portal).is(Blocks.END_PORTAL)) {
+                throw helper.assertionException("The portal should light up again when the End is turned on");
+            }
+        } finally {
+            EndLock.setEnabled(level.getServer(), Feature.END, true);
+        }
+        helper.succeed();
+    }
+
+    @GameTest
+    public void lastEyeWaitsForTheEnd(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        FakePlayer player = FakePlayer.get(level);
+        // Interior is x 2..4, z 2..4. Every frame gets an eye except the last one on the north side.
+        BlockPos last = new BlockPos(4, 1, 1);
+        for (int i = 0; i < 3; i++) {
+            frame(helper, new BlockPos(2 + i, 1, 1), Direction.SOUTH, !new BlockPos(2 + i, 1, 1).equals(last));
+            frame(helper, new BlockPos(2 + i, 1, 5), Direction.NORTH, true);
+            frame(helper, new BlockPos(1, 1, 2 + i), Direction.EAST, true);
+            frame(helper, new BlockPos(5, 1, 2 + i), Direction.WEST, true);
+        }
+        try {
+            EndLock.setEnabled(level.getServer(), Feature.END, false);
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.ENDER_EYE, 2));
+            if (use(player, level, hit(helper.absolutePos(last))) != InteractionResult.SUCCESS) {
+                throw helper.assertionException("The eye should go into the frame");
+            }
+            if (!helper.getBlockState(last).getValue(EndPortalFrameBlock.HAS_EYE)
+                    || player.getMainHandItem().getCount() != 1) {
+                throw helper.assertionException("The frame should have the eye and the player one eye less");
+            }
+            if (!helper.getBlockState(new BlockPos(3, 1, 3)).isAir()) {
+                throw helper.assertionException("The portal must not light up while the End is off");
+            }
+            EndLock.setEnabled(level.getServer(), Feature.END, true);
+            for (int x = 2; x <= 4; x++) {
+                for (int z = 2; z <= 4; z++) {
+                    if (!helper.getBlockState(new BlockPos(x, 1, z)).is(Blocks.END_PORTAL)) {
+                        throw helper.assertionException("The whole portal should light up once the End is on");
+                    }
+                }
+            }
+        } finally {
+            EndLock.setEnabled(level.getServer(), Feature.END, true);
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        }
+        helper.succeed();
+    }
+
+    private static void frame(GameTestHelper helper, BlockPos pos, Direction facing, boolean eye) {
+        BlockState state = Blocks.END_PORTAL_FRAME.defaultBlockState()
+                .setValue(EndPortalFrameBlock.FACING, facing)
+                .setValue(EndPortalFrameBlock.HAS_EYE, eye);
+        helper.setBlock(pos, state);
     }
 
     private static BlockHitResult hit(BlockPos pos) {

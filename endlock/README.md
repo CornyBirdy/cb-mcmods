@@ -20,11 +20,13 @@ Get them from the [EndLock releases](https://github.com/CornyBirdy/Paper-Corpes/
 - Nothing is deleted. Items already in ender chests are still there when you turn them back on.
 
 **The End off**
-- End portals stop working, for players and for mobs and items.
+- End portals go dark: lit portals switch off, both ones in loaded chunks and ones found later as their chunks load.
+- Eyes of ender can still be put in the frames (with the usual sound), but the portal doesn't light up. The player gets told it will open once the End is back on.
+- **When you turn the End back on, every one of those portals lights up at once**, and everyone hears the "portal opened" sound. Portals in chunks nobody is near light up as soon as someone gets close. If someone built something in the portal's space in the meantime, that block is left alone.
 - Anyone in the End is sent to the overworld spawn right away, and again if they log in there or get teleported there.
 - The exit portal in the End keeps working, so nobody gets stuck.
 
-Both switches are saved in the config, so they stay the same after a restart.
+Both switches are saved in the config, so they stay the same after a restart. Closed portals are remembered in `plugins/EndLock/closed-portals.yml` (Paper) or `<world>/endlock/closed-portals.json` (Fabric).
 
 ## Commands
 

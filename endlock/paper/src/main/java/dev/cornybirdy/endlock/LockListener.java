@@ -4,6 +4,7 @@ import org.bukkit.Material;
 import org.bukkit.PortalType;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.type.EndPortalFrame;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
@@ -22,15 +23,18 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
 final class LockListener implements Listener {
 
     private final EndLock plugin;
+    private final Portals portals;
 
-    LockListener(EndLock plugin) {
+    LockListener(EndLock plugin, Portals portals) {
         this.plugin = plugin;
+        this.portals = portals;
     }
 
     // Ender chests
@@ -105,6 +109,26 @@ final class LockListener implements Listener {
                 && !plugin.isEnabled(Feature.END)) {
             event.setCancelled(true);
         }
+    }
+
+    /** While the End is off, eyes still go into frames but the portal waits until it's turned back on. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onEye(PlayerInteractEvent event) {
+        Block block = event.getClickedBlock();
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK || block == null || event.getHand() == null
+                || event.getItem() == null || event.getItem().getType() != Material.ENDER_EYE
+                || !(block.getBlockData() instanceof EndPortalFrame frame) || frame.hasEye()
+                || plugin.isEnabled(Feature.END) || inEnd(block.getWorld())) {
+            return;
+        }
+        event.setCancelled(true);
+        portals.placeEye(event.getPlayer(), block, event.getHand());
+    }
+
+    @EventHandler
+    public void onChunkLoad(ChunkLoadEvent event) {
+        // A tick later, so the chunk has finished loading before blocks in it change.
+        plugin.getServer().getScheduler().runTask(plugin, () -> portals.chunkLoaded(event.getChunk()));
     }
 
     @EventHandler
