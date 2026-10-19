@@ -10,8 +10,9 @@ ender-chests-enabled: true
 # The exit portal in the End keeps working.
 end-enabled: true
 
-# Tell everyone online when an admin turns something on or off.
-announce-changes: true
+# Tell everyone online when an admin turns ender chests or the End on or off.
+announce-ender-chests: false
+announce-end: true
 
 messages:
   ender-chest-blocked: "<red>Ender chests are disabled on this server."

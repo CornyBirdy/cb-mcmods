@@ -77,7 +77,7 @@ final class EndLockCommand {
             LOGGER.info("{} turned {} {}", source.getTextName(), feature.name().toLowerCase(Locale.ROOT).replace('_', ' '),
                     enabled ? "on" : "off");
         }
-        if (settings.announceChanges) {
+        if (settings.announces(feature)) {
             Component announcement = settings.message(feature.announceMessage, enabled);
             for (ServerPlayer player : source.getServer().getPlayerList().getPlayers()) {
                 if (player != source.getPlayer()) {

@@ -37,7 +37,7 @@ Everything works in the server console (no slash needed there, e.g. `endlock end
 | `/endlock end on` / `off` / `toggle` | Turn the End on or off |
 | `/endlock reload` | Reload the config file |
 
-When something is switched, everyone online gets a message (turn `announce-changes` off to stop that).
+When the End is switched, everyone online gets a message. Ender chest changes are quiet by default; set `announce-ender-chests` to `true` to announce those too.
 
 ## Permissions
 
@@ -57,7 +57,8 @@ Paper: `plugins/EndLock/config.yml`. Fabric: `config/endlock.json`. Both have th
 |---|---|---|
 | `ender-chests-enabled` | `true` | `false` = ender chests are off. `/endlock enderchests` changes this |
 | `end-enabled` | `true` | `false` = the End is off. `/endlock end` changes this |
-| `announce-changes` | `true` | Tell everyone online when an admin turns something on or off |
+| `announce-ender-chests` | `false` | Tell everyone online when an admin turns ender chests on or off |
+| `announce-end` | `true` | Tell everyone online when an admin turns the End on or off |
 | `messages.*` | | All text, in [MiniMessage](https://docs.advntr.dev/minimessage/format.html) format. `<state>` is replaced by the `enabled` or `disabled` message |
 
 If you edit the file by hand, run `/endlock reload` afterwards. Options missing from an older config file use the defaults.

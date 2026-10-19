@@ -84,7 +84,7 @@ final class EndLockCommand implements BasicCommand {
             plugin.getLogger().info(sender.getName() + " turned " + feature.name().toLowerCase(Locale.ROOT).replace('_', ' ')
                     + (enabled ? " on" : " off"));
         }
-        if (plugin.getConfig().getBoolean("announce-changes", true)) {
+        if (plugin.getConfig().getBoolean(feature.announceMessage, feature.announceByDefault)) {
             Component announcement = plugin.message(feature.announceMessage, enabled);
             for (Player player : plugin.getServer().getOnlinePlayers()) {
                 if (player != sender) {

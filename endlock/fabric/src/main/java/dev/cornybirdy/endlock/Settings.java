@@ -28,7 +28,6 @@ final class Settings {
     private final JsonObject defaults;
     private volatile boolean enderChestsEnabled;
     private volatile boolean endEnabled;
-    final boolean announceChanges;
 
     private Settings(Path file, JsonObject config, JsonObject defaults) {
         this.file = file;
@@ -36,7 +35,6 @@ final class Settings {
         this.defaults = defaults;
         enderChestsEnabled = bool(Feature.ENDER_CHESTS.configKey);
         endEnabled = bool(Feature.END.configKey);
-        announceChanges = bool("announce-changes");
     }
 
     /** Loads the config, writing the default file first if there is none. */
@@ -72,6 +70,11 @@ final class Settings {
 
     boolean isEnabled(Feature feature) {
         return feature == Feature.ENDER_CHESTS ? enderChestsEnabled : endEnabled;
+    }
+
+    /** Whether everyone online is told when an admin turns this feature on or off. */
+    boolean announces(Feature feature) {
+        return bool(feature.announceMessage);
     }
 
     /** Turns a feature on or off and saves it to the config file. The change applies even if saving fails. */

@@ -1,7 +1,8 @@
 {
   "ender-chests-enabled": true,
   "end-enabled": true,
-  "announce-changes": true,
+  "announce-ender-chests": false,
+  "announce-end": true,
   "messages": {
     "ender-chest-blocked": "<red>Ender chests are disabled on this server.",
     "end-blocked": "<red>The End is disabled on this server.",
