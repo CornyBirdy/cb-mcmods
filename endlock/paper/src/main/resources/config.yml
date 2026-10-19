@@ -1,0 +1,28 @@
+# EndLock configuration
+# The two switches below are changed by /endlock (in game or in the server console) and saved here,
+# so they stay the same after a restart. You can also edit them here and run /endlock reload.
+# Messages use MiniMessage formatting: https://docs.advntr.dev/minimessage/format.html
+
+# false = ender chests can't be opened, placed or crafted. Items already in them are kept.
+ender-chests-enabled: true
+
+# false = end portals stop working and anyone in the End is sent to the overworld spawn.
+# The exit portal in the End keeps working.
+end-enabled: true
+
+# Tell everyone online when an admin turns something on or off.
+announce-changes: true
+
+messages:
+  ender-chest-blocked: "<red>Ender chests are disabled on this server."
+  end-blocked: "<red>The End is disabled on this server."
+  sent-out-of-end: "<red>The End is disabled, so you were sent back to spawn."
+  # <state> is replaced by the enabled or disabled message below.
+  ender-chests-state: "<gray>Ender chests are <state><gray>."
+  end-state: "<gray>The End is <state><gray>."
+  announce-ender-chests: "<gold>Ender chests have been <state><gold> by an admin."
+  announce-end: "<gold>The End has been <state><gold> by an admin."
+  enabled: "<green>enabled"
+  disabled: "<red>disabled"
+  reloaded: "<green>EndLock config reloaded."
+  usage: "<gray>/endlock status <dark_gray>|</dark_gray> /endlock enderchests [on|off|toggle] <dark_gray>|</dark_gray> /endlock end [on|off|toggle] <dark_gray>|</dark_gray> /endlock reload"

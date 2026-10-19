@@ -6,6 +6,12 @@ pluginManagement {
     }
 }
 
-rootProject.name = "Paper-Corpes"
+rootProject.name = "cornybirdy-mods"
 
-include("paper", "fabric")
+// Every mod lives in its own folder with a paper/ and a fabric/ module, e.g. corpes/paper is :corpes-paper.
+for (mod in listOf("corpes", "endlock")) {
+    for (platform in listOf("paper", "fabric")) {
+        include("$mod-$platform")
+        project(":$mod-$platform").projectDir = file("$mod/$platform")
+    }
+}

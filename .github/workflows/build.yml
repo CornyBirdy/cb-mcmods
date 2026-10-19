@@ -15,13 +15,17 @@ jobs:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v4
-      - name: Build Paper plugin and Fabric mod
+      - name: Build every mod
         run: ./gradlew build --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: PaperCorpes
-          path: paper/build/libs/PaperCorpes-*.jar
+          name: Corpes
+          path: |
+            corpes/paper/build/libs/PaperCorpes-*.jar
+            corpes/fabric/build/libs/FabricCorpes-*.jar
       - uses: actions/upload-artifact@v4
         with:
-          name: FabricCorpes
-          path: fabric/build/libs/FabricCorpes-*.jar
+          name: EndLock
+          path: |
+            endlock/paper/build/libs/PaperEndLock-*.jar
+            endlock/fabric/build/libs/FabricEndLock-*.jar

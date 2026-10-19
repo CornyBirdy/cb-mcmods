@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "endlock-gametest",
+  "version": "1.0.0",
+  "name": "EndLock game tests",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": ["dev.cornybirdy.endlock.EndLockGameTest"]
+  },
+  "depends": {
+    "endlock": "*"
+  }
+}
