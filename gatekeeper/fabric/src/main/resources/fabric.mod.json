@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "gatekeeper",
+  "version": "${version}",
+  "name": "Gatekeeper",
+  "description": "Turn ender chests, the End and the Nether on or off with /gatekeeper while the server runs, also from the console. Players don't need to install anything.",
+  "authors": ["cornybirdy"],
+  "contact": {
+    "sources": "https://github.com/CornyBirdy/Paper-Corpes"
+  },
+  "environment": "*",
+  "entrypoints": {
+    "main": ["dev.cornybirdy.gatekeeper.Gatekeeper"]
+  },
+  "mixins": ["gatekeeper.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

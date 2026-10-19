@@ -25,7 +25,7 @@ jobs:
             corpes/fabric/build/libs/FabricCorpes-*.jar
       - uses: actions/upload-artifact@v4
         with:
-          name: EndLock
+          name: Gatekeeper
           path: |
-            endlock/paper/build/libs/PaperEndLock-*.jar
-            endlock/fabric/build/libs/FabricEndLock-*.jar
+            gatekeeper/paper/build/libs/PaperGatekeeper-*.jar
+            gatekeeper/fabric/build/libs/FabricGatekeeper-*.jar

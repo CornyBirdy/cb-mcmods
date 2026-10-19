@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "dev.cornybirdy.gatekeeper.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "BaseFireBlockMixin",
+    "EndPortalBlockMixin",
+    "NetherPortalBlockMixin",
+    "SlotMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

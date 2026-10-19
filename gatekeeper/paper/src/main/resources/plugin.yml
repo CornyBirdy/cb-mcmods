@@ -1,0 +1,20 @@
+name: Gatekeeper
+version: '${version}'
+main: dev.cornybirdy.gatekeeper.Gatekeeper
+api-version: '26.1'
+description: Turn ender chests, the End and the Nether on or off with /gatekeeper while the server runs, also from the console.
+author: cornybirdy
+
+permissions:
+  gatekeeper.admin:
+    description: Use /gatekeeper (or /gk) to turn ender chests, the End and the Nether on or off.
+    default: op
+  gatekeeper.bypass.enderchests:
+    description: Keep using ender chests while they are turned off.
+    default: false
+  gatekeeper.bypass.end:
+    description: Keep using end portals and stay in the End while it is turned off.
+    default: false
+  gatekeeper.bypass.nether:
+    description: Keep using nether portals and stay in the Nether while it is turned off.
+    default: false
