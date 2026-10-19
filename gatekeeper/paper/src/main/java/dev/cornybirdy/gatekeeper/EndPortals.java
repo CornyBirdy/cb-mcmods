@@ -88,12 +88,12 @@ final class EndPortals {
             }
             for (Iterator<Pos> positions = entry.getValue().iterator(); positions.hasNext(); ) {
                 Pos pos = positions.next();
-                if (!world.isChunkLoaded(pos.x >> 4, pos.z >> 4)) {
+                if (!world.isChunkLoaded(pos.x() >> 4, pos.z() >> 4)) {
                     continue;
                 }
                 positions.remove();
                 changed = true;
-                Block block = world.getBlockAt(pos.x, pos.y, pos.z);
+                Block block = world.getBlockAt(pos.x(), pos.y(), pos.z());
                 // Don't replace anything a player built there in the meantime.
                 if (block.getType().isAir() || block.isLiquid()) {
                     block.setType(Material.END_PORTAL);
