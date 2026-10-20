@@ -1,6 +1,6 @@
 name: Release
 
-# Releases one mod. Either push a tag named <mod>-v<version> (e.g. endlock-v1.0.0), or use "Run workflow" in the
+# Releases one mod. Either push a tag named <mod>-v<version> (e.g. gatekeeper-v1.0.0), or use "Run workflow" in the
 # Actions tab, pick the mod and enter a version number, which creates the tag for you.
 on:
   push:
@@ -14,7 +14,7 @@ on:
         type: choice
         options:
           - corpes
-          - endlock
+          - gatekeeper
       version:
         description: 'Version to release, without the v (e.g. 1.0.1)'
         required: true
@@ -41,7 +41,7 @@ jobs:
           VERSION="${VERSION#v}"
           case "$MOD" in
             corpes) NAME=Corpes ;;
-            endlock) NAME=EndLock ;;
+            gatekeeper) NAME=Gatekeeper ;;
             *) echo "Unknown mod '$MOD'"; exit 1 ;;
           esac
           echo "mod=$MOD" >> "$GITHUB_OUTPUT"

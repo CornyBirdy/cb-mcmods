@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "gatekeeper-gametest",
+  "version": "1.0.0",
+  "name": "Gatekeeper game tests",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": ["dev.cornybirdy.gatekeeper.GatekeeperGameTest"]
+  },
+  "depends": {
+    "gatekeeper": "*"
+  }
+}

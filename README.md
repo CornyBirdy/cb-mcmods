@@ -7,7 +7,7 @@ Server-side mods for **Paper** and **Fabric**. Players never need to install any
 | Mod | What it does | Paper | Fabric | Download |
 |---|---|---|---|---|
 | [**Corpes**](corpes/) | When you die, your body lies where you died and holds all your items. Right-click it to get them back. | 26.1+ | 26.3 | [Releases](https://github.com/CornyBirdy/Paper-Corpes/releases?q=corpes&expanded=true) |
-| [**EndLock**](endlock/) | Turn ender chests and the End on or off with `/endlock`, also from the server console. | 26.1+ | 26.3 | [Releases](https://github.com/CornyBirdy/Paper-Corpes/releases?q=endlock&expanded=true) |
+| [**Gatekeeper**](gatekeeper/) | Turn ender chests, the End, the Nether, netherite armor and netherite tools on or off with `/gatekeeper` while the server runs, also from the console. No restart needed. (Used to be called EndLock.) | 26.1+ | 26.3 | [Releases](https://github.com/CornyBirdy/Paper-Corpes/releases?q=gatekeeper&expanded=true) |
 
 Click a mod's name for its features, commands and config.
 
@@ -17,8 +17,8 @@ Every release has two jars. Pick the one for your server:
 
 | Your server | File | Where it goes |
 |---|---|---|
-| Paper (or a Paper fork like Purpur) | `Paper<Mod>-x.y.z.jar`, e.g. `PaperEndLock-1.0.0.jar` | `plugins/` |
-| Fabric | `Fabric<Mod>-x.y.z.jar`, e.g. `FabricEndLock-1.0.0.jar` | `mods/`, together with [Fabric API](https://modrinth.com/mod/fabric-api) |
+| Paper (or a Paper fork like Purpur) | `Paper<Mod>-x.y.z.jar`, e.g. `PaperGatekeeper-1.0.0.jar` | `plugins/` |
+| Fabric | `Fabric<Mod>-x.y.z.jar`, e.g. `FabricGatekeeper-1.0.0.jar` | `mods/`, together with [Fabric API](https://modrinth.com/mod/fabric-api) |
 
 All mods need Java 25. Releases are marked as pre-releases until they've been tested in game.
 
@@ -32,7 +32,7 @@ corpes/            Corpes
   fabric/            Fabric mod
   README.md          features, commands, config
   release-notes.md   text shown on its GitHub releases
-endlock/           EndLock (same layout)
+gatekeeper/        Gatekeeper (same layout)
 ```
 
 ## Building
@@ -41,12 +41,12 @@ endlock/           EndLock (same layout)
 ./gradlew build
 ```
 
-Needs JDK 25. Each mod's jars end up in `<mod>/paper/build/libs/` and `<mod>/fabric/build/libs/`. To build just one mod, run for example `./gradlew :endlock-paper:build :endlock-fabric:build`. GitHub Actions builds every mod on every push.
+Needs JDK 25. Each mod's jars end up in `<mod>/paper/build/libs/` and `<mod>/fabric/build/libs/`. To build just one mod, run for example `./gradlew :gatekeeper-paper:build :gatekeeper-fabric:build`. GitHub Actions builds every mod on every push.
 The Fabric versions (Minecraft, loader, Fabric API) are in `gradle.properties` and shared by all mods.
 
 ### Releasing a mod
 
-Open the **Actions** tab, pick **Release**, click **Run workflow**, choose the mod and enter a version (for example `1.0.1`). You can also push a tag named `<mod>-v<version>`, like `endlock-v1.0.1`. The workflow builds that mod's two jars, creates the tag and attaches them to a new GitHub release named after the mod. Releases are published as pre-releases; once a version is tested in game, edit the release on GitHub and tick "Set as the latest release".
+Open the **Actions** tab, pick **Release**, click **Run workflow**, choose the mod and enter a version (for example `1.0.1`). You can also push a tag named `<mod>-v<version>`, like `gatekeeper-v1.0.1`. The workflow builds that mod's two jars, creates the tag and attaches them to a new GitHub release named after the mod. Releases are published as pre-releases; once a version is tested in game, edit the release on GitHub and tick "Set as the latest release".
 
 ### Adding a new mod
 
