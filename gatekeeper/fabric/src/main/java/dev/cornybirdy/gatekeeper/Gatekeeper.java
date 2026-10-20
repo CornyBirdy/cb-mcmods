@@ -22,6 +22,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -252,7 +253,7 @@ public final class Gatekeeper implements ModInitializer {
                 player.setItemSlot(slot, ItemStack.EMPTY);
                 player.getInventory().add(worn);
                 if (!worn.isEmpty()) {
-                    player.drop(worn, false);
+                    player.level().addFreshEntity(new ItemEntity(player.level(), player.getX(), player.getY(), player.getZ(), worn));
                 }
                 tookOff = true;
             }
