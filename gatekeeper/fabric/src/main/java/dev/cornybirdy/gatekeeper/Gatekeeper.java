@@ -250,7 +250,10 @@ public final class Gatekeeper implements ModInitializer {
             ItemStack worn = player.getItemBySlot(slot);
             if (Netherite.isArmor(worn)) {
                 player.setItemSlot(slot, ItemStack.EMPTY);
-                player.getInventory().placeItemBackInInventory(worn);
+                player.getInventory().add(worn);
+                if (!worn.isEmpty()) {
+                    player.drop(worn, false);
+                }
                 tookOff = true;
             }
         }
