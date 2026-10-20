@@ -6,6 +6,7 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -14,11 +15,13 @@ import java.util.Locale;
  * Works in the server console as well as in game (needs gatekeeper.admin, ops have it). {@code /gk} is short for
  * {@code /gatekeeper}.
  * <pre>
- * /gatekeeper [status]                     show what's on and off
- * /gatekeeper enderchests [on|off|toggle]  ender chests on or off
- * /gatekeeper end [on|off|toggle]          the End on or off
- * /gatekeeper nether [on|off|toggle]       the Nether on or off
- * /gatekeeper reload                       reload config.yml
+ * /gatekeeper [status]                        show what's on and off
+ * /gatekeeper enderchests [on|off|toggle]     ender chests on or off
+ * /gatekeeper end [on|off|toggle]             the End on or off
+ * /gatekeeper nether [on|off|toggle]          the Nether on or off
+ * /gatekeeper netheritearmor [on|off|toggle]  netherite armor on or off
+ * /gatekeeper netheritetools [on|off|toggle]  netherite tools on or off
+ * /gatekeeper reload                          reload config.yml
  * </pre>
  */
 final class GatekeeperCommand implements BasicCommand {
@@ -56,7 +59,11 @@ final class GatekeeperCommand implements BasicCommand {
     @Override
     public Collection<String> suggest(CommandSourceStack source, String[] args) {
         if (args.length <= 1) {
-            return startingWith(List.of("status", "enderchests", "end", "nether", "reload"), args.length == 0 ? "" : args[0]);
+            List<String> options = new ArrayList<>(List.of("status", "reload"));
+            for (Feature feature : Feature.values()) {
+                options.add(feature.command);
+            }
+            return startingWith(options, args.length == 0 ? "" : args[0]);
         }
         if (args.length == 2 && feature(args[0].toLowerCase(Locale.ROOT)) != null) {
             return startingWith(List.of("on", "off", "toggle"), args[1]);

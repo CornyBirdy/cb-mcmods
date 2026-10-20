@@ -6,7 +6,8 @@
     "BaseFireBlockMixin",
     "EndPortalBlockMixin",
     "NetherPortalBlockMixin",
-    "SlotMixin"
+    "SlotMixin",
+    "SmithingMenuMixin"
   ],
   "injectors": {
     "defaultRequire": 1

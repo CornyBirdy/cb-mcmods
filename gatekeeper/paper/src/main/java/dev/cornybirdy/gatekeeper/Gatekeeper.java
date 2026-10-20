@@ -6,6 +6,9 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -17,23 +20,24 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Turns ender chests, the End and the Nether on or off while the server runs.
+ * Turns ender chests, the End, the Nether, netherite armor and netherite tools on or off while the server runs.
  * <ul>
  *     <li>Ender chests off: they can't be opened (also not through other plugins), placed or crafted.</li>
  *     <li>The End off: end portals outside the End go dark (eyes can still be put in the frames) and light up
  *     again when it's turned back on. Anyone in the End is sent to the overworld spawn.</li>
  *     <li>The Nether off: the same for nether portals outside the Nether (frames can still be lit) and anyone in
  *     the Nether.</li>
+ *     <li>Netherite armor or tools off: they can't be made at a smithing table. Armor can't be worn (anyone wearing
+ *     it has it moved into their inventory), tools can't mine, hit or be used. Nothing is deleted.</li>
  * </ul>
  */
 public final class Gatekeeper extends JavaPlugin {
 
     static final String ADMIN = "gatekeeper.admin";
-    static final String BYPASS_ENDER_CHESTS = "gatekeeper.bypass.enderchests";
-    static final String BYPASS_END = "gatekeeper.bypass.end";
-    static final String BYPASS_NETHER = "gatekeeper.bypass.nether";
 
     private static final long WARNING_COOLDOWN_MILLIS = 3000;
+    private static final long ARMOR_CHECK_TICKS = 10;
+    private static final EquipmentSlot[] ARMOR_SLOTS = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
 
     private final Map<UUID, Long> lastWarning = new ConcurrentHashMap<>();
     private EndPortals endPortals;
@@ -49,6 +53,12 @@ public final class Gatekeeper extends JavaPlugin {
         registerCommand("gatekeeper", List.of("gk"), new GatekeeperCommand(this));
         applyState(Feature.END, false);
         applyState(Feature.NETHER, false);
+        // Catches armor put on any way at all: inventory clicks, dispensers, other plugins.
+        getServer().getScheduler().runTaskTimer(this, () -> {
+            if (!isEnabled(Feature.NETHERITE_ARMOR)) {
+                getServer().getOnlinePlayers().forEach(this::takeOffBannedArmor);
+            }
+        }, ARMOR_CHECK_TICKS, ARMOR_CHECK_TICKS);
     }
 
     boolean isEnabled(Feature feature) {
@@ -89,16 +99,31 @@ public final class Gatekeeper extends JavaPlugin {
         }
     }
 
-    boolean enderChestsBanned(Player player) {
-        return !isEnabled(Feature.ENDER_CHESTS) && !player.hasPermission(BYPASS_ENDER_CHESTS);
+    /** True if the feature is off and the player doesn't have {@code gatekeeper.bypass.<command>}. */
+    boolean banned(Player player, Feature feature) {
+        return !isEnabled(feature) && !player.hasPermission("gatekeeper.bypass." + feature.command);
     }
 
-    boolean endBanned(Player player) {
-        return !isEnabled(Feature.END) && !player.hasPermission(BYPASS_END);
-    }
-
-    boolean netherBanned(Player player) {
-        return !isEnabled(Feature.NETHER) && !player.hasPermission(BYPASS_NETHER);
+    /** Moves banned netherite armor out of the armor slots into the inventory, or drops it if there's no room. */
+    void takeOffBannedArmor(Player player) {
+        if (!banned(player, Feature.NETHERITE_ARMOR)) {
+            return;
+        }
+        PlayerInventory inventory = player.getInventory();
+        boolean tookOff = false;
+        for (EquipmentSlot slot : ARMOR_SLOTS) {
+            ItemStack worn = inventory.getItem(slot);
+            if (Netherite.isArmor(worn)) {
+                inventory.setItem(slot, null);
+                for (ItemStack left : inventory.addItem(worn).values()) {
+                    player.getWorld().dropItemNaturally(player.getLocation(), left);
+                }
+                tookOff = true;
+            }
+        }
+        if (tookOff) {
+            warn(player, "netherite-armor-blocked");
+        }
     }
 
     void sendPlayersOut() {
@@ -110,9 +135,9 @@ public final class Gatekeeper extends JavaPlugin {
     /** Sends the player to the overworld spawn if they're in the End or the Nether while it's off. */
     void sendOutIfClosed(Player player) {
         World.Environment environment = player.getWorld().getEnvironment();
-        if (environment == World.Environment.THE_END && endBanned(player)) {
+        if (environment == World.Environment.THE_END && banned(player, Feature.END)) {
             sendToSpawn(player, "sent-out-of-end", "the End");
-        } else if (environment == World.Environment.NETHER && netherBanned(player)) {
+        } else if (environment == World.Environment.NETHER && banned(player, Feature.NETHER)) {
             sendToSpawn(player, "sent-out-of-nether", "the Nether");
         }
     }

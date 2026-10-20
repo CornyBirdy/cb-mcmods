@@ -7,7 +7,7 @@ Server-side mods for **Paper** and **Fabric**. Players never need to install any
 | Mod | What it does | Paper | Fabric | Download |
 |---|---|---|---|---|
 | [**Corpes**](corpes/) | When you die, your body lies where you died and holds all your items. Right-click it to get them back. | 26.1+ | 26.3 | [Releases](https://github.com/CornyBirdy/Paper-Corpes/releases?q=corpes&expanded=true) |
-| [**Gatekeeper**](gatekeeper/) | Turn ender chests, the End and the Nether on or off with `/gatekeeper` while the server runs, also from the console. No restart needed. (Used to be called EndLock.) | 26.1+ | 26.3 | [Releases](https://github.com/CornyBirdy/Paper-Corpes/releases?q=gatekeeper&expanded=true) |
+| [**Gatekeeper**](gatekeeper/) | Turn ender chests, the End, the Nether, netherite armor and netherite tools on or off with `/gatekeeper` while the server runs, also from the console. No restart needed. (Used to be called EndLock.) | 26.1+ | 26.3 | [Releases](https://github.com/CornyBirdy/Paper-Corpes/releases?q=gatekeeper&expanded=true) |
 
 Click a mod's name for its features, commands and config.
 

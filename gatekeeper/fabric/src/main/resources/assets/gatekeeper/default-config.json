@@ -2,13 +2,19 @@
   "ender-chests-enabled": true,
   "end-enabled": true,
   "nether-enabled": true,
+  "netherite-armor-enabled": true,
+  "netherite-tools-enabled": true,
   "announce-ender-chests": false,
   "announce-end": true,
   "announce-nether": true,
+  "announce-netherite-armor": false,
+  "announce-netherite-tools": false,
   "messages": {
     "ender-chest-blocked": "<red>Ender chests are disabled on this server.",
     "end-blocked": "<red>The End is disabled on this server.",
     "nether-blocked": "<red>The Nether is disabled on this server.",
+    "netherite-armor-blocked": "<red>Netherite armor is disabled on this server.",
+    "netherite-tools-blocked": "<red>Netherite tools are disabled on this server.",
     "end-portal-waiting": "<gray>The End is disabled, so this portal will open when it's turned back on.",
     "nether-portal-waiting": "<gray>The Nether is disabled, so this portal will open when it's turned back on.",
     "sent-out-of-end": "<red>The End is disabled, so you were sent back to spawn.",
@@ -16,12 +22,16 @@
     "ender-chests-state": "<gray>Ender chests are <state><gray>.",
     "end-state": "<gray>The End is <state><gray>.",
     "nether-state": "<gray>The Nether is <state><gray>.",
+    "netherite-armor-state": "<gray>Netherite armor is <state><gray>.",
+    "netherite-tools-state": "<gray>Netherite tools are <state><gray>.",
     "announce-ender-chests": "<gold>Ender chests have been <state><gold> by an admin.",
     "announce-end": "<gold>The End has been <state><gold> by an admin.",
     "announce-nether": "<gold>The Nether has been <state><gold> by an admin.",
+    "announce-netherite-armor": "<gold>Netherite armor has been <state><gold> by an admin.",
+    "announce-netherite-tools": "<gold>Netherite tools have been <state><gold> by an admin.",
     "enabled": "<green>enabled",
     "disabled": "<red>disabled",
     "reloaded": "<green>Gatekeeper config reloaded.",
-    "usage": "<gray>/gatekeeper status <dark_gray>|</dark_gray> /gatekeeper enderchests|end|nether [on|off|toggle] <dark_gray>|</dark_gray> /gatekeeper reload"
+    "usage": "<gray>/gatekeeper status <dark_gray>|</dark_gray> /gatekeeper enderchests|end|nether|netheritearmor|netheritetools [on|off|toggle] <dark_gray>|</dark_gray> /gatekeeper reload"
   }
 }

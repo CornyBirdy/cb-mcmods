@@ -18,11 +18,13 @@ import java.util.Map;
  * Works in the server console as well as in game (needs gatekeeper:admin, op level 2 without a permission mod).
  * {@code /gk} is short for {@code /gatekeeper}.
  * <pre>
- * /gatekeeper [status]                     show what's on and off
- * /gatekeeper enderchests [on|off|toggle]  ender chests on or off
- * /gatekeeper end [on|off|toggle]          the End on or off
- * /gatekeeper nether [on|off|toggle]       the Nether on or off
- * /gatekeeper reload                       reload config/gatekeeper.json
+ * /gatekeeper [status]                        show what's on and off
+ * /gatekeeper enderchests [on|off|toggle]     ender chests on or off
+ * /gatekeeper end [on|off|toggle]             the End on or off
+ * /gatekeeper nether [on|off|toggle]          the Nether on or off
+ * /gatekeeper netheritearmor [on|off|toggle]  netherite armor on or off
+ * /gatekeeper netheritetools [on|off|toggle]  netherite tools on or off
+ * /gatekeeper reload                          reload config/gatekeeper.json
  * </pre>
  */
 final class GatekeeperCommand {
@@ -41,6 +43,8 @@ final class GatekeeperCommand {
                 .then(feature(Feature.ENDER_CHESTS))
                 .then(feature(Feature.END))
                 .then(feature(Feature.NETHER))
+                .then(feature(Feature.NETHERITE_ARMOR))
+                .then(feature(Feature.NETHERITE_TOOLS))
                 .then(Commands.literal("reload")
                         .executes(context -> reload(context.getSource()))));
         dispatcher.register(Commands.literal("gk")

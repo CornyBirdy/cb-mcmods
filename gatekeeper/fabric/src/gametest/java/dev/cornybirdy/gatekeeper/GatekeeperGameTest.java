@@ -1,7 +1,10 @@
 package dev.cornybirdy.gatekeeper;
 
 import net.fabricmc.fabric.api.entity.FakePlayer;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -9,8 +12,11 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.SmithingMenu;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
@@ -194,6 +200,93 @@ public class GatekeeperGameTest {
             Gatekeeper.setEnabled(level.getServer(), Feature.NETHER, true);
         }
         helper.succeed();
+    }
+
+    @GameTest
+    public void netheriteArmorCanBeTurnedOff(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        FakePlayer player = FakePlayer.get(level);
+        SmithingMenu smithing = netheriteUpgrade(helper, player, Items.DIAMOND_CHESTPLATE, Items.NETHERITE_CHESTPLATE);
+        try {
+            Gatekeeper.setEnabled(level.getServer(), Feature.NETHERITE_ARMOR, false);
+            player.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.NETHERITE_HELMET));
+            Gatekeeper.takeOffBannedArmor(player);
+            if (!player.getItemBySlot(EquipmentSlot.HEAD).isEmpty() || player.getInventory().countItem(Items.NETHERITE_HELMET) != 1) {
+                throw helper.assertionException("A worn netherite helmet should be moved into the inventory");
+            }
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.NETHERITE_CHESTPLATE));
+            if (UseItemCallback.EVENT.invoker().interact(player, level, InteractionHand.MAIN_HAND) != InteractionResult.FAIL) {
+                throw helper.assertionException("Right-clicking to put on netherite armor should be blocked");
+            }
+            if (resultSlot(smithing).mayPickup(player)) {
+                throw helper.assertionException("Netherite armor should stay in the smithing table");
+            }
+            if (Gatekeeper.banned(player, Feature.NETHERITE_TOOLS)) {
+                throw helper.assertionException("Turning armor off must not touch tools");
+            }
+
+            Gatekeeper.setEnabled(level.getServer(), Feature.NETHERITE_ARMOR, true);
+            if (!resultSlot(smithing).mayPickup(player)) {
+                throw helper.assertionException("Netherite armor should be takeable once turned back on");
+            }
+        } finally {
+            Gatekeeper.setEnabled(level.getServer(), Feature.NETHERITE_ARMOR, true);
+            player.getInventory().clearContent();
+        }
+        helper.succeed();
+    }
+
+    @GameTest
+    public void netheriteToolsCanBeTurnedOff(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        FakePlayer player = FakePlayer.get(level);
+        BlockPos stone = helper.absolutePos(new BlockPos(1, 1, 1));
+        helper.setBlock(new BlockPos(1, 1, 1), Blocks.STONE);
+        SmithingMenu smithing = netheriteUpgrade(helper, player, Items.DIAMOND_PICKAXE, Items.NETHERITE_PICKAXE);
+        try {
+            Gatekeeper.setEnabled(level.getServer(), Feature.NETHERITE_TOOLS, false);
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.NETHERITE_PICKAXE));
+            if (PlayerBlockBreakEvents.BEFORE.invoker().beforeBlockBreak(level, player, stone, level.getBlockState(stone), null)) {
+                throw helper.assertionException("Mining with a netherite pickaxe should be blocked");
+            }
+            if (AttackEntityCallback.EVENT.invoker().interact(player, level, InteractionHand.MAIN_HAND, player, null)
+                    != InteractionResult.FAIL) {
+                throw helper.assertionException("Hitting with a netherite tool should be blocked");
+            }
+            if (resultSlot(smithing).mayPickup(player)) {
+                throw helper.assertionException("Netherite tools should stay in the smithing table");
+            }
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_PICKAXE));
+            if (!PlayerBlockBreakEvents.BEFORE.invoker().beforeBlockBreak(level, player, stone, level.getBlockState(stone), null)) {
+                throw helper.assertionException("Other tools should still work");
+            }
+
+            Gatekeeper.setEnabled(level.getServer(), Feature.NETHERITE_TOOLS, true);
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.NETHERITE_PICKAXE));
+            if (!PlayerBlockBreakEvents.BEFORE.invoker().beforeBlockBreak(level, player, stone, level.getBlockState(stone), null)) {
+                throw helper.assertionException("Netherite tools should work again once turned back on");
+            }
+        } finally {
+            Gatekeeper.setEnabled(level.getServer(), Feature.NETHERITE_TOOLS, true);
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        }
+        helper.succeed();
+    }
+
+    /** A smithing table with a diamond item, the upgrade template and an ingot in it, showing the netherite result. */
+    private static SmithingMenu netheriteUpgrade(GameTestHelper helper, FakePlayer player, Item diamond, Item netherite) {
+        SmithingMenu menu = new SmithingMenu(0, player.getInventory());
+        menu.getSlot(0).set(new ItemStack(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE));
+        menu.getSlot(1).set(new ItemStack(diamond));
+        menu.getSlot(2).set(new ItemStack(Items.NETHERITE_INGOT));
+        if (!resultSlot(menu).getItem().is(netherite)) {
+            throw helper.assertionException("The smithing table should offer " + netherite + ", found " + resultSlot(menu).getItem());
+        }
+        return menu;
+    }
+
+    private static Slot resultSlot(SmithingMenu menu) {
+        return menu.getSlot(menu.getResultSlot());
     }
 
     /** A smallest-size obsidian frame along x, with the inside at x 2..3, y 2..4, z 2. */
