@@ -6,7 +6,7 @@
   "description": "Server-side corpses. Your items stay with your body when you die. Players don't need to install anything.",
   "authors": ["cornybirdy"],
   "contact": {
-    "sources": "https://github.com/CornyBirdy/Paper-Corpes"
+    "sources": "https://github.com/CornyBirdy/cb-blocklab"
   },
   "environment": "*",
   "entrypoints": {

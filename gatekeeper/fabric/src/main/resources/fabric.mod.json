@@ -6,7 +6,7 @@
   "description": "Turn ender chests, the End, the Nether, netherite armor and netherite tools on or off with /gatekeeper while the server runs, also from the console. Players don't need to install anything.",
   "authors": ["cornybirdy"],
   "contact": {
-    "sources": "https://github.com/CornyBirdy/Paper-Corpes"
+    "sources": "https://github.com/CornyBirdy/cb-blocklab"
   },
   "environment": "*",
   "entrypoints": {

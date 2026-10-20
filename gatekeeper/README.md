@@ -8,7 +8,7 @@ Turn **ender chests**, **the End**, **the Nether**, **netherite armor** and **ne
 | Paper 26.1 or newer | `PaperGatekeeper-x.y.z.jar` → `plugins/` |
 | Fabric 26.3 (needs [Fabric API](https://modrinth.com/mod/fabric-api)) | `FabricGatekeeper-x.y.z.jar` → `mods/` (server only) |
 
-Get them from the [Gatekeeper releases](https://github.com/CornyBirdy/Paper-Corpes/releases?q=gatekeeper&expanded=true).
+Get them from the [Gatekeeper releases](https://github.com/CornyBirdy/cb-blocklab/releases?q=gatekeeper&expanded=true).
 
 > Gatekeeper used to be called **EndLock**. If you had EndLock 1.0.0, delete its jar; Gatekeeper picks up its config and closed portals by itself.
 

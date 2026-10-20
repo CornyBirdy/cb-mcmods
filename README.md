@@ -1,13 +1,13 @@
-# cornybirdy's Minecraft mods
+# cb-blocklab
 
-Server-side mods for **Paper** and **Fabric**. Players never need to install anything: every mod works with plain vanilla clients.
+cornybirdy's Minecraft mods. Server-side mods for **Paper** and **Fabric**. Players never need to install anything: every mod works with plain vanilla clients.
 
 ## Mods
 
 | Mod | What it does | Paper | Fabric | Download |
 |---|---|---|---|---|
-| [**Corpes**](corpes/) | When you die, your body lies where you died and holds all your items. Right-click it to get them back. | 26.1+ | 26.3 | [Releases](https://github.com/CornyBirdy/Paper-Corpes/releases?q=corpes&expanded=true) |
-| [**Gatekeeper**](gatekeeper/) | Turn ender chests, the End, the Nether, netherite armor and netherite tools on or off with `/gatekeeper` while the server runs, also from the console. No restart needed. (Used to be called EndLock.) | 26.1+ | 26.3 | [Releases](https://github.com/CornyBirdy/Paper-Corpes/releases?q=gatekeeper&expanded=true) |
+| [**Corpes**](corpes/) | When you die, your body lies where you died and holds all your items. Right-click it to get them back. | 26.1+ | 26.3 | [Releases](https://github.com/CornyBirdy/cb-blocklab/releases?q=corpes&expanded=true) |
+| [**Gatekeeper**](gatekeeper/) | Turn ender chests, the End, the Nether, netherite armor and netherite tools on or off with `/gatekeeper` while the server runs, also from the console. No restart needed. (Used to be called EndLock.) | 26.1+ | 26.3 | [Releases](https://github.com/CornyBirdy/cb-blocklab/releases?q=gatekeeper&expanded=true) |
 
 Click a mod's name for its features, commands and config.
 
@@ -22,7 +22,7 @@ Every release has two jars. Pick the one for your server:
 
 All mods need Java 25. Releases are marked as pre-releases until they've been tested in game.
 
-Want the newest build before it's released? Open the [Actions tab](https://github.com/CornyBirdy/Paper-Corpes/actions/workflows/build.yml), click the latest green run and download the mod from **Artifacts** at the bottom.
+Want the newest build before it's released? Open the [Actions tab](https://github.com/CornyBirdy/cb-blocklab/actions/workflows/build.yml), click the latest green run and download the mod from **Artifacts** at the bottom.
 
 ## Repository layout
 
