@@ -222,7 +222,7 @@ public final class Gatekeeper implements ModInitializer {
         return !result.is(Items.ENDER_CHEST) || !banned(player, Feature.ENDER_CHESTS);
     }
 
-    /** Called by {@code SmithingMenuMixin}. False keeps an upgraded netherite item in the smithing table. */
+    /** Called by {@code ItemCombinerMenuMixin}. False keeps an upgraded netherite item in the smithing table. */
     public static boolean mayTakeSmithedItem(Player player, ItemStack result) {
         Feature feature = Netherite.feature(result);
         if (feature == null || !banned(player, feature)) {
