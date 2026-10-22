@@ -28,56 +28,41 @@ code() { # code SimpleName methodName : invokes inside that method
 
 
 fapi_sig() { for c in "$@"; do echo "######## $c"; javap -p -cp "$CP" "$c" | grep -v 'lambda\$'; done; }
-echo "================ FIND"
-grep -iE "ender_?man|farm|silverfish|painting|minecart|/boat|chestboat|ContainerEntity|EntityTypes\.class|BaseContainerBlockEntity|TntBlock|MinecartTNT|Shulker|Hopper" /tmp/classes.txt | grep -v '\$' | head -60
-for c in $(grep -iE "ender_?man[^/]*\$" /tmp/classes.txt | sed 's/\.class$//; s#/#.#g'); do echo "######## $c"; javap -p -cp "$CP" "$c" | grep -v 'lambda\$'; done
-for c in $(grep -iE "/EnderMan\.class|/Enderman\.class" /tmp/classes.txt | sed 's/\.class$//; s#/#.#g'); do code "$(basename ${c//./\/})" "tick"; done
-for c in $(grep -iE "ender_?man[^/]*Goal\.class" /tmp/classes.txt | sed 's/\.class$//; s#/#.#g'); do
-  echo "######## CODE $c::tick"; javap -c -p -cp "$CP" "$c" | awk '/^  [^ ].*\(.*\)/ { inm = ($0 ~ / tick\(/); if (inm) print; next } inm && /invoke|getfield/ { sub(/^ +[0-9]+: /, "    "); print }'
-done
-for c in $(grep -iE "/Farm[A-Za-z]*Block\.class" /tmp/classes.txt | sed 's/\.class$//; s#/#.#g'); do
-  echo "######## $c"; javap -p -cp "$CP" "$c" | grep -E "fallOn|turnToDirt|class "
-  echo "######## CODE $c::fallOn"; javap -c -p -cp "$CP" "$c" | awk '/^  [^ ].*\(.*\)/ { inm = ($0 ~ / fallOn\(/); if (inm) print; next } inm && /invoke|getfield|instanceof/ { sub(/^ +[0-9]+: /, "    "); print }'
-done
-code Projectile mayInteract
-code DispenserBlock dispenseFrom
-sig Painting "hurtServer|class "
-sig Level "isLoaded|hasChunkAt|getBlockEntity\(|getHeight\(|isInWorldBounds|getMinY|getMaxY|getChunk\("
-sig Entity "getBoundingBox|getRootVehicle|isPassenger|getVehicle|getEyePosition|getYRot|getXRot|blockPosition|onGround|getName|getDisplayName"
-sig LivingEntity "getLastHurtByMob|isAlive"
-sig BlockStateBase " is\(|getBlock\(|isAir|hasBlockEntity|getMenuProvider|canBeReplaced|liquid|isSolid|getFluidState"
-sig BlockBehaviour\\$BlockStateBase " is\(|getBlock\(|isAir|hasBlockEntity|getMenuProvider|canBeReplaced"
-sig BuiltInRegistries "BLOCK;|ITEM;|ENTITY_TYPE;"
-sig Registries " BLOCK;| ITEM;| DIMENSION;"
-sig TagKey "create|location"
-sig Identifier "parse|tryParse|fromNamespaceAndPath|getPath|getNamespace"
-sig ServerCommonPacketListenerImpl " send\("
-sig ServerGamePacketListenerImpl " send\("
-sig BlockPlaceContext "getClickedPos|canPlace|replacingClickedOnBlock|getHorizontalDirection"
-sig UseOnContext "getClickedPos|getClickedFace|getPlayer|getLevel|getItemInHand"
-sig Heightmap\\$Types
-sig GameProfile
-sig Component " literal\(| empty\(| translatable\("
-sig MutableComponent "append|withStyle"
-sig SimpleMenuProvider
-sig ChestMenu "<init>|ChestMenu\("
-sig Slot "<init>|Slot\(|mayPlace|mayPickup|index"
-sig DataComponents "CUSTOM_NAME|LORE|PROFILE|ENCHANTMENT_GLINT|TOOLTIP_DISPLAY|CUSTOM_DATA|DYED_COLOR|ITEM_NAME"
-sig Item " useOn\(| use\("
-sig Containers
-sig EntityTypes "ARMOR_STAND|ITEM_FRAME"
-sig AbstractMinecart "class "
-sig AbstractBoat "class "
-sig ContainerEntity "class |interface "
-sig Silverfish "class "
-fapi_sig net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents \
+
+echo "================ REST"
+sig2() { c="$1"; shift; echo "######## $c"; javap -p -cp "$CP" "$c" | grep -v 'lambda\$' | grep -E "$1|class |interface "; }
+sig2 'net.minecraft.world.level.block.state.BlockBehaviour$BlockStateBase' " is\(|getBlock\(|isAir|hasBlockEntity|getMenuProvider|canBeReplaced"
+sig2 net.minecraft.core.registries.BuiltInRegistries " BLOCK;| ITEM;| ENTITY_TYPE;"
+sig2 net.minecraft.core.registries.Registries " BLOCK;| ITEM;| DIMENSION;| ENTITY_TYPE;"
+sig2 net.minecraft.tags.TagKey "create|location"
+sig2 net.minecraft.resources.Identifier "parse|tryParse|fromNamespaceAndPath|getPath|getNamespace"
+sig2 net.minecraft.server.network.ServerCommonPacketListenerImpl " send\("
+sig2 net.minecraft.world.item.context.BlockPlaceContext "getClickedPos|canPlace|replacingClickedOnBlock|getHorizontalDirection"
+sig2 net.minecraft.world.item.context.UseOnContext "getClickedPos|getClickedFace|getPlayer|getLevel|getItemInHand"
+sig2 'net.minecraft.world.level.levelgen.Heightmap$Types' "public static final"
+sig2 com.mojang.authlib.GameProfile "name|id"
+sig2 net.minecraft.network.chat.Component " literal\(| empty\(| translatable\("
+sig2 net.minecraft.world.SimpleMenuProvider "<init>|SimpleMenuProvider\("
+sig2 net.minecraft.world.inventory.ChestMenu "ChestMenu\("
+sig2 net.minecraft.world.inventory.Slot "Slot\(|mayPlace|mayPickup| index"
+sig2 net.minecraft.core.component.DataComponents "CUSTOM_NAME|LORE|PROFILE|ENCHANTMENT_GLINT|TOOLTIP_DISPLAY|CUSTOM_DATA|ITEM_NAME"
+sig2 net.minecraft.world.item.Item " useOn\(| use\(|getDefaultInstance|builtInRegistryHolder"
+sig2 net.minecraft.world.entity.player.Player "mayInteract|getGameProfile|nameAndId"
+sig2 net.minecraft.world.entity.Entity "mayInteract"
+sig2 net.minecraft.world.level.block.FarmlandBlock "turnToBaseBlock"
+sig2 net.minecraft.server.level.ServerLevel "getChunkSource|hasChunk|isPositionEntityTicking|getRespawnData"
+sig2 net.minecraft.world.entity.item.PrimedTnt "getOwner"
+sig2 net.minecraft.world.entity.Mob "isLeashed|getLeashHolder"
+fapi() { for c in "$@"; do echo "######## $c"; javap -p -cp "$CP" "$c" | grep -v 'lambda\$'; done; }
+fapi net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents \
   'net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents$AllowDamage' \
   net.fabricmc.fabric.api.event.player.BlockEvents net.fabricmc.fabric.api.event.player.ItemEvents \
-  net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents 'net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents$Before' 'net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents$After' \
+  'net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents$Before' 'net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents$After' \
   net.fabricmc.fabric.api.event.player.UseBlockCallback net.fabricmc.fabric.api.event.player.UseItemCallback \
   net.fabricmc.fabric.api.event.player.UseEntityCallback net.fabricmc.fabric.api.event.player.AttackEntityCallback \
-  net.fabricmc.fabric.api.event.player.AttackBlockCallback net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents \
-  'net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents$Unload' net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents \
-  net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents 'net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents$Join' \
-  net.fabricmc.fabric.api.permission.v1.PermissionPredicates net.fabricmc.fabric.api.permission.v1.PermissionContextOwner
-for j in $(echo "$FAPI" | tr ':' '\n'); do unzip -l "$j" 2>/dev/null | awk '{print $4}' | grep -E "event/player/(BlockEvents|ItemEvents)\\$" ; done | sed 's/\.class$//; s#/#.#g' | sort -u | while read c; do fapi_sig "$c"; done
+  'net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents$Unload' \
+  'net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents$Join' 'net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents$Disconnect' \
+  net.fabricmc.fabric.api.permission.v1.PermissionPredicates net.fabricmc.fabric.api.permission.v1.PermissionContextOwner \
+  net.fabricmc.fabric.api.entity.FakePlayer
+for j in $(echo "$FAPI" | tr ':' '\n'); do unzip -l "$j" 2>/dev/null | awk '{print $4}' | grep -E 'event/player/(BlockEvents|ItemEvents)\$' ; done | sed 's/\.class$//; s#/#.#g' | sort -u | while read c; do fapi "$c"; done
+for j in $(echo "$FAPI" | tr ':' '\n'); do unzip -l "$j" 2>/dev/null | awk '{print $4}' | grep -iE 'gametest.*\.class$' | grep -v '\$' | head -20; done | sort -u
