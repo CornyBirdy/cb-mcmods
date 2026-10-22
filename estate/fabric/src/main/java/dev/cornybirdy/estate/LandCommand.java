@@ -532,7 +532,7 @@ final class LandCommand {
                                 .then(Commands.argument("y", IntegerArgumentType.integer()).then(Commands.argument("z", IntegerArgumentType.integer())
                                         .executes(c -> run(c, (rt, src) -> lookupAt(rt, src, src.getLevel(),
                                                 new BlockPos(IntegerArgumentType.getInteger(c, "x"), IntegerArgumentType.getInteger(c, "y"),
-                                                        IntegerArgumentType.getInteger(c, "z"))))))))))
+                                                        IntegerArgumentType.getInteger(c, "z")))))))))
                         .then(Commands.literal("player").then(Commands.argument("player", StringArgumentType.word()).suggests(PLAYERS)
                                 .executes(c -> run(c, (rt, src) -> lookupPlayer(rt, src, StringArgumentType.getString(c, "player")))))))
                 .then(Commands.literal("log")

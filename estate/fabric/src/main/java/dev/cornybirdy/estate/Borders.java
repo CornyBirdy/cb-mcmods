@@ -51,6 +51,9 @@ final class Borders {
             Session session = rt.session(player);
             if (session.bordersUntil > tick) {
                 draw(player, session);
+            } else if (session.draft != null && !(player.containerMenu instanceof Gui)) {
+                // The editor was closed and its preview has faded; don't bring it back with the next "View borders".
+                session.draft = null;
             }
         }
     }

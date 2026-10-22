@@ -153,7 +153,9 @@ public final class Protection {
                 resync(sp, level, List.of(pos));
                 return InteractionResult.FAIL;
             }
-            if (kind != BlockKinds.Kind.PLAIN && held.isEmpty()) {
+            // Doors, chests and the like always react to a click, so the held item never gets used.
+            if (kind == BlockKinds.Kind.ACCESS || kind == BlockKinds.Kind.CONTAINER
+                    || (kind == BlockKinds.Kind.INTERACTIVE && held.isEmpty())) {
                 return InteractionResult.PASS;
             }
         }
@@ -291,6 +293,10 @@ public final class Protection {
             return false;
         }
         if (entity instanceof OwnableEntity pet && pet.getOwner() == attacker) {
+            return false;
+        }
+        // A wolf, bee or golem that's attacking you can always be fought back.
+        if (entity instanceof Mob mob && mob.getTarget() == attacker) {
             return false;
         }
         BlockPos pos = entity.blockPosition();
