@@ -175,6 +175,84 @@ public class EstateGameTest {
         helper.succeed();
     }
 
+    /** Builds every /land screen for a fake player and clicks through making, resizing and removing a claim. */
+    @GameTest(maxTicks = 200)
+    public void menusWork(GameTestHelper helper) {
+        EstateRuntime rt = Estate.runtime();
+        ServerLevel level = helper.getLevel();
+        FakePlayer player = FakePlayer.get(level);
+        UUID id = player.getUUID();
+        BlockPos base = helper.absolutePos(new BlockPos(1, 1, 1));
+        player.setPos(base.getX() + 0.5, base.getY(), base.getZ() + 0.5);
+        boolean autoBefore = rt.manager.autoClaim(id);
+        try {
+            Menus.main(rt, player);
+            Gui main = Gui.lastOffscreen;
+            if (main == null || main.itemAt(4).isEmpty()) {
+                throw helper.assertionException("The main menu should show the budget");
+            }
+            main.press(14, Gui.Click.LEFT);
+            if (rt.manager.autoClaim(id) == autoBefore) {
+                throw helper.assertionException("The auto-claim button should switch auto-claim");
+            }
+            main.press(14, Gui.Click.LEFT);
+
+            main.press(11, Gui.Click.LEFT);
+            Gui editor = Gui.lastOffscreen;
+            if (editor == main) {
+                throw helper.assertionException("New claim should open the editor");
+            }
+            editor.press(12, Gui.Click.LEFT);
+            editor.press(24, Gui.Click.LEFT);
+            editor.press(44, Gui.Click.LEFT);
+            Claim claim = rt.claimAt(level, player.blockPosition());
+            int size = rt.config.newClaimSize;
+            if (claim == null || !claim.owner().equals(id) || claim.size() != size * size + size) {
+                throw helper.assertionException("Confirming the editor should claim " + (size * size + size) + " cells, got "
+                        + (claim == null ? "nothing" : claim.size()));
+            }
+
+            main.press(12, Gui.Click.LEFT);
+            Gui resize = Gui.lastOffscreen;
+            resize.press(10, Gui.Click.LEFT);
+            resize.press(24, Gui.Click.LEFT);
+            resize.press(44, Gui.Click.LEFT);
+            if (claim.size() != size * size + 2 * size + 1) {
+                throw helper.assertionException("Growing north should add a row of cells, got " + claim.size());
+            }
+
+            main.press(13, Gui.Click.LEFT);
+            Gui trust = Gui.lastOffscreen;
+            if (trust == resize || !trust.press(49, Gui.Click.LEFT)) {
+                throw helper.assertionException("The trust screen should have an add button");
+            }
+            main.press(15, Gui.Click.LEFT);
+            Gui flags = Gui.lastOffscreen;
+            flags.press(8, Gui.Click.LEFT);
+            if (!rt.manager.flag(claim, dev.cornybirdy.estate.core.Flag.PVP)) {
+                throw helper.assertionException("Owners may switch PvP on in the flags screen");
+            }
+            main.press(22, Gui.Click.LEFT);
+            if (Gui.lastOffscreen.itemAt(0).isEmpty()) {
+                throw helper.assertionException("The claim list should show the claim");
+            }
+            Menus.adminSettings(rt, player, 0);
+
+            main.press(16, Gui.Click.LEFT);
+            Gui unclaim = Gui.lastOffscreen;
+            unclaim.press(11, Gui.Click.LEFT);
+            if (rt.manager.claim(claim.id()) != null) {
+                throw helper.assertionException("Confirming unclaim should remove the claim");
+            }
+        } finally {
+            rt.manager.setAutoClaim(id, autoBefore);
+            for (Claim leftover : rt.manager.claimsOf(id)) {
+                rt.manager.delete(leftover, null, "test");
+            }
+        }
+        helper.succeed();
+    }
+
     private static boolean mayBreak(ServerLevel level, FakePlayer player, BlockPos pos) {
         return PlayerBlockBreakEvents.BEFORE.invoker().beforeBlockBreak(level, player, pos, level.getBlockState(pos), null);
     }

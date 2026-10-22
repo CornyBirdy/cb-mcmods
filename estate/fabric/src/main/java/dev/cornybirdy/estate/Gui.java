@@ -1,5 +1,6 @@
 package dev.cornybirdy.estate;
 
+import net.fabricmc.fabric.api.entity.FakePlayer;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -72,9 +73,21 @@ final class Gui extends ChestMenu {
         this.builder = builder;
     }
 
+    /**
+     * The last screen built for a fake player. Fake players (machines from other mods, game tests) can't see
+     * screens, so theirs are built without being sent; tests look at them here.
+     */
+    static Gui lastOffscreen;
+
     /** Opens a screen with {@code rows} rows (1 to 6). */
     static void open(ServerPlayer player, Component title, int rows, Builder builder) {
         SimpleContainer container = new SimpleContainer(rows * 9);
+        if (player instanceof FakePlayer) {
+            Gui gui = new Gui(0, player.getInventory(), container, rows, player, builder);
+            gui.redraw();
+            lastOffscreen = gui;
+            return;
+        }
         player.openMenu(new SimpleMenuProvider((id, inventory, p) -> {
             Gui gui = new Gui(id, inventory, container, rows, player, builder);
             gui.redraw();
@@ -132,6 +145,20 @@ final class Gui extends ChestMenu {
                 action.run(serverPlayer, click);
             }
         });
+    }
+
+    /** Runs a button's action straight away, as if clicked. Returns false if the slot isn't a button. */
+    boolean press(int slot, Click click) {
+        Action action = actions.get(slot);
+        if (action == null) {
+            return false;
+        }
+        action.run(owner, click);
+        return true;
+    }
+
+    ItemStack itemAt(int slot) {
+        return container.getItem(slot);
     }
 
     @Override
