@@ -15,6 +15,7 @@ on:
         options:
           - corpes
           - gatekeeper
+          - estate
       version:
         description: 'Version to release, without the v (e.g. 1.0.1)'
         required: true
@@ -42,19 +43,26 @@ jobs:
           case "$MOD" in
             corpes) NAME=Corpes ;;
             gatekeeper) NAME=Gatekeeper ;;
+            estate) NAME=Estate ;;
             *) echo "Unknown mod '$MOD'"; exit 1 ;;
           esac
           echo "mod=$MOD" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Estate has no Paper plugin yet; its rules live in a plain Java core module instead.
+          if [ -d "$MOD/paper" ]; then
+            echo "tasks=:$MOD-paper:build :$MOD-fabric:build" >> "$GITHUB_OUTPUT"
+          else
+            echo "tasks=:$MOD-core:build :$MOD-fabric:build" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v4
-      - name: Build Paper plugin and Fabric mod
+      - name: Build the mod
         run: >-
-          ./gradlew :${{ steps.release.outputs.mod }}-paper:build :${{ steps.release.outputs.mod }}-fabric:build
+          ./gradlew ${{ steps.release.outputs.tasks }}
           --no-daemon -PreleaseVersion="${{ steps.release.outputs.version }}"
       - uses: softprops/action-gh-release@v2
         with:

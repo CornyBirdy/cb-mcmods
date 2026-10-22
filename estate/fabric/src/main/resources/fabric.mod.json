@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "estate",
+  "version": "${version}",
+  "name": "Estate",
+  "description": "Land claims for survival servers: a flat claim budget for everyone, automatic claims around builds, buffers against spite builds, trust tiers and a /land menu. Players don't need to install anything.",
+  "authors": ["cornybirdy"],
+  "contact": {
+    "sources": "https://github.com/CornyBirdy/Paper-Corpes"
+  },
+  "environment": "*",
+  "entrypoints": {
+    "main": ["dev.cornybirdy.estate.Estate"]
+  },
+  "mixins": ["estate.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

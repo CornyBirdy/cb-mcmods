@@ -29,3 +29,7 @@ jobs:
           path: |
             gatekeeper/paper/build/libs/PaperGatekeeper-*.jar
             gatekeeper/fabric/build/libs/FabricGatekeeper-*.jar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Estate
+          path: estate/fabric/build/libs/FabricEstate-*.jar

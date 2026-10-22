@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "estate-gametest",
+  "version": "1.0.0",
+  "name": "Estate game tests",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": ["dev.cornybirdy.estate.EstateGameTest"]
+  },
+  "depends": {
+    "estate": "*"
+  }
+}

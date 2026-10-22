@@ -1,0 +1,29 @@
+{
+  "required": true,
+  "package": "dev.cornybirdy.estate.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "ArmorStandMixin",
+    "BlockAttachedEntityMixin",
+    "BlockItemMixin",
+    "BreakDoorGoalMixin",
+    "DispenserBlockMixin",
+    "DoorInteractGoalAccessor",
+    "EndermanLeaveBlockGoalMixin",
+    "EndermanTakeBlockGoalMixin",
+    "FarmlandBlockMixin",
+    "FireBlockMixin",
+    "FlowingFluidMixin",
+    "ItemFrameMixin",
+    "PistonBaseBlockMixin",
+    "ProjectileMixin",
+    "RabbitRaidGardenGoalMixin",
+    "RavagerMixin",
+    "ServerExplosionMixin",
+    "VehicleEntityMixin",
+    "WitherBossMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
