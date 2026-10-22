@@ -26,92 +26,58 @@ code() { # code SimpleName methodName : invokes inside that method
   done
 }
 
-echo "================ CLASS LOCATIONS"
-for n in EnderMan BreakDoorGoal DoorInteractGoal Rabbit Silverfish WitherBoss Ravager ServerExplosion Explosion FlowingFluid \
-  PistonBaseBlock PistonStructureResolver FireBlock BaseFireBlock DispenserBlock Projectile FarmBlock HangingEntity BlockAttachedEntity \
-  ItemFrame VehicleEntity ArmorStand TamableAnimal Enemy DustParticleOptions ClientboundSetActionBarTextPacket UserBanList \
-  UserBanListEntry BanListEntry NameAndId BedBlock DoorBlock ButtonBlock BucketItem PlaceOnWaterBlockItem LecternBlockEntity \
-  Container MenuProvider BlockItem ChestMenu MenuType Heightmap LeashFenceKnotEntity AbstractVillager Villager Animal \
-  ServerPlayerGameMode LivingEntity DamageSource FallingBlockEntity PrimedTnt EndCrystal Fox SnowGolem Sheep Mob Monster \
-  ParticleTypes ParticleOptions LevelResource TurtleEggBlock SimpleContainer ContainerInput PermissionLevel Permissions \
-  BlockHitResult HitResult ClipContext ArmorStandItem SignBlock FlowerPotBlock; do
-  echo "$n -> $(fq "$n" | tr '\n' ' ')"
+
+fapi_sig() { for c in "$@"; do echo "######## $c"; javap -p -cp "$CP" "$c" | grep -v 'lambda\$'; done; }
+echo "================ FIND"
+grep -iE "ender_?man|farm|silverfish|painting|minecart|/boat|chestboat|ContainerEntity|EntityTypes\.class|BaseContainerBlockEntity|TntBlock|MinecartTNT|Shulker|Hopper" /tmp/classes.txt | grep -v '\$' | head -60
+for c in $(grep -iE "ender_?man[^/]*\$" /tmp/classes.txt | sed 's/\.class$//; s#/#.#g'); do echo "######## $c"; javap -p -cp "$CP" "$c" | grep -v 'lambda\$'; done
+for c in $(grep -iE "/EnderMan\.class|/Enderman\.class" /tmp/classes.txt | sed 's/\.class$//; s#/#.#g'); do code "$(basename ${c//./\/})" "tick"; done
+for c in $(grep -iE "ender_?man[^/]*Goal\.class" /tmp/classes.txt | sed 's/\.class$//; s#/#.#g'); do
+  echo "######## CODE $c::tick"; javap -c -p -cp "$CP" "$c" | awk '/^  [^ ].*\(.*\)/ { inm = ($0 ~ / tick\(/); if (inm) print; next } inm && /invoke|getfield/ { sub(/^ +[0-9]+: /, "    "); print }'
 done
-
-echo "================ FABRIC API EVENTS"
-for j in $(echo "$FAPI" | tr ':' '\n'); do unzip -l "$j" 2>/dev/null | awk '{print $4}' | grep -E "^net/fabricmc/fabric/api/.*(event|permission|Permission|entity/FakePlayer).*\.class$" | grep -v '\$'; done | sort -u
-
-echo "================ SIGNATURES"
-sig ServerLevel "sendParticles|mayInteract|destroyBlock|getPlayerByUUID|dimension\(|explode"
-sig Level "mayInteract|removeBlock\(|destroyBlock\(|setBlock\(|getGameRules|isClientSide|dimension\(|explode\("
-sig LevelAccessor "setBlock|getLevel"
-sig Entity " pick\(|level\(\)|blockPosition|position\(\)|getUUID|hurtServer|getType\(\)|entityTags|isSpectator|getX\(\)|getBlockY"
-sig Player "displayClientMessage|sendOverlay|isSecondaryUseActive|blockInteractionRange|isCreative|getAbilities|mayBuild|isSpectator"
-sig ServerPlayer "sendSystemMessage|checkPermission|nameAndId|getGameProfile|connection|displayClientMessage|sendOverlay|openMenu|closeContainer|level\(\)|serverLevel|getCamera|getRespawn|isChangingDimension"
-sig CommandSourceStack "checkPermission|getPlayer|sendSystemMessage|sendSuccess|sendFailure|getPosition|getLevel|getTextName|getEntity"
-sig ServerExplosion
-sig Explosion
-code ServerExplosion explode
-code ServerExplosion interactWithBlocks
-sig FlowingFluid "spreadTo|canSpreadTo|canHoldFluid|canPassThrough|canMaybePassThrough|spread\("
-code FlowingFluid spread
-sig PistonBaseBlock "moveBlocks|triggerEvent|checkIfExtend|isPushable"
-sig PistonStructureResolver
-sig FireBlock "tick|checkBurnOut|tryCatchFire|getIgniteOdds|canBurn|onPlace"
-code FireBlock tick
-code FireBlock checkBurnOut
-sig DispenserBlock "dispenseFrom|FACING|tick"
-sig Projectile "mayInteract|getOwner|onHitBlock|mayBreak"
-sig FarmBlock "fallOn|turnToDirt"
-code FarmBlock fallOn
-sig BlockAttachedEntity "hurtServer|survives|dropItem"
-sig HangingEntity "hurtServer"
-sig ItemFrame "hurtServer|interact"
-sig VehicleEntity "hurtServer|shouldSourceDestroy"
-sig ArmorStand "hurtServer|interactAt|interact"
-sig LivingEntity " hurtServer\(|isInvulnerableTo|actuallyHurt"
-sig DamageSource "getEntity|getDirectEntity|is\(|getSourcePosition|type\("
-sig TamableAnimal "isOwnedBy|getOwner|isTame"
-sig OwnableEntity
-sig DustParticleOptions
-sig ParticleTypes "DUST|END_ROD|HAPPY|FLAME|ELECTRIC|WAX|COMPOSTER"
-sig ClientboundSetActionBarTextPacket
-sig UserBanList
-sig UserBanListEntry
-sig BanListEntry "getExpires|getReason"
-sig StoredUserList "get\(|isEmpty|getEntries|contains"
-sig PlayerList "getBans|getPlayers|getPlayerByName|getPlayer\("
-sig NameAndId
-sig EnderMan "Goal|carried|registerGoals"
-for c in $(grep -E "EnderMan\\$" /tmp/classes.txt | sed 's/\.class$//; s#/#.#g'); do echo "######## $c"; javap -p -cp "$CP" "$c" | grep -v 'lambda\$'; done
-code 'EnderMan\$EndermanTakeBlockGoal' tick
-code 'EnderMan\$EndermanLeaveBlockGoal' tick
-sig BreakDoorGoal
-sig DoorInteractGoal "doorPos|mob|canUse"
-for c in $(grep -E "/Rabbit\\$|/Silverfish\\$|/Fox\\$" /tmp/classes.txt | sed 's/\.class$//; s#/#.#g'); do echo "######## $c"; javap -p -cp "$CP" "$c" | grep -v 'lambda\$'; done
-sig WitherBoss "customServerAiStep|destroyBlocksTick"
-code WitherBoss customServerAiStep
-sig Ravager "aiStep"
-code Ravager aiStep
-sig BucketItem "use\(|emptyContents|playEmptySound"
-code BucketItem use
-sig BlockItem "place\(|useOn|getPlacementState|updatePlacementContext"
-sig Block "useWithoutItem|useItemOn|fallOn|stepOn"
-sig BlockBehaviour " useWithoutItem\(| useItemOn\("
-sig ChestMenu "<init>|clicked|quickMoveStack|stillValid|getContainer"
-sig AbstractContainerMenu " clicked\(|doClick|canDragTo|sendAllDataToRemote|broadcastChanges|removed\("
-sig MenuType "GENERIC_9x"
-sig ResolvableProfile "create"
-sig Heightmap "MOTION|WORLD_SURFACE|OCEAN"
-sig ChunkPos "<init>|x\(\)|z\(\)|asLong|pack|getMinBlock|minBlock"
-sig BlockPos "asLong|of\(|getFromLong|containing|relative"
-sig MinecraftServer "getWorldPath|getPlayerList|overworld|getLevel\(|services|isUnderSpawnProtection|getTickCount|execute\(|isSameThread"
-sig Services "nameToIdCache|profileResolver"
-sig UserNameToIdResolver "get|add"
+for c in $(grep -iE "/Farm[A-Za-z]*Block\.class" /tmp/classes.txt | sed 's/\.class$//; s#/#.#g'); do
+  echo "######## $c"; javap -p -cp "$CP" "$c" | grep -E "fallOn|turnToDirt|class "
+  echo "######## CODE $c::fallOn"; javap -c -p -cp "$CP" "$c" | awk '/^  [^ ].*\(.*\)/ { inm = ($0 ~ / fallOn\(/); if (inm) print; next } inm && /invoke|getfield|instanceof/ { sub(/^ +[0-9]+: /, "    "); print }'
+done
+code Projectile mayInteract
+code DispenserBlock dispenseFrom
+sig Painting "hurtServer|class "
+sig Level "isLoaded|hasChunkAt|getBlockEntity\(|getHeight\(|isInWorldBounds|getMinY|getMaxY|getChunk\("
+sig Entity "getBoundingBox|getRootVehicle|isPassenger|getVehicle|getEyePosition|getYRot|getXRot|blockPosition|onGround|getName|getDisplayName"
+sig LivingEntity "getLastHurtByMob|isAlive"
+sig BlockStateBase " is\(|getBlock\(|isAir|hasBlockEntity|getMenuProvider|canBeReplaced|liquid|isSolid|getFluidState"
+sig BlockBehaviour\\$BlockStateBase " is\(|getBlock\(|isAir|hasBlockEntity|getMenuProvider|canBeReplaced"
+sig BuiltInRegistries "BLOCK;|ITEM;|ENTITY_TYPE;"
+sig Registries " BLOCK;| ITEM;| DIMENSION;"
+sig TagKey "create|location"
+sig Identifier "parse|tryParse|fromNamespaceAndPath|getPath|getNamespace"
+sig ServerCommonPacketListenerImpl " send\("
+sig ServerGamePacketListenerImpl " send\("
+sig BlockPlaceContext "getClickedPos|canPlace|replacingClickedOnBlock|getHorizontalDirection"
+sig UseOnContext "getClickedPos|getClickedFace|getPlayer|getLevel|getItemInHand"
+sig Heightmap\\$Types
 sig GameProfile
-sig Items "PLAYER_HEAD|LIME_DYE|STAINED_GLASS|GRAY_DYE|ENDER_EYE|BARRIER|PISTON"
-sig ItemStack "<init>|set\(|CODEC"
-sig PermissionLevel
-sig ContainerInput
-code ServerPlayerGameMode useItemOn
-code ServerPlayerGameMode destroyBlock
+sig Component " literal\(| empty\(| translatable\("
+sig MutableComponent "append|withStyle"
+sig SimpleMenuProvider
+sig ChestMenu "<init>|ChestMenu\("
+sig Slot "<init>|Slot\(|mayPlace|mayPickup|index"
+sig DataComponents "CUSTOM_NAME|LORE|PROFILE|ENCHANTMENT_GLINT|TOOLTIP_DISPLAY|CUSTOM_DATA|DYED_COLOR|ITEM_NAME"
+sig Item " useOn\(| use\("
+sig Containers
+sig EntityTypes "ARMOR_STAND|ITEM_FRAME"
+sig AbstractMinecart "class "
+sig AbstractBoat "class "
+sig ContainerEntity "class |interface "
+sig Silverfish "class "
+fapi_sig net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents \
+  'net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents$AllowDamage' \
+  net.fabricmc.fabric.api.event.player.BlockEvents net.fabricmc.fabric.api.event.player.ItemEvents \
+  net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents 'net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents$Before' 'net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents$After' \
+  net.fabricmc.fabric.api.event.player.UseBlockCallback net.fabricmc.fabric.api.event.player.UseItemCallback \
+  net.fabricmc.fabric.api.event.player.UseEntityCallback net.fabricmc.fabric.api.event.player.AttackEntityCallback \
+  net.fabricmc.fabric.api.event.player.AttackBlockCallback net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents \
+  'net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents$Unload' net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents \
+  net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents 'net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents$Join' \
+  net.fabricmc.fabric.api.permission.v1.PermissionPredicates net.fabricmc.fabric.api.permission.v1.PermissionContextOwner
+for j in $(echo "$FAPI" | tr ':' '\n'); do unzip -l "$j" 2>/dev/null | awk '{print $4}' | grep -E "event/player/(BlockEvents|ItemEvents)\\$" ; done | sed 's/\.class$//; s#/#.#g' | sort -u | while read c; do fapi_sig "$c"; done
