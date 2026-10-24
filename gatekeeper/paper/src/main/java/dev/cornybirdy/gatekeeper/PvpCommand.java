@@ -17,7 +17,7 @@ import java.util.UUID;
 /**
  * Everyone (gatekeeper.pvp):
  * <pre>
- * /pvp [on|off|toggle]          turn your own PvP on or off
+ * /pvp [toggle]                show or switch your own PvP
  * /pvp allow|unallow (player)   fight someone even with PvP off, once they allow you too
  * /pvp list                     who you can fight with PvP off
  * </pre>
@@ -40,8 +40,6 @@ final class PvpCommand implements BasicCommand {
         }
         String sub = args.length == 0 ? "" : args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
-            case "on", "enable", "true" -> set(player, true);
-            case "off", "disable", "false" -> set(player, false);
             case "toggle" -> set(player, !pvp.enabled(player));
             case "allow", "unallow" -> {
                 if (args.length < 2) {
@@ -163,7 +161,7 @@ final class PvpCommand implements BasicCommand {
     public Collection<String> suggest(CommandSourceStack source, String[] args) {
         String prefix = args.length == 0 ? "" : args[args.length - 1].toLowerCase(Locale.ROOT);
         if (args.length <= 1) {
-            return List.of("on", "off", "toggle", "allow", "unallow", "list").stream().filter(o -> o.startsWith(prefix)).toList();
+            return List.of("toggle", "allow", "unallow", "list").stream().filter(o -> o.startsWith(prefix)).toList();
         }
         if (args.length == 2 && (args[0].equalsIgnoreCase("allow") || args[0].equalsIgnoreCase("unallow"))) {
             return plugin.getServer().getOnlinePlayers().stream().map(Player::getName)

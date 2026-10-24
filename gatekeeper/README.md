@@ -1,7 +1,7 @@
 # Gatekeeper
 
 Turn **ender chests**, **the End**, **the Nether**, **netherite armor** and **netherite tools** on or off while the server runs, for **Paper 26.1+** and **Fabric 26.3**. One command does it, in game or in the server console, and nothing needs a restart. (Vanilla's `allow-nether` in `server.properties` only takes effect after a restart.)
-Also **opt-in PvP**: players choose for themselves with `/pvp on` or `/pvp off`.
+Also **opt-in PvP**: players switch it for themselves with `/pvp toggle`.
 **Players don't need to install anything.**
 
 | Server | Download |
@@ -50,7 +50,7 @@ Armor and tools are separate switches, so you can ban one and keep the other.
 
 ## Opt-in PvP
 
-Everyone starts with PvP **off**. Players can only hurt each other when **both** have turned it on with `/pvp on`. That covers hitting, arrows and other projectiles, TNT someone lit, and pets attacking for their owner. Hitting someone who has PvP off just tells you so.
+Everyone starts with PvP **off**. Players can only hurt each other when **both** have turned it on with `/pvp toggle`. That covers hitting, arrows and other projectiles, TNT someone lit, and pets attacking for their owner. Hitting someone who has PvP off just tells you so.
 
 - **Cooldown:** after changing it, a player has to wait 60 seconds before changing it again, so nobody can flip it on for one hit and straight back off.
 - **Combat timer:** after hitting or being hit by another player, both are in combat for 30 seconds and can't turn PvP off until it runs out. Every hit starts the timer again.
@@ -84,8 +84,8 @@ Everything works in the server console (no slash needed there, e.g. `gatekeeper 
 | `/gatekeeper combatlog on` / `off` / `toggle` | Kill players who log out in combat (default off) |
 | `/gatekeeper pvpforce <player> on` / `off` / `clear` | Lock a player's PvP on or off, or let them choose again. Without `on`/`off`/`clear` it shows their setting |
 | `/gatekeeper reload` | Reload the config file |
-| `/pvp` | Everyone: show your PvP setting |
-| `/pvp on` / `off` / `toggle` | Everyone: turn your own PvP on or off |
+| `/pvp` | Everyone: show whether your PvP is on or off |
+| `/pvp toggle` | Everyone: switch your own PvP on or off |
 | `/pvp allow <player>` / `unallow <player>` | Everyone: fight someone even with PvP off, once they allow you too |
 | `/pvp list` | Everyone: who you can fight with PvP off, and who's waiting |
 

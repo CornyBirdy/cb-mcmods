@@ -42,7 +42,7 @@ import java.util.UUID;
  * /gatekeeper pvpforce (player) [on|off|clear] lock a player's PvP on or off, or let them choose again
  * /gatekeeper reload                          reload config/gatekeeper.json
  *
- * /pvp [on|off|toggle]                        everyone (gatekeeper:pvp): turn your own PvP on or off
+ * /pvp [toggle]                              everyone (gatekeeper:pvp): show or switch your own PvP
  * /pvp allow|unallow (player)                 fight someone even with PvP off, once they allow you too
  * /pvp list                                   who you can fight with PvP off
  * </pre>
@@ -95,8 +95,6 @@ final class GatekeeperCommand {
         dispatcher.register(Commands.literal("pvp")
                 .requires(source -> source.checkPermission(Gatekeeper.PVP_PERMISSION, true))
                 .executes(context -> pvpShow(context.getSource()))
-                .then(Commands.literal("on").executes(context -> pvpSet(context.getSource(), true)))
-                .then(Commands.literal("off").executes(context -> pvpSet(context.getSource(), false)))
                 .then(Commands.literal("toggle").executes(context -> {
                     ServerPlayer player = context.getSource().getPlayer();
                     Pvp pvp = Gatekeeper.pvp();

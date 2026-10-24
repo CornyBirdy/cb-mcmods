@@ -29,7 +29,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Opt-in PvP: players can only hurt each other when both have turned it on with {@code /pvp on}. Changing it has a
+ * Opt-in PvP: players can only hurt each other when both have turned it on with {@code /pvp toggle}. Changing it has a
  * cooldown, and after a hit both players are "in combat" for a while and can't turn it off.
  * <p>
  * Exceptions: two players who have both {@code /pvp allow}ed each other can fight even with PvP off, and an admin can
