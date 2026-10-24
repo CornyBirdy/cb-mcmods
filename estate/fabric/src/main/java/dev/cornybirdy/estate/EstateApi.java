@@ -7,18 +7,12 @@ import net.minecraft.server.level.ServerLevel;
 import java.util.UUID;
 
 /**
- * For other mods on the same server, such as an opt-in PvP system. All methods are safe to call on the server thread
+ * For other mods on the same server. All methods are safe to call on the server thread
  * and return the "unclaimed" answer while Estate isn't running.
  */
 public final class EstateApi {
 
     private EstateApi() {
-    }
-
-    /** False inside a claim whose {@code pvp} flag is off. */
-    public static boolean isPvpAllowed(ServerLevel level, BlockPos pos) {
-        EstateRuntime runtime = Estate.runtime();
-        return runtime == null || runtime.manager.pvpAllowed(EstateRuntime.world(level), pos.getX(), pos.getY(), pos.getZ());
     }
 
     /** The owner of the claim at a spot, or null if it's unclaimed. */

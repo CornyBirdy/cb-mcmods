@@ -218,12 +218,12 @@ class ClaimManagerTest {
     void flagsUseDefaultsUntilOverridden() {
         Claim home = claim(alice, square(0, 0, 1), 60, 70);
         assertTrue(manager.flag(home, Flag.EXPLOSIONS));
-        assertFalse(manager.flag(home, Flag.PVP));
-        assertFalse(manager.pvpAllowed(WORLD, 1, 65, 1));
-        manager.setFlag(home, Flag.PVP, true, alice);
-        assertTrue(manager.pvpAllowed(WORLD, 1, 65, 1));
-        assertTrue(config.ownerMayEdit(Flag.PVP));
-        assertFalse(config.ownerMayEdit(Flag.EXPLOSIONS));
+        manager.setFlag(home, Flag.EXPLOSIONS, false, alice);
+        assertFalse(manager.flag(home, Flag.EXPLOSIONS));
+        manager.setFlag(home, Flag.EXPLOSIONS, null, alice);
+        assertTrue(manager.flag(home, Flag.EXPLOSIONS));
+        assertTrue(config.ownerMayEdit(Flag.EXPLOSIONS));
+        assertFalse(config.ownerMayEdit(Flag.BLOCK_BREAK_PLACE));
     }
 
     @Test

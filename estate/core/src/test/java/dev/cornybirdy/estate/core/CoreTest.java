@@ -214,7 +214,8 @@ class CoreTest {
         assertNotNull(config.set("baseBudget", "-1"));
         assertNotNull(config.set("bufferDistance", "lots"));
         assertNotNull(config.set("nope", "1"));
-        assertNull(config.set("flagDefaults.pvp", "on"));
+        assertNull(config.set("flagDefaults.explosions", "off"));
+        assertNotNull(config.set("flagDefaults.pvp", "on"));
         assertNull(config.set("trustTiers.access", "interact,containers"));
         assertTrue(config.tierAllows(TrustTier.ACCESS, Permission.CONTAINERS));
         ConfigFile.save(file, config);
@@ -224,11 +225,11 @@ class CoreTest {
         Files.writeString(file, text);
         EstateConfig loaded = ConfigFile.load(file);
         assertEquals(100, loaded.baseBudget);
-        assertTrue(loaded.flagDefault(Flag.PVP));
+        assertFalse(loaded.flagDefault(Flag.EXPLOSIONS));
         assertEquals(30, loaded.inactivityDays);
         assertTrue(Files.readString(file).contains("inactivityDays"));
 
-        Files.writeString(file, Files.readString(file).replace("\"configVersion\": 2", "\"configVersion\": 99"));
+        Files.writeString(file, Files.readString(file).replace("\"configVersion\": 3", "\"configVersion\": 99"));
         assertThrows(java.io.IOException.class, () -> ConfigFile.load(file));
     }
 
@@ -246,6 +247,21 @@ class CoreTest {
         assertFalse(saved.contains("cellSize"));
         assertFalse(saved.contains("newClaimSize"));
         assertTrue(Files.exists(dir.resolve("estate.json.v1.bak")));
+    }
+
+    @Test
+    void pvpAndMobFlagsAreDropped(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("estate.json");
+        Files.writeString(file, "{\"configVersion\": 2, \"flagDefaults\": {\"pvp\": true, \"mobGriefing\": false,"
+                + " \"explosions\": false}, \"ownerEditableFlags\": [\"pvp\", \"mobGriefing\"]}");
+        EstateConfig config = ConfigFile.load(file);
+        assertFalse(config.flagDefault(Flag.EXPLOSIONS));
+        assertEquals(EstateConfig.defaultEditableFlags(), config.ownerEditableFlags);
+        assertTrue(config.ownerMayEdit(Flag.FIRE_SPREAD));
+        assertNull(Flag.byKey("pvp"));
+        String saved = Files.readString(file);
+        assertFalse(saved.contains("pvp"));
+        assertFalse(saved.contains("mobGriefing"));
     }
 
     @Test

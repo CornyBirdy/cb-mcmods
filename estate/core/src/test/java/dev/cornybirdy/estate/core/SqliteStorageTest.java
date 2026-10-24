@@ -36,7 +36,7 @@ class SqliteStorageTest {
                     PlacementOracle.NONE, false).claim();
             claimId = claim.id();
             manager.trust(claim, bob, TrustTier.CONTAINERS, alice);
-            manager.setFlag(claim, Flag.PVP, true, alice);
+            manager.setFlag(claim, Flag.FIRE_SPREAD, false, alice);
             manager.donate(claim, bob, 100);
             manager.createTown(WORLD, "Spawn", -10, -10, 10, 10, alice);
             assertFalse(storage.actionsForClaim(claimId, 10).get().isEmpty());
@@ -50,7 +50,7 @@ class SqliteStorageTest {
             assertEquals(ClaimManagerTest.square(0, 0, 3), claim.region());
             assertEquals(50, claim.minY());
             assertEquals(TrustTier.CONTAINERS, claim.trust().get(bob));
-            assertEquals(Boolean.TRUE, claim.flagOverrides().get(Flag.PVP));
+            assertEquals(Boolean.FALSE, claim.flagOverrides().get(Flag.FIRE_SPREAD));
             assertEquals(100, claim.share(bob));
             assertEquals(9 * 64 - 100, claim.ownerShare());
             assertTrue(manager.autoClaim(alice));

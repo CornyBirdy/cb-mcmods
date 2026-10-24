@@ -355,11 +355,11 @@ final class LandCommand {
         StringBuilder flags = new StringBuilder();
         for (Flag flag : Flag.values()) {
             boolean value = manager.flag(claim, flag);
-            if (flag == Flag.PVP ? value : !value) {
+            if (!value) {
                 if (!flags.isEmpty()) {
                     flags.append(", ");
                 }
-                flags.append(flag.key).append(flag == Flag.PVP ? " on" : " off");
+                flags.append(flag.key);
             }
         }
         int[] center = claim.region().middle();

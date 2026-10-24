@@ -41,9 +41,7 @@ final class Menus {
         FLAG_ICONS.put(Flag.FIRE_SPREAD, Items.FLINT_AND_STEEL);
         FLAG_ICONS.put(Flag.FLUID_FLOW_IN, Items.WATER_BUCKET);
         FLAG_ICONS.put(Flag.PISTON_CROSS, Items.PISTON);
-        FLAG_ICONS.put(Flag.MOB_GRIEFING, Items.CREEPER_HEAD);
         FLAG_ICONS.put(Flag.ENTITY_DAMAGE, Items.ARMOR_STAND);
-        FLAG_ICONS.put(Flag.PVP, Items.IRON_SWORD);
     }
 
     /** Main menu slots. */
@@ -423,7 +421,7 @@ final class Menus {
             for (Flag flag : Flag.values()) {
                 boolean value = rt.manager.flag(claim, flag);
                 boolean editable = admin || (rt.config.ownerMayEdit(flag) && claim.owner().equals(p.getUUID()));
-                String state = msg.raw(flag == Flag.PVP ? (value ? "pvp-on" : "pvp-off") : (value ? "protected" : "unprotected"));
+                String state = msg.raw(value ? "protected" : "unprotected");
                 ItemStack icon = Gui.item(FLAG_ICONS.get(flag), msg.item("flag-" + flag.key, "state", state),
                         msg.lore(editable ? "flag-lore-editable" : "flag-lore-locked", "state", state,
                                 "about", msg.raw("flag-" + flag.key + "-about")));

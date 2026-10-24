@@ -279,11 +279,6 @@ public final class ClaimManager {
         return value != null ? value : config.flagDefault(flag);
     }
 
-    public boolean pvpAllowed(String world, int x, int y, int z) {
-        Claim claim = claimAt(world, x, y, z);
-        return claim == null || flag(claim, Flag.PVP);
-    }
-
     /** Whether a player may place or break a block here. Null means yes. */
     public Denial checkBuild(String world, int x, int y, int z, UUID actor) {
         Claim claim = claimAt(world, x, y, z);

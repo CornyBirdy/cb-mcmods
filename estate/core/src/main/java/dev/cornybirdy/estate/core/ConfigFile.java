@@ -80,6 +80,28 @@ public final class ConfigFile {
                 }
             }
         }
+        if (fromVersion < 3) {
+            // Version 3: PvP is left to a PvP mod and mobs behave as in vanilla, so those flags are gone.
+            if (json.has("flagDefaults") && json.get("flagDefaults").isJsonObject()) {
+                json.getAsJsonObject("flagDefaults").remove("pvp");
+                json.getAsJsonObject("flagDefaults").remove("mobGriefing");
+            }
+            if (json.has("ownerEditableFlags") && json.get("ownerEditableFlags").isJsonArray()) {
+                com.google.gson.JsonArray old = json.getAsJsonArray("ownerEditableFlags");
+                com.google.gson.JsonArray kept = new com.google.gson.JsonArray();
+                for (JsonElement flag : old) {
+                    String key = flag.getAsString();
+                    if (!key.equalsIgnoreCase("pvp") && !key.equalsIgnoreCase("mobGriefing")) {
+                        kept.add(key);
+                    }
+                }
+                if (kept.isEmpty()) {
+                    // It only held the removed flags (the old default): use the new default.
+                    EstateConfig.defaultEditableFlags().forEach(kept::add);
+                }
+                json.add("ownerEditableFlags", kept);
+            }
+        }
         json.addProperty("configVersion", EstateConfig.CURRENT_VERSION);
     }
 

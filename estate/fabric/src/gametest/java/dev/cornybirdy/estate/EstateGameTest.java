@@ -35,13 +35,6 @@ public class EstateGameTest {
     @GameTest
     public void mixinTargetsLoad(GameTestHelper helper) {
         List<String> targets = List.of(
-                "net.minecraft.world.entity.monster.Enderman$EndermanTakeBlockGoal",
-                "net.minecraft.world.entity.monster.Enderman$EndermanLeaveBlockGoal",
-                "net.minecraft.world.entity.animal.rabbit.Rabbit$RaidGardenGoal",
-                "net.minecraft.world.entity.ai.goal.BreakDoorGoal",
-                "net.minecraft.world.entity.ai.goal.DoorInteractGoal",
-                "net.minecraft.world.entity.boss.wither.WitherBoss",
-                "net.minecraft.world.entity.monster.Ravager",
                 "net.minecraft.world.level.block.FarmlandBlock",
                 "net.minecraft.world.level.block.FireBlock",
                 "net.minecraft.world.level.block.DispenserBlock",
@@ -126,9 +119,6 @@ public class EstateGameTest {
             }
             if (!Protection.fireProtected(level, inside)) {
                 throw helper.assertionException("Fire must not burn blocks in a claim");
-            }
-            if (rt.manager.pvpAllowed(world, inside.getX(), inside.getY(), inside.getZ())) {
-                throw helper.assertionException("PvP is off in claims by default");
             }
 
             BlockPos piston = outside.west();
@@ -257,9 +247,9 @@ public class EstateGameTest {
                 throw helper.assertionException("The trust screen should have an add button");
             }
             main.press(Menus.SLOT_FLAGS, Gui.Click.LEFT);
-            Gui.lastOffscreen.press(Menus.FLAGS_FIRST_SLOT + 8, Gui.Click.LEFT);
-            if (!rt.manager.flag(claim, dev.cornybirdy.estate.core.Flag.PVP)) {
-                throw helper.assertionException("Owners may switch PvP on in the protection screen");
+            Gui.lastOffscreen.press(Menus.FLAGS_FIRST_SLOT + dev.cornybirdy.estate.core.Flag.EXPLOSIONS.ordinal(), Gui.Click.LEFT);
+            if (rt.manager.flag(claim, dev.cornybirdy.estate.core.Flag.EXPLOSIONS)) {
+                throw helper.assertionException("Owners may switch explosion protection off in the protection screen");
             }
             main.press(Menus.SLOT_LIST, Gui.Click.LEFT);
             if (Gui.lastOffscreen.itemAt(0).isEmpty()) {

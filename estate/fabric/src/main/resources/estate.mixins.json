@@ -6,23 +6,16 @@
     "ArmorStandMixin",
     "BlockAttachedEntityMixin",
     "BlockItemMixin",
-    "BreakDoorGoalMixin",
     "DispenserBlockMixin",
-    "DoorInteractGoalAccessor",
-    "EndermanLeaveBlockGoalMixin",
-    "EndermanTakeBlockGoalMixin",
     "FarmlandBlockMixin",
     "FireBlockMixin",
     "FlowingFluidMixin",
     "ItemFrameMixin",
     "PistonBaseBlockMixin",
     "ProjectileMixin",
-    "RabbitRaidGardenGoalMixin",
-    "RavagerMixin",
     "ServerExplosionMixin",
     "ServerGamePacketListenerImplMixin",
-    "VehicleEntityMixin",
-    "WitherBossMixin"
+    "VehicleEntityMixin"
   ],
   "injectors": {
     "defaultRequire": 1

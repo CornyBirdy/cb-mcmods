@@ -23,7 +23,7 @@ import java.util.Set;
 public final class EstateConfig {
 
     /** Bump when a setting is renamed or its meaning changes, and add a step to {@link ConfigFile#migrate}. */
-    public static final int CURRENT_VERSION = 2;
+    public static final int CURRENT_VERSION = 3;
 
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.FIELD)
@@ -98,10 +98,10 @@ public final class EstateConfig {
     public boolean enterLeaveMessages = true;
     /** Worlds (dimension ids) where claims can be made. */
     public List<String> claimableWorlds = new ArrayList<>(List.of("minecraft:overworld"));
-    /** Flag defaults for every claim. true = protected, except pvp where true = PvP allowed. */
+    /** Flag defaults for every claim. true = protected. */
     public Map<String, Boolean> flagDefaults = defaultFlags();
     /** Flags claim owners may change for their own claims. */
-    public List<String> ownerEditableFlags = new ArrayList<>(List.of("pvp", "mobGriefing"));
+    public List<String> ownerEditableFlags = defaultEditableFlags();
     /** What each trust tier allows: interact, containers, build, buffer, trust, resize. */
     public Map<String, List<String>> trustTiers = defaultTiers();
     /** Blocks that need only the "interact" permission (ids or #tags). */
@@ -122,9 +122,13 @@ public final class EstateConfig {
     private static Map<String, Boolean> defaultFlags() {
         Map<String, Boolean> flags = new LinkedHashMap<>();
         for (Flag flag : Flag.values()) {
-            flags.put(flag.key, flag != Flag.PVP);
+            flags.put(flag.key, true);
         }
         return flags;
+    }
+
+    static List<String> defaultEditableFlags() {
+        return new ArrayList<>(List.of("explosions", "fireSpread", "fluidFlowIn", "pistonCross", "entityDamage"));
     }
 
     private static Map<String, List<String>> defaultTiers() {
@@ -235,7 +239,7 @@ public final class EstateConfig {
         }
     }
 
-    /** The exact field name for a setting typed in any case, or null. Map entries use a dot, like {@code flagDefaults.pvp}. */
+    /** The exact field name for a setting typed in any case, or null. Map entries use a dot, like {@code flagDefaults.explosions}. */
     public static String canonicalName(String name) {
         String base = name.contains(".") ? name.substring(0, name.indexOf('.')) : name;
         for (String setting : settingNames()) {

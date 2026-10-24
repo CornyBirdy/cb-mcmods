@@ -1,9 +1,10 @@
-### New in 1.2.0
-- **Claims are exact to the block.** No more 8x8 plots: a claim is exactly the blocks between your two corners, and boxes can be joined into any shape. Budgets are counted in blocks of land (4096 by default, a 64x64 area, same as before). Existing claims, budgets, grants and donations are converted automatically when you update, and the old database and config are backed up next to the new ones.
-- **Glass borders.** Show borders draws claims as boxes of tinted glass with glowing edges: green for yours, red for others. They follow you while you walk and no longer flicker.
-- **Claim tool fixed.** Left-click for corner 1, right-click for corner 2 (like Litematica). It doesn't dig, hit mobs or lose durability any more.
-- **Auto-claim** boxes your build with 4 blocks of land around it (`autoClaimMargin`) and stretches to cover new building nearby without leaving gaps.
-- Message texts you haven't changed now update with Estate. This time your old `estate-messages.json` is backed up and replaced once, because the wording changed from cells to blocks.
+### New in 1.3.0
+- **PvP and mob flags removed.** Estate no longer touches PvP (Gatekeeper's `/pvp` handles it) or mobs (they behave as in vanilla; use the `mobGriefing` game rule). Explosions, including creepers, are still protected. Owners can now change explosions, fire, water and lava, pistons and animals on their own claims.
+- **Menu colours fixed.** "protected" and "not protected" show in green and red instead of as `<green>` text.
+- **Glass borders stay visible.** They no longer vanish when one corner of a wall is out of sight (this happened most with Sodium), and they're drawn 64 blocks around you.
+
+### Since 1.2.0
+- Claims are exact to the block, shown as glass boxes, and drawn with the claim tool: left-click for corner 1, right-click for corner 2.
 
 Land claims for survival servers, for **Fabric 26.3**. Everyone gets the same flat claim budget, builds can be claimed automatically, buffers stop spite builds, and everything works without an admin online. Players don't need to install anything.
 

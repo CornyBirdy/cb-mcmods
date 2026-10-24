@@ -43,11 +43,11 @@ What each level allows is in the config, so it can be changed later.
 | `fireSpread` | protected | fire spreading in and burning blocks away |
 | `fluidFlowIn` | protected | water and lava flowing in from outside |
 | `pistonCross` | protected | pistons and flying machines pushing or pulling blocks across the border |
-| `mobGriefing` | protected | endermen taking or placing blocks, zombies breaking doors, rabbits eating carrots, ravagers and withers tearing through blocks, arrows from mobs |
 | `entityDamage` | protected | players hurting pets, animals and villagers, breaking item frames, paintings, armour stands, boats and minecarts |
-| `pvp` | off | players fighting each other (for an opt-in PvP system to build on) |
 
-Dispensers outside a claim can't fire into it, and projectiles from untrusted players can't break pots, light TNT or press buttons inside. The server owner sets the defaults; owners can only change the flags listed in `ownerEditableFlags` (PvP and mob griefing by default).
+Dispensers outside a claim can't fire into it, and projectiles from untrusted players can't break pots, light TNT or press buttons inside. The server owner sets the defaults; owners can change the flags listed in `ownerEditableFlags` (everything except building and containers by default).
+
+Estate doesn't touch **PvP** (use Gatekeeper's `/pvp`) or **mobs**: endermen, zombies, ravagers and the like behave as in vanilla, so use the `mobGriefing` game rule if you want them tamed. Creeper and wither explosions are still covered by the `explosions` flag.
 
 **Inactivity and bans.** A claim is removed when its owner hasn't logged in for 30 days (configurable). This counts real days since their last login, whether the server was running or not, and is checked a minute after the server starts and every hour after that. Admins can exempt a claim. A permanent ban removes the player's claims; temporary bans and players who just stop playing are left to the inactivity timer.
 
@@ -107,7 +107,7 @@ Everything that doesn't need a position or a menu works in the server console (w
 |---|---|
 | `/land admin reload` | Reload `config/estate.json` and `config/estate-messages.json` |
 | `/land admin settings`, `/land admin menu` | List all settings, or change them in a menu (left +1, right -1, shift for 10) |
-| `/land admin set <setting> <value>`, `/land admin get <setting>` | Change any setting live; it's saved straight away. Lists are comma-separated; single flag defaults and trust levels use a dot, e.g. `flagDefaults.pvp true`, `trustTiers.access interact,containers` |
+| `/land admin set <setting> <value>`, `/land admin get <setting>` | Change any setting live; it's saved straight away. Lists are comma-separated; single flag defaults and trust levels use a dot, e.g. `flagDefaults.explosions false`, `trustTiers.access interact,containers` |
 | `/land admin bypass [on\|off]` | Build and open everything everywhere |
 | `/land admin budget <player> [grant <blocks>\|add <blocks>]` | See a player's budget, or give them extra blocks (up to `maxGrantedBudget`) |
 | `/land admin claims [player]` | List all claims, or one player's |
@@ -155,8 +155,8 @@ Give it with a permissions mod that supports the Fabric Permission API, like Luc
 | `placedBlockRetentionDays` | `90` | How long placed-block records are kept. `0` = forever |
 | `enterLeaveMessages` | `true` | Action bar message when walking into or out of a claim |
 | `claimableWorlds` | `minecraft:overworld` | Dimensions where claims can be made |
-| `flagDefaults` | see the table above | `true` = protected (for `pvp`: `true` = PvP allowed) |
-| `ownerEditableFlags` | `pvp, mobGriefing` | Flags owners may change on their own claims |
+| `flagDefaults` | see the table above | `true` = protected |
+| `ownerEditableFlags` | `explosions, fireSpread, fluidFlowIn, pistonCross, entityDamage` | Flags owners may change on their own claims |
 | `trustTiers` | see above | Permissions per level: `interact`, `containers`, `build`, `buffer`, `trust`, `resize` |
 | `accessBlocks` | doors, trapdoors, gates, buttons, lever, beds, bell, workstations, ender chest | Blocks that only need Access (ids or `#tags`) |
 | `containerBlocks` | none | Extra blocks to treat as containers |
@@ -172,7 +172,7 @@ The file has a schema version. A newer Estate upgrades it automatically after ma
 
 ## For other mods
 
-`dev.cornybirdy.estate.EstateApi` has `isPvpAllowed(level, pos)`, `ownerAt(level, pos)` and `mayBuild(level, pos, player)`.
+`dev.cornybirdy.estate.EstateApi` has `ownerAt(level, pos)` and `mayBuild(level, pos, player)`.
 
 ## Building
 

@@ -3,8 +3,9 @@ package dev.cornybirdy.estate.core;
 import java.util.Locale;
 
 /**
- * Per-claim protection switches. For every flag except {@link #PVP}, {@code true} means protected. For PvP,
- * {@code true} means players may fight inside the claim.
+ * Per-claim protection switches; {@code true} means protected. PvP is left to a PvP mod such as Gatekeeper, and mobs
+ * behave as in vanilla (the {@code mobGriefing} game rule covers them); both were flags before 1.3 and old values of
+ * them are ignored.
  */
 public enum Flag {
     BLOCK_BREAK_PLACE("blockBreakPlace"),
@@ -13,9 +14,7 @@ public enum Flag {
     FIRE_SPREAD("fireSpread"),
     FLUID_FLOW_IN("fluidFlowIn"),
     PISTON_CROSS("pistonCross"),
-    MOB_GRIEFING("mobGriefing"),
-    ENTITY_DAMAGE("entityDamage"),
-    PVP("pvp");
+    ENTITY_DAMAGE("entityDamage");
 
     public final String key;
 

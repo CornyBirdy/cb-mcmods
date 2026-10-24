@@ -15,7 +15,8 @@ import java.util.Map;
  * A small subset of MiniMessage, so the Fabric config reads like the Paper one. Supports colour names
  * ({@code <gray>}), hex colours ({@code <#ff8800>}), {@code <bold>}, {@code <italic>}, {@code <underlined>},
  * {@code <strikethrough>}, {@code <obfuscated>}, {@code <reset>}, closing tags ({@code </gray>}) and placeholders
- * ({@code <player>}), which are inserted as plain text.
+ * ({@code <player>}). A placeholder's value may carry its own colours (like {@code <green>protected}); they apply to
+ * the value only.
  */
 final class Text {
 
@@ -60,7 +61,14 @@ final class Text {
             String name = closing ? tag.substring(1) : tag;
 
             if (!closing && placeholders.containsKey(name)) {
-                plain.append(placeholders.get(name));
+                String value = placeholders.get(name);
+                if (value.indexOf('<') >= 0) {
+                    // Styled inside, on top of the style around it.
+                    flush(root, plain, style);
+                    root.append(Component.empty().setStyle(style).append(parse(value, Map.of())));
+                } else {
+                    plain.append(value);
+                }
                 i = close + 1;
                 continue;
             }

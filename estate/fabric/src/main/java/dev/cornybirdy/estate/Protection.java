@@ -57,7 +57,6 @@ import java.util.UUID;
 public final class Protection {
 
     /** How close a mob has to be to a protected claim before its block-changing goals stop. */
-    private static final int MOB_GRIEF_RADIUS = 3;
 
     private Protection() {
     }
@@ -241,8 +240,9 @@ public final class Protection {
         if (rt == null || !(player instanceof ServerPlayer sp) || !(level instanceof ServerLevel serverLevel)) {
             return InteractionResult.PASS;
         }
-        if (entity instanceof ServerPlayer victim) {
-            return pvpBlocked(rt, sp, victim) ? InteractionResult.FAIL : InteractionResult.PASS;
+        if (entity instanceof Player) {
+            // PvP is left to a PvP mod such as Gatekeeper.
+            return InteractionResult.PASS;
         }
         if (!rt.bypassing(sp) && entityProtected(rt, entity, serverLevel, sp)) {
             Claim claim = rt.claimAt(level, entity.blockPosition());
@@ -258,9 +258,6 @@ public final class Protection {
         EstateRuntime rt = Estate.runtime();
         if (rt == null || !(entity.level() instanceof ServerLevel level)) {
             return true;
-        }
-        if (entity instanceof ServerPlayer victim) {
-            return !(source.getEntity() instanceof ServerPlayer attacker) || attacker == victim || !pvpBlocked(rt, attacker, victim);
         }
         return !protectEntity(entity, level, source);
     }
@@ -302,18 +299,6 @@ public final class Protection {
         BlockPos pos = entity.blockPosition();
         return rt.manager.checkAction(EstateRuntime.world(level), pos.getX(), pos.getY(), pos.getZ(), attacker.getUUID(),
                 Permission.BUILD, Flag.ENTITY_DAMAGE) != null;
-    }
-
-    private static boolean pvpBlocked(EstateRuntime rt, ServerPlayer attacker, ServerPlayer victim) {
-        ClaimManager manager = rt.manager;
-        BlockPos at = attacker.blockPosition();
-        BlockPos to = victim.blockPosition();
-        boolean allowed = manager.pvpAllowed(EstateRuntime.world(victim.level()), to.getX(), to.getY(), to.getZ())
-                && manager.pvpAllowed(EstateRuntime.world(attacker.level()), at.getX(), at.getY(), at.getZ());
-        if (!allowed) {
-            rt.warn(attacker, "pvp-blocked");
-        }
-        return !allowed;
     }
 
     // ------------------------------------------------------------------ the world (called by mixins)
@@ -415,7 +400,8 @@ public final class Protection {
             return rt.bypassing(shooter) || rt.manager.has(claim, shooter.getUUID(), Permission.BUILD)
                     || !rt.manager.flag(claim, Flag.BLOCK_BREAK_PLACE);
         }
-        return !rt.manager.flag(claim, Flag.MOB_GRIEFING);
+        // Projectiles from mobs and dispensers behave as in vanilla.
+        return true;
     }
 
     /** {@code FarmlandBlockMixin}: false keeps farmland from being trampled. */
@@ -435,33 +421,8 @@ public final class Protection {
         if (rider instanceof ServerPlayer player) {
             return rt.manager.has(claim, player.getUUID(), Permission.BUILD);
         }
-        return !rt.manager.flag(claim, Flag.MOB_GRIEFING);
-    }
-
-    /** Mob goal mixins (endermen, door-breaking zombies, rabbits): true stops goals that change blocks near claims. */
-    public static boolean mobGriefBlocked(Mob mob) {
-        EstateRuntime rt = Estate.runtime();
-        if (rt == null || !(mob.level() instanceof ServerLevel level)) {
-            return false;
-        }
-        BlockPos pos = mob.blockPosition();
-        String world = EstateRuntime.world(level);
-        for (Claim claim : rt.manager.claimsNear(world, pos.getX(), pos.getZ(), MOB_GRIEF_RADIUS)) {
-            if (claim.overlapsY(pos.getY() - MOB_GRIEF_RADIUS, pos.getY() + MOB_GRIEF_RADIUS) && rt.manager.flag(claim, Flag.MOB_GRIEFING)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /** Wither and ravager mixins: true if a mob may not destroy this block. */
-    public static boolean mobMayNotDestroy(Level level, BlockPos pos) {
-        EstateRuntime rt = Estate.runtime();
-        if (rt == null) {
-            return false;
-        }
-        Claim claim = rt.claimAt(level, pos);
-        return claim != null && rt.manager.flag(claim, Flag.MOB_GRIEFING);
+        // Mobs trample as in vanilla.
+        return true;
     }
 
     /** True if the source spot is in a claim of the target claim's owner. */

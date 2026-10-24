@@ -100,10 +100,10 @@ final class Borders {
 
     private static final int REDRAW_TICKS = 10;
     /** How far around the player borders are drawn, sideways and up or down. */
-    private static final int VIEW_DISTANCE = 48;
+    private static final int VIEW_DISTANCE = 64;
     private static final int VIEW_HEIGHT = 32;
     private static final int MAX_PARTICLES = 1500;
-    private static final int MAX_DISPLAYS = 600;
+    private static final int MAX_DISPLAYS = 800;
     /** Glass walls are split into panels of at most this many blocks, so the glass texture doesn't stretch. */
     private static final int PANEL = 16;
     /** Thickness of the glass panels and of the glowing edges, in blocks. */
@@ -365,20 +365,32 @@ final class Borders {
         }
     }
 
-    /** One block display scaled to a box, only ever sent to this player. Returns its entity id, or 0. */
+    /**
+     * One block display scaled to a box, only ever sent to this player. Returns its entity id, or 0.
+     * <p>
+     * The entity stands in the middle of the box and its width and height cover all of it. Clients (and mods like
+     * Sodium) decide whether to draw an entity from that box, so a display whose box was a dot at one corner vanished
+     * whenever that corner was out of sight.
+     */
     private static int spawn(ServerLevel level, RegistryOps<Tag> ops, Spec spec,
                              List<Packet<? super ClientGamePacketListener>> packets) {
+        double x = spec.x() + spec.sx() / 2.0;
+        double y = spec.y();
+        double z = spec.z() + spec.sz() / 2.0;
         CompoundTag data = new CompoundTag();
         data.store(Display.BlockDisplay.TAG_BLOCK_STATE, BlockState.CODEC, ops, spec.block());
-        data.store(Display.TAG_TRANSFORMATION, Transformation.CODEC, ops, new Transformation(new Vector3f(),
-                new Quaternionf(), new Vector3f(spec.sx(), spec.sy(), spec.sz()), new Quaternionf()));
+        data.store(Display.TAG_TRANSFORMATION, Transformation.CODEC, ops, new Transformation(
+                new Vector3f(-spec.sx() / 2f, 0, -spec.sz() / 2f), new Quaternionf(),
+                new Vector3f(spec.sx(), spec.sy(), spec.sz()), new Quaternionf()));
+        data.putFloat("width", Math.max(spec.sx(), spec.sz()) + 1f);
+        data.putFloat("height", spec.sy() + 1f);
         data.store(Display.TAG_BRIGHTNESS, Brightness.CODEC, ops, Brightness.FULL_BRIGHT);
         if (spec.glow() >= 0) {
             data.putInt(Display.TAG_GLOW_COLOR_OVERRIDE, spec.glow());
         }
         data.putFloat(Display.TAG_VIEW_RANGE, VIEW_RANGE);
         Entity entity = EntityType.loadEntityRecursive(EntityTypes.BLOCK_DISPLAY, data, level, EntitySpawnReason.COMMAND, e -> {
-            e.snapTo(spec.x(), spec.y(), spec.z(), 0, 0);
+            e.snapTo(x, y, z, 0, 0);
             return e;
         });
         if (entity == null) {
@@ -387,7 +399,7 @@ final class Borders {
         if (spec.glow() >= 0) {
             entity.setGlowingTag(true);
         }
-        packets.add(new ClientboundAddEntityPacket(entity.getId(), entity.getUUID(), spec.x(), spec.y(), spec.z(), 0, 0,
+        packets.add(new ClientboundAddEntityPacket(entity.getId(), entity.getUUID(), x, y, z, 0, 0,
                 EntityTypes.BLOCK_DISPLAY, 0, Vec3.ZERO, 0));
         List<SynchedEntityData.DataValue<?>> values = entity.getEntityData().getNonDefaultValues();
         if (values != null && !values.isEmpty()) {
