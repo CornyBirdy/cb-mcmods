@@ -36,7 +36,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,12 +45,11 @@ import java.util.Set;
  * buffers, aqua for town zones, and white (or red when it can't be confirmed) for a claim being drawn or resized.
  * They fade by themselves after {@code borderParticleSeconds}.
  * <p>
- * With {@code borderStyle: blocks} (the default) the player's own claims and the claim being drawn are boxes of tinted
- * glass walls, floor and ceiling with glowing edges that show through terrain; other players' claims only get the
- * glowing edges, and every claim's buffer is a yellow line. It's all block display entities that only exist on that player's
- * screen: the server sends the entity packets to them alone and never adds the entities to the world, so nothing is
- * left behind after a restart. Each redraw only sends what changed, in one bundle, so nothing flickers. With
- * {@code particles} the borders are coloured dust, redrawn every half second.
+ * Every outline is coloured dust particles, redrawn every half second. With {@code borderStyle: blocks} (the default)
+ * the player's own claims and the claim being drawn are also filled in as boxes of tinted glass (walls, floor and
+ * ceiling), and the corners being drawn are glowing cubes. Those are block display entities that only exist on that
+ * player's screen: the server sends the entity packets to them alone and never adds the entities to the world, so
+ * nothing is left behind after a restart. Each redraw only sends what changed, in one bundle, so nothing flickers.
  */
 final class Borders {
 
@@ -109,9 +107,8 @@ final class Borders {
     private static final int MAX_DISPLAYS = 800;
     /** Glass walls are split into panels of at most this many blocks, so the glass texture doesn't stretch. */
     private static final int PANEL = 16;
-    /** Thickness of the glass panels and of the glowing edges, in blocks. */
+    /** Thickness of the glass panels, in blocks. */
     private static final float GLASS = 0.02f;
-    private static final float EDGE = 0.06f;
     /** Display entities are drawn up to this many times 64 blocks away. */
     private static final float VIEW_RANGE = 4f;
 
@@ -140,8 +137,8 @@ final class Borders {
             sendDisplays(player, session);
         } else {
             clearDisplays(player, session);
-            drawParticles(player, session);
         }
+        drawParticles(player, session);
     }
 
     void tick(long tick) {
@@ -212,13 +209,8 @@ final class Borders {
         double pz = player.getZ();
         List<Spec> specs = new ArrayList<>();
         for (Shape shape : shapes(player, session)) {
-            List<Outline.Segment> segments = Outline.of(shape.region(), shape.grow());
-            if (shape.kind() == Kind.LINE) {
-                for (Outline.Segment segment : segments) {
-                    if (near(segment, px, pz)) {
-                        specs.add(edge(shape.colour(), segment, shape.lineY() + 0.02));
-                    }
-                }
+            if (shape.kind() != Kind.BOX) {
+                // Outlines are particles (see drawParticles); only glass is made of displays.
                 continue;
             }
             int bottom = shape.minY();
@@ -227,30 +219,12 @@ final class Borders {
             boolean seeTop = Math.abs(top - py) <= VIEW_HEIGHT;
             int wallFrom = Math.max(bottom, floorTo(py - VIEW_HEIGHT, bottom));
             int wallTo = Math.min(top, floorTo(py + VIEW_HEIGHT, bottom) + PANEL);
-            Set<Long> corners = new LinkedHashSet<>();
-            for (Outline.Segment segment : segments) {
-                if (!near(segment, px, pz)) {
-                    continue;
-                }
-                if (shape.kind() == Kind.BOX) {
+            for (Outline.Segment segment : Outline.of(shape.region(), 0)) {
+                if (near(segment, px, pz)) {
                     walls(shape.colour(), segment, wallFrom, wallTo, px, pz, specs);
                 }
-                if (seeBottom) {
-                    specs.add(edge(shape.colour(), segment, bottom));
-                }
-                if (seeTop) {
-                    specs.add(edge(shape.colour(), segment, top));
-                }
-                corners.add(((long) segment.x1() << 32) | (segment.z1() & 0xFFFFFFFFL));
-                corners.add(((long) segment.x2() << 32) | (segment.z2() & 0xFFFFFFFFL));
             }
-            for (long corner : corners) {
-                int cx = (int) (corner >> 32);
-                int cz = (int) corner;
-                specs.add(new Spec(shape.colour().edge, cx - EDGE / 2, bottom, cz - EDGE / 2, EDGE, top - bottom, EDGE,
-                        shape.colour().rgb));
-            }
-            for (Region.Box box : shape.kind() == Kind.BOX ? shape.region().boxes() : List.<Region.Box>of()) {
+            for (Region.Box box : shape.region().boxes()) {
                 if (seeBottom) {
                     flat(shape.colour(), box, bottom, px, pz, specs);
                 }
@@ -317,17 +291,6 @@ final class Borders {
                 specs.add(new Spec(colour.glass, x, y - GLASS / 2, z, x2 - x, GLASS, z2 - z, -1));
             }
         }
-    }
-
-    /** A thin glowing bar along a border line. */
-    private static Spec edge(Colour colour, Outline.Segment segment, double y) {
-        boolean alongX = segment.z1() == segment.z2();
-        float length = segment.length();
-        double x = Math.min(segment.x1(), segment.x2()) - (alongX ? 0 : EDGE / 2);
-        double z = Math.min(segment.z1(), segment.z2()) - (alongX ? EDGE / 2 : 0);
-        return alongX
-                ? new Spec(colour.edge, x, y - EDGE / 2, z, length, EDGE, EDGE, colour.rgb)
-                : new Spec(colour.edge, x, y - EDGE / 2, z, EDGE, EDGE, length, colour.rgb);
     }
 
     private static boolean near(Outline.Segment segment, double px, double pz) {

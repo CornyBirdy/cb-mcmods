@@ -66,7 +66,7 @@ Estate doesn't touch **PvP** (use Gatekeeper's `/pvp`) or **mobs**: endermen, zo
 
 Every button says what it does and ends with "» Click to …".
 
-- **Show borders** shows nearby claims for 10 seconds. Your own claims are boxes of **green** tinted glass with glowing edges you can see through terrain; other players' claims are just **red** glowing edges, so a crowded area stays readable. Every claim's buffer (yours too) is a **yellow** line and town zones an **aqua** one. They follow you while you walk and fade by themselves. (`borderStyle particles` switches to particles.)
+- **Show borders** shows nearby claims for 10 seconds as particle outlines: **green** for yours, **red** for other players', **yellow** for every claim's buffer (yours too) and **aqua** for town zones. Your own claims (and the claim you're drawing) are also filled in as boxes of tinted glass. (`borderStyle particles` leaves out the glass.) They follow you while you walk and fade by themselves. (`borderStyle particles` switches to particles.)
 - **Claim land** gives you the **claim tool** (a golden shovel), like a Litematica selection:
   - **Left-click** a block for **corner 1** (red). Then just look around: the box follows your crosshair, and the action bar shows its size, cost and the claim blocks you'd have left.
   - **Right-click** for **corner 2** (blue). You can re-pick either corner as often as you like, up to 64 blocks away. The tool never digs, hits anything or wears out. Dropping it makes it vanish; while you're drawing a claim it comes straight back.
@@ -151,7 +151,7 @@ Give it with a permissions mod that supports the Fabric Permission API, like Luc
 | `inactivityDays` | `30` | Remove claims of players away this long. `0` = never |
 | `unclaimOnPermanentBan` | `true` | Remove the claims of permanently banned players |
 | `borderParticleSeconds` | `10` | How long borders stay visible |
-| `borderStyle` | `blocks` | `blocks` (glass boxes with glowing edges) or `particles` |
+| `borderStyle` | `blocks` | `blocks` (particle outlines plus glass boxes for your own claims) or `particles` (outlines only) |
 | `placedBlockRetentionDays` | `90` | How long placed-block records are kept. `0` = forever |
 | `enterLeaveMessages` | `true` | Action bar message when walking into or out of a claim |
 | `claimableWorlds` | `minecraft:overworld` | Dimensions where claims can be made |
