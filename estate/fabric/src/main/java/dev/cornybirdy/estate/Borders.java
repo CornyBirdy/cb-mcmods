@@ -6,6 +6,7 @@ import dev.cornybirdy.estate.core.ClaimDraft;
 import dev.cornybirdy.estate.core.Outline;
 import dev.cornybirdy.estate.core.Region;
 import dev.cornybirdy.estate.core.TownZone;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
@@ -34,6 +35,7 @@ import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -95,23 +97,29 @@ final class Borders {
             this.rgb = rgb;
             this.glass = glass.defaultBlockState();
             this.edge = edge.defaultBlockState();
-            this.dust = new DustParticleOptions(rgb, 1.6f);
+            this.dust = new DustParticleOptions(rgb, 1.2f);
         }
     }
 
-    private static final int REDRAW_TICKS = 10;
     /** While the claim tool is held, claims this close to the player are shown. */
     private static final int HOLD_RADIUS = 16;
     /** Other players' claims are filled with glass when the player is this close to them, outlined further away. */
     private static final int GLASS_DISTANCE = 16;
-    private static final int PARTICLE_TICKS = 5;
-    /** Within this many blocks of the player, outlines get {@link #DENSITY} particles per block; further out, one. */
-    private static final int DENSE_DISTANCE = 24;
-    private static final int DENSITY = 4;
+    private static final int PARTICLE_TICKS = 10;
+    /**
+     * Particles per block along an outline: {@link #DENSITY} within {@link #DENSE_DISTANCE} blocks of the player, one
+     * within {@link #SPARSE_DISTANCE}, and one every other block beyond that. Particles cost the client a lot, so they
+     * go where the player looks closely.
+     */
+    private static final int DENSE_DISTANCE = 12;
+    private static final int SPARSE_DISTANCE = 32;
+    private static final int DENSITY = 3;
+    /** How far above and below the outline's height to look for the ground it should follow. */
+    private static final int GROUND_SEARCH = 8;
     /** How far around the player borders are drawn, sideways and up or down. */
     private static final int VIEW_DISTANCE = 64;
     private static final int VIEW_HEIGHT = 24;
-    private static final int MAX_PARTICLES = 3000;
+    private static final int MAX_PARTICLES = 1200;
     private static final int MAX_DISPLAYS = 800;
     /** Glass walls are split into panels of at most this many blocks, so the glass texture doesn't stretch. */
     private static final int PANEL = 16;
@@ -170,11 +178,9 @@ final class Borders {
         for (ServerPlayer player : rt.server.getPlayerList().getPlayers()) {
             Session session = rt.session(player);
             if (session.bordersUntil > tick) {
-                if (tick % REDRAW_TICKS == 0) {
+                if (tick % PARTICLE_TICKS == 0) {
                     // Follows the player as they walk; only what changed is sent.
                     refresh(player);
-                } else if (tick % PARTICLE_TICKS == 0) {
-                    drawParticles(player, session);
                 }
                 continue;
             }
@@ -418,8 +424,40 @@ final class Borders {
 
     // ------------------------------------------------------------------ particles
 
+    /** Finds the ground along borders, remembering each column for one redraw. */
+    private record Ground(ServerLevel level, Map<Long, Integer> columns) {
+        Ground(ServerLevel level) {
+            this(level, new HashMap<>());
+        }
+
+        /** The top of the solid ground in a column within {@link #GROUND_SEARCH} of {@code around}, or MIN_VALUE. */
+        int column(int x, int z, int around) {
+            long key = ((long) x << 40) ^ ((long) (z & 0xFFFFFF) << 16) ^ (around & 0xFFFF);
+            Integer known = columns.get(key);
+            if (known != null) {
+                return known;
+            }
+            int found = Integer.MIN_VALUE;
+            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos(x, around, z);
+            if (level.isLoaded(pos)) {
+                for (int y = around + GROUND_SEARCH; y >= around - GROUND_SEARCH; y--) {
+                    pos.setY(y - 1);
+                    boolean solidBelow = level.getBlockState(pos).blocksMotion();
+                    pos.setY(y);
+                    if (solidBelow && !level.getBlockState(pos).blocksMotion()) {
+                        found = y;
+                        break;
+                    }
+                }
+            }
+            columns.put(key, found);
+            return found;
+        }
+    }
+
     private void drawParticles(ServerPlayer player, Session session) {
         int[] budget = {MAX_PARTICLES};
+        Ground ground = new Ground(player.level());
         int py = player.getBlockY();
         ClaimDraft draft = session.draft;
         if (draft != null && draft.world.equals(EstateRuntime.world(player.level()))) {
@@ -433,8 +471,9 @@ final class Borders {
         }
         for (Shape shape : shapes(player, session)) {
             DustParticleOptions dust = shape.colour().dust;
-            double eyeLine = shape.kind() == Kind.LINE ? shape.lineY() + 0.5
-                    : Math.max(shape.minY(), Math.min(shape.maxY(), py + 1)) + 0.5;
+            int bottom = shape.minY();
+            int top = shape.maxY() + 1;
+            int around = shape.kind() == Kind.LINE ? Math.max(bottom, Math.min(top, shape.lineY())) : Math.max(bottom, Math.min(top, py));
             for (Outline.Segment segment : Outline.of(shape.region(), shape.grow())) {
                 if (budget[0] <= 0) {
                     return;
@@ -442,50 +481,96 @@ final class Borders {
                 if (!near(segment, player.getX(), player.getZ())) {
                     continue;
                 }
-                line(player, segment, eyeLine, dust, budget);
+                // Along the ground, up and down over blocks, near the player's height.
+                groundLine(player, ground, segment, around, bottom, top, dust, budget);
                 if (shape.kind() == Kind.LINE) {
                     continue;
                 }
-                if (Math.abs(shape.maxY() + 1 - py) <= 16) {
-                    line(player, segment, shape.maxY() + 1, dust, budget);
+                if (Math.abs(top - py) <= 16 && top - around > GROUND_SEARCH) {
+                    line(player, segment, top, dust, budget);
                 }
-                if (Math.abs(shape.minY() - py) <= 16) {
-                    line(player, segment, shape.minY(), dust, budget);
+                if (Math.abs(bottom - py) <= 16 && around - bottom > GROUND_SEARCH) {
+                    line(player, segment, bottom, dust, budget);
                 }
-                int bottom = Math.max(shape.minY(), py - 3);
-                int top = Math.min(shape.maxY() + 1, py + 5);
-                column(player, segment.x1(), segment.z1(), bottom, top, dust, budget);
-                column(player, segment.x2(), segment.z2(), bottom, top, dust, budget);
+                column(player, ground, segment.x1(), segment.z1(), around, bottom, top, dust, budget);
+                column(player, ground, segment.x2(), segment.z2(), around, bottom, top, dust, budget);
             }
         }
     }
 
-    /** Particles along a border line: {@link #DENSITY} per block near the player, one per block further away. */
+    /** How many particles per block an outline gets at this spot. 0.5 means one every other block. */
+    private static double perBlock(ServerPlayer player, double x, double z) {
+        double dx = x - player.getX();
+        double dz = z - player.getZ();
+        double sq = dx * dx + dz * dz;
+        return sq <= DENSE_DISTANCE * DENSE_DISTANCE ? DENSITY : sq <= SPARSE_DISTANCE * SPARSE_DISTANCE ? 1 : 0.5;
+    }
+
+    /** Particles along a border line at one height. */
     private static void line(ServerPlayer player, Outline.Segment segment, double y, DustParticleOptions dust, int[] budget) {
-        int steps = segment.length() * DENSITY;
+        forEachPoint(player, segment, (x, z) -> particle(player, x, y, z, dust, budget), budget);
+    }
+
+    /** Particles along a border line, sitting on the ground (or floor) closest to {@code around}. */
+    private static void groundLine(ServerPlayer player, Ground level, Outline.Segment segment, int around, int bottom,
+                                   int top, DustParticleOptions dust, int[] budget) {
+        forEachPoint(player, segment, (x, z) -> {
+            int y = ground(level, x, z, around, bottom, top);
+            particle(player, x, y + 0.1, z, dust, budget);
+        }, budget);
+    }
+
+    private interface Point {
+        void at(double x, double z);
+    }
+
+    /** Walks a segment, with more points close to the player. */
+    private static void forEachPoint(ServerPlayer player, Outline.Segment segment, Point point, int[] budget) {
+        int length = segment.length();
+        int steps = length * DENSITY;
         for (int i = 0; i <= steps && budget[0] > 0; i++) {
             double t = steps == 0 ? 0 : (double) i / steps;
             double x = segment.x1() + (segment.x2() - segment.x1()) * t;
             double z = segment.z1() + (segment.z2() - segment.z1()) * t;
-            if (i % DENSITY != 0 && !dense(player, x, z)) {
-                continue;
+            double density = perBlock(player, x, z);
+            int every = density >= DENSITY ? 1 : density >= 1 ? DENSITY : DENSITY * 2;
+            if (i % every == 0) {
+                point.at(x, z);
             }
-            particle(player, x, y, z, dust, budget);
         }
     }
 
-    /** A vertical line of particles at a corner, from {@code bottom} to {@code top}. */
-    private static void column(ServerPlayer player, int x, int z, int bottom, int top, DustParticleOptions dust, int[] budget) {
-        int perBlock = dense(player, x, z) ? DENSITY : 1;
-        for (int i = 0; i <= (top - bottom) * perBlock && budget[0] > 0; i++) {
-            particle(player, x, bottom + (double) i / perBlock, z, dust, budget);
+    /** A short post of particles at a corner, standing on the ground. */
+    private static void column(ServerPlayer player, Ground level, int x, int z, int around, int bottom, int top,
+                               DustParticleOptions dust, int[] budget) {
+        double density = Math.max(1, perBlock(player, x, z));
+        int from = ground(level, x, z, around, bottom, top);
+        int to = Math.min(top, from + 3);
+        for (int i = 0; i <= (to - from) * density && budget[0] > 0; i++) {
+            particle(player, x, from + i / density, z, dust, budget);
         }
     }
 
-    private static boolean dense(ServerPlayer player, double x, double z) {
-        double dx = x - player.getX();
-        double dz = z - player.getZ();
-        return dx * dx + dz * dz <= DENSE_DISTANCE * DENSE_DISTANCE;
+    /**
+     * The height of the ground at a point on a border, near {@code around}: the top of the highest solid block of the
+     * columns on either side of the line, found within {@link #GROUND_SEARCH} blocks. {@code around} if there's none
+     * (or the chunk isn't loaded). Kept between {@code bottom} and {@code top}.
+     */
+    private static int ground(Ground level, double x, double z, int around, int bottom, int top) {
+        int best = Integer.MIN_VALUE;
+        for (int bx : sides(x)) {
+            for (int bz : sides(z)) {
+                best = Math.max(best, level.column(bx, bz, around));
+            }
+        }
+        int y = best == Integer.MIN_VALUE ? around : best;
+        return Math.max(bottom, Math.min(top, y));
+    }
+
+    /** The block columns touching a coordinate: both neighbours on a block edge, just one inside a block. */
+    private static int[] sides(double v) {
+        int floor = (int) Math.floor(v);
+        return v == floor ? new int[]{floor - 1, floor} : new int[]{floor};
     }
 
     private static void particle(ServerPlayer player, double x, double y, double z, DustParticleOptions dust, int[] budget) {

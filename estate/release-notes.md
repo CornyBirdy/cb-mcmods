@@ -1,3 +1,8 @@
+### New in 1.3.2
+- **Outlines follow the ground.** Particle lines now run along the top of the blocks, up and down hills and steps, instead of floating at one height.
+- **Much lighter on FPS.** Far fewer particles: dense right next to you, thinner further away, and each one lasts a shorter time.
+- **Shorter warning** when building in someone's buffer, so it fits on screen.
+
 ### New in 1.3.1
 - **Denser particle outlines.** Four particles per block within 24 blocks of you, drawn twice as often.
 - **Holding the claim tool shows claims within 16 blocks** of you, so you can see where you can claim.
