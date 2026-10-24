@@ -76,14 +76,14 @@ final class Borders {
     }
 
     enum Colour {
-        OWN(0x55FF55, Blocks.LIME_STAINED_GLASS, Blocks.EMERALD_BLOCK),
-        OTHER(0xFF5555, Blocks.RED_STAINED_GLASS, Blocks.REDSTONE_BLOCK),
-        BUFFER(0xFFDD33, Blocks.YELLOW_STAINED_GLASS, Blocks.GOLD_BLOCK),
-        TOWN(0x55FFFF, Blocks.LIGHT_BLUE_STAINED_GLASS, Blocks.DIAMOND_BLOCK),
-        DRAFT_OK(0xFFFFFF, Blocks.WHITE_STAINED_GLASS, Blocks.QUARTZ_BLOCK),
-        DRAFT_BAD(0xFF2222, Blocks.RED_STAINED_GLASS, Blocks.REDSTONE_BLOCK),
-        CORNER_1(0xFF3333, Blocks.RED_STAINED_GLASS, Blocks.REDSTONE_BLOCK),
-        CORNER_2(0x3388FF, Blocks.BLUE_STAINED_GLASS, Blocks.LAPIS_BLOCK);
+        OWN(0x55FF55, Blocks.STAINED_GLASS.lime(), Blocks.EMERALD_BLOCK),
+        OTHER(0xFF5555, Blocks.STAINED_GLASS.red(), Blocks.REDSTONE_BLOCK),
+        BUFFER(0xFFDD33, Blocks.STAINED_GLASS.yellow(), Blocks.GOLD_BLOCK),
+        TOWN(0x55FFFF, Blocks.STAINED_GLASS.lightBlue(), Blocks.DIAMOND_BLOCK),
+        DRAFT_OK(0xFFFFFF, Blocks.STAINED_GLASS.white(), Blocks.QUARTZ_BLOCK),
+        DRAFT_BAD(0xFF2222, Blocks.STAINED_GLASS.red(), Blocks.REDSTONE_BLOCK),
+        CORNER_1(0xFF3333, Blocks.STAINED_GLASS.red(), Blocks.REDSTONE_BLOCK),
+        CORNER_2(0x3388FF, Blocks.STAINED_GLASS.blue(), Blocks.LAPIS_BLOCK);
 
         final int rgb;
         final BlockState glass;

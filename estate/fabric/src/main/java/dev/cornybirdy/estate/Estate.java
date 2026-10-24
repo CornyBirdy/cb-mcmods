@@ -79,10 +79,12 @@ public final class Estate implements ModInitializer {
         CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> LandCommand.register(dispatcher));
     }
 
-    /** A player swung their arm (from a mixin): a left-click with the claim tool picks a corner. */
-    public static void swung(ServerPlayer player, InteractionHand hand) {
-        if (runtime != null) {
-            runtime.claimTool.swing(player, hand);
+    /** A player punched the air or something far away (from a mixin): a left-click with the claim tool picks a corner. */
+    public static void punched(ServerPlayer player) {
+        EstateRuntime rt = runtime;
+        if (rt != null) {
+            // Packets may be handled off the server thread; the tool only ever runs on it.
+            rt.server.execute(() -> rt.claimTool.swing(player, InteractionHand.MAIN_HAND));
         }
     }
 
