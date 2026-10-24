@@ -77,22 +77,19 @@ public final class EstateConfig {
     public boolean buildPrompt = true;
     /** Grow an owner's claim up or down when they build above or below it, even with auto-claim off. */
     public boolean autoExtendVertical = true;
-    /** Width and length in cells of a new claim made with /land claim. */
-    @Range(min = 1, max = 64)
-    public int newClaimSize = 3;
-    /** Blocks of room above the ground in a new claim made with /land claim. */
+    /** Blocks of room above the ground in a claim drawn with the claim tool. */
     @Range(min = 0, max = 512)
     public int newClaimHeadroom = 24;
-    /** Blocks the up/down buttons in the resize menu move the top or bottom. */
-    @Range(min = 1, max = 64)
-    public int resizeVerticalStep = 4;
     /** Claims are removed when the owner hasn't logged in for this many days. 0 = never. */
     @Range(min = 0, max = 100_000)
     public int inactivityDays = 30;
     /** Remove a player's claims when they're banned permanently. */
     public boolean unclaimOnPermanentBan = true;
+    /** How long "View borders" and previews stay visible. */
     @Range(min = 1, max = 300)
     public int borderParticleSeconds = 10;
+    /** How borders are drawn: "blocks" (thin glowing outlines, seen through walls) or "particles". */
+    public String borderStyle = "blocks";
     /** How long placed-block records are kept. 0 = forever. */
     @Range(min = 0, max = 100_000)
     public int placedBlockRetentionDays = 90;
@@ -304,6 +301,11 @@ public final class EstateConfig {
                     field.setBoolean(this, on);
                 } else if (type == List.class) {
                     field.set(this, splitList(value));
+                } else if (type == String.class) {
+                    if (canonical.equals("borderStyle") && !value.equals("blocks") && !value.equals("particles")) {
+                        return "borderStyle is either blocks or particles.";
+                    }
+                    field.set(this, value);
                 } else {
                     return canonical + " can only be changed in the config file (use dotted names for single entries).";
                 }

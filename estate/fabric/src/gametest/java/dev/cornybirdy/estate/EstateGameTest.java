@@ -2,6 +2,7 @@ package dev.cornybirdy.estate;
 
 import dev.cornybirdy.estate.core.Cells;
 import dev.cornybirdy.estate.core.Claim;
+import dev.cornybirdy.estate.core.ClaimDraft;
 import dev.cornybirdy.estate.core.PlacementOracle;
 import dev.cornybirdy.estate.core.TrustTier;
 import net.fabricmc.fabric.api.entity.FakePlayer;
@@ -178,82 +179,101 @@ public class EstateGameTest {
         helper.succeed();
     }
 
-    /** Builds every /land screen for a fake player and clicks through making, resizing and removing a claim. */
+    /**
+     * Builds every /land screen for a fake player and clicks through drawing a claim by coordinates, resizing it in the
+     * editor and removing it. Also draws the block display borders, which only go to that player.
+     */
     @GameTest(maxTicks = 200)
     public void menusWork(GameTestHelper helper) {
         EstateRuntime rt = Estate.runtime();
         ServerLevel level = helper.getLevel();
         FakePlayer player = FakePlayer.get(level);
         UUID id = player.getUUID();
+        String world = EstateRuntime.world(level);
+        int cellSize = rt.manager.cellSize();
         BlockPos base = helper.absolutePos(new BlockPos(1, 1, 1));
         player.setPos(base.getX() + 0.5, base.getY(), base.getZ() + 0.5);
         boolean autoBefore = rt.manager.autoClaim(id);
         try {
             Menus.main(rt, player);
             Gui main = Gui.lastOffscreen;
-            if (main == null || main.itemAt(4).isEmpty()) {
+            if (main == null || main.itemAt(Menus.SLOT_INFO).isEmpty()) {
                 throw helper.assertionException("The main menu should show the budget");
             }
-            main.press(14, Gui.Click.LEFT);
+            main.press(Menus.SLOT_AUTOCLAIM, Gui.Click.LEFT);
             if (rt.manager.autoClaim(id) == autoBefore) {
                 throw helper.assertionException("The auto-claim button should switch auto-claim");
             }
-            main.press(14, Gui.Click.LEFT);
+            main.press(Menus.SLOT_AUTOCLAIM, Gui.Click.LEFT);
 
-            main.press(11, Gui.Click.LEFT);
+            main.press(Menus.SLOT_CLAIM, Gui.Click.LEFT);
+            if (rt.session(player).selection == null || !hasTool(player)) {
+                throw helper.assertionException("Claim land should hand out the claim tool");
+            }
+            BlockPos corner2 = base.offset(12, 15, 5);
+            rt.claimTool.setExact(player, 1, base);
+            rt.claimTool.setExact(player, 2, corner2);
+            int expected = ClaimDraft.create(world, cellSize, new int[]{base.getX(), base.getY(), base.getZ()},
+                    new int[]{corner2.getX(), corner2.getY(), corner2.getZ()}).cells().size();
+            Menus.editor(rt, player);
             Gui editor = Gui.lastOffscreen;
-            if (editor == main) {
-                throw helper.assertionException("New claim should open the editor");
+            editor.press(Menus.SLOT_CONFIRM, Gui.Click.LEFT);
+            Claim claim = rt.claimAt(level, base);
+            if (claim == null || !claim.owner().equals(id) || claim.size() != expected
+                    || claim.minY() != base.getY() || claim.maxY() != corner2.getY()) {
+                throw helper.assertionException("Confirming should claim the box between the corners: " + claim);
             }
-            editor.press(12, Gui.Click.LEFT);
-            editor.press(24, Gui.Click.LEFT);
-            editor.press(44, Gui.Click.LEFT);
-            Claim claim = rt.claimAt(level, player.blockPosition());
-            int size = rt.config.newClaimSize;
-            if (claim == null || !claim.owner().equals(id) || claim.size() != size * size + size) {
-                throw helper.assertionException("Confirming the editor should claim " + (size * size + size) + " cells, got "
-                        + (claim == null ? "nothing" : claim.size()));
+            if (hasTool(player)) {
+                throw helper.assertionException("The claim tool should go away once the claim is made");
             }
 
-            main.press(12, Gui.Click.LEFT);
+            main.press(Menus.SLOT_RESIZE, Gui.Click.LEFT);
             Gui resize = Gui.lastOffscreen;
-            resize.press(10, Gui.Click.LEFT);
-            resize.press(24, Gui.Click.LEFT);
-            resize.press(44, Gui.Click.LEFT);
-            if (claim.size() != size * size + 2 * size + 1) {
-                throw helper.assertionException("Growing north should add a row of cells, got " + claim.size());
+            long rows = claim.cells().stream().map(dev.cornybirdy.estate.core.Cells::z).distinct().count();
+            resize.press(Menus.SLOTS_CORNER2[0], Gui.Click.SHIFT_LEFT);
+            resize.press(Menus.SLOT_CONFIRM, Gui.Click.LEFT);
+            if (claim.size() != expected + rows) {
+                throw helper.assertionException("Moving corner 2 one cell east should add a column, got " + claim.size());
             }
 
-            main.press(13, Gui.Click.LEFT);
+            main.press(Menus.SLOT_TRUST, Gui.Click.LEFT);
             Gui trust = Gui.lastOffscreen;
             if (trust == resize || !trust.press(49, Gui.Click.LEFT)) {
                 throw helper.assertionException("The trust screen should have an add button");
             }
-            main.press(15, Gui.Click.LEFT);
-            Gui flags = Gui.lastOffscreen;
-            flags.press(8, Gui.Click.LEFT);
+            main.press(Menus.SLOT_FLAGS, Gui.Click.LEFT);
+            Gui.lastOffscreen.press(Menus.FLAGS_FIRST_SLOT + 8, Gui.Click.LEFT);
             if (!rt.manager.flag(claim, dev.cornybirdy.estate.core.Flag.PVP)) {
-                throw helper.assertionException("Owners may switch PvP on in the flags screen");
+                throw helper.assertionException("Owners may switch PvP on in the protection screen");
             }
-            main.press(22, Gui.Click.LEFT);
+            main.press(Menus.SLOT_LIST, Gui.Click.LEFT);
             if (Gui.lastOffscreen.itemAt(0).isEmpty()) {
                 throw helper.assertionException("The claim list should show the claim");
             }
             Menus.adminSettings(rt, player, 0);
 
-            main.press(16, Gui.Click.LEFT);
-            Gui unclaim = Gui.lastOffscreen;
-            unclaim.press(11, Gui.Click.LEFT);
+            main.press(Menus.SLOT_UNCLAIM, Gui.Click.LEFT);
+            Gui.lastOffscreen.press(11, Gui.Click.LEFT);
             if (rt.manager.claim(claim.id()) != null) {
                 throw helper.assertionException("Confirming unclaim should remove the claim");
             }
         } finally {
+            rt.claimTool.end(player);
             rt.manager.setAutoClaim(id, autoBefore);
             for (Claim leftover : rt.manager.claimsOf(id)) {
                 rt.manager.delete(leftover, null, "test");
             }
         }
         helper.succeed();
+    }
+
+    private static boolean hasTool(FakePlayer player) {
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            if (ClaimTool.isTool(player.getInventory().getItem(i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean mayBreak(ServerLevel level, FakePlayer player, BlockPos pos) {

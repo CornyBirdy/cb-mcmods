@@ -13,6 +13,7 @@ import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionResult;
 
 /**
  * Land claims for Fabric servers. Players need no mod: claims are protected on the server, the menu is a chest
@@ -54,6 +55,11 @@ public final class Estate implements ModInitializer {
                 runtime.placements.forgetChunk(EstateRuntime.world(level), chunk.getPos().x(), chunk.getPos().z());
             }
         });
+        // The claim tool goes first, so picking a corner inside someone's claim isn't refused as "using an item".
+        UseItemCallback.EVENT.register((player, level, hand) ->
+                runtime == null ? InteractionResult.PASS : runtime.claimTool.useItem(player, level, hand));
+        UseBlockCallback.EVENT.register((player, level, hand, hit) ->
+                runtime == null ? InteractionResult.PASS : runtime.claimTool.useBlock(player, level, hand, hit));
         PlayerBlockBreakEvents.BEFORE.register(Protection::mayBreak);
         PlayerBlockBreakEvents.AFTER.register((level, player, pos, state, blockEntity) -> Protection.broken(level, pos));
         UseBlockCallback.EVENT.register(Protection::useBlock);

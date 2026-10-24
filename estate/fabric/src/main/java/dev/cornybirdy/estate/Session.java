@@ -26,6 +26,10 @@ final class Session {
     ClaimDraft draft;
     /** Whether the draft can be confirmed right now; it's drawn red otherwise. */
     boolean draftOk;
+    /** Ids of the border displays this player's client is showing. */
+    int[] displayIds = new int[0];
+    /** The claim tool in use, or null. */
+    ClaimTool.Selection selection;
     /** When each kind of "you can't do that" message was last shown, to avoid spam. */
     final Map<String, Long> lastWarning = new HashMap<>();
     /** When each auto-claim problem was last explained. */

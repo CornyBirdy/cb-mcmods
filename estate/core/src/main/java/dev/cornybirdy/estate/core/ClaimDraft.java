@@ -1,150 +1,168 @@
 package dev.cornybirdy.estate.core;
 
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 /**
- * A claim shape being edited in the menu before it's confirmed: a new claim, or a resize of an existing one.
- * Each side can grow or shrink by one row of cells; the top and bottom move by a few blocks.
+ * A claim being drawn or resized before it's confirmed, as a box between two corners (like a Litematica area): corner
+ * 1 and corner 2 are block coordinates. Horizontally the claim takes every cell the box touches; vertically it runs
+ * from the lower corner's y to the higher corner's y.
+ * <ul>
+ *     <li>{@link Mode#NEW}: a new claim of exactly the box.</li>
+ *     <li>{@link Mode#EXTEND}: an existing claim plus the box (drawing next to your claim adds to it).</li>
+ *     <li>{@link Mode#RESIZE}: the box starts as the claim's bounds. Inside the original bounds the claim keeps its
+ *     shape (cells outside the box are dropped); land the box gains beyond them is claimed in full.</li>
+ * </ul>
  */
 public final class ClaimDraft {
 
-    public enum Side {
-        NORTH, SOUTH, EAST, WEST, UP, DOWN
+    public enum Mode {
+        NEW, EXTEND, RESIZE
     }
 
-    /** The claim being resized, or null for a new claim. */
+    /** Box sizes above this many cells aren't worked out, so a typo can't make the server count millions of cells. */
+    public static final int MAX_BOX_CELLS = 16_384;
+
+    /** The claim being changed, or null for a new claim. */
     public final Integer claimId;
     public final String world;
-    private final Set<Long> cells;
-    private int minY;
-    private int maxY;
-    private Side side = Side.NORTH;
+    public final Mode mode;
+    private final int cellSize;
+    private final Set<Long> base;
+    private final int baseMinCX;
+    private final int baseMinCZ;
+    private final int baseMaxCX;
+    private final int baseMaxCZ;
+    private final int baseMinY;
+    private final int baseMaxY;
+    /** corners[0] is corner 1, corners[1] corner 2, each {x, y, z}. */
+    private final int[][] corners = new int[2][3];
 
-    public ClaimDraft(Integer claimId, String world, Set<Long> cells, int minY, int maxY) {
+    private ClaimDraft(Integer claimId, String world, Mode mode, int cellSize, Set<Long> base, int baseMinY, int baseMaxY) {
         this.claimId = claimId;
         this.world = world;
-        this.cells = new HashSet<>(cells);
-        this.minY = minY;
-        this.maxY = maxY;
-    }
-
-    public static ClaimDraft of(Claim claim) {
-        return new ClaimDraft(claim.id(), claim.world(), claim.cells(), claim.minY(), claim.maxY());
-    }
-
-    /** A square of {@code size} x {@code size} cells around a block. */
-    public static ClaimDraft square(String world, int blockX, int blockZ, int cellSize, int size, int minY, int maxY) {
-        int cx = Cells.of(blockX, cellSize) - (size - 1) / 2;
-        int cz = Cells.of(blockZ, cellSize) - (size - 1) / 2;
-        Set<Long> cells = new HashSet<>();
-        for (int x = cx; x < cx + size; x++) {
-            for (int z = cz; z < cz + size; z++) {
-                cells.add(Cells.key(x, z));
-            }
+        this.mode = mode;
+        this.cellSize = cellSize;
+        this.base = Set.copyOf(base);
+        int minCX = Integer.MAX_VALUE;
+        int minCZ = Integer.MAX_VALUE;
+        int maxCX = Integer.MIN_VALUE;
+        int maxCZ = Integer.MIN_VALUE;
+        for (long cell : base) {
+            minCX = Math.min(minCX, Cells.x(cell));
+            minCZ = Math.min(minCZ, Cells.z(cell));
+            maxCX = Math.max(maxCX, Cells.x(cell));
+            maxCZ = Math.max(maxCZ, Cells.z(cell));
         }
-        return new ClaimDraft(null, world, cells, minY, maxY);
+        this.baseMinCX = minCX;
+        this.baseMinCZ = minCZ;
+        this.baseMaxCX = maxCX;
+        this.baseMaxCZ = maxCZ;
+        this.baseMinY = baseMinY;
+        this.baseMaxY = baseMaxY;
     }
 
-    public Set<Long> cells() {
-        return cells;
+    /** A new claim between two corners. */
+    public static ClaimDraft create(String world, int cellSize, int[] corner1, int[] corner2) {
+        ClaimDraft draft = new ClaimDraft(null, world, Mode.NEW, cellSize, Set.of(), 0, 0);
+        draft.setCorner(1, corner1[0], corner1[1], corner1[2]);
+        draft.setCorner(2, corner2[0], corner2[1], corner2[2]);
+        return draft;
     }
 
+    /** An existing claim plus the box between two corners. */
+    public static ClaimDraft extend(Claim claim, int cellSize, int[] corner1, int[] corner2) {
+        ClaimDraft draft = new ClaimDraft(claim.id(), claim.world(), Mode.EXTEND, cellSize, claim.cells(), claim.minY(), claim.maxY());
+        draft.setCorner(1, corner1[0], corner1[1], corner1[2]);
+        draft.setCorner(2, corner2[0], corner2[1], corner2[2]);
+        return draft;
+    }
+
+    /** Resizing a claim: the box starts as its bounds, corner 1 at the low corner and corner 2 at the high one. */
+    public static ClaimDraft resize(Claim claim, int cellSize) {
+        ClaimDraft draft = new ClaimDraft(claim.id(), claim.world(), Mode.RESIZE, cellSize, claim.cells(), claim.minY(), claim.maxY());
+        draft.setCorner(1, draft.baseMinCX * cellSize, claim.minY(), draft.baseMinCZ * cellSize);
+        draft.setCorner(2, draft.baseMaxCX * cellSize + cellSize - 1, claim.maxY(), draft.baseMaxCZ * cellSize + cellSize - 1);
+        return draft;
+    }
+
+    /** @param which 1 or 2 */
+    public int[] corner(int which) {
+        return corners[which - 1].clone();
+    }
+
+    /** @param which 1 or 2 */
+    public void setCorner(int which, int x, int y, int z) {
+        corners[which - 1][0] = x;
+        corners[which - 1][1] = y;
+        corners[which - 1][2] = z;
+    }
+
+    /** Moves one coordinate of a corner. @param axis 0 = x, 1 = y, 2 = z */
+    public void move(int which, int axis, int amount) {
+        corners[which - 1][axis] += amount;
+    }
+
+    public int minX() {
+        return Math.min(corners[0][0], corners[1][0]);
+    }
+
+    public int maxX() {
+        return Math.max(corners[0][0], corners[1][0]);
+    }
+
+    public int minZ() {
+        return Math.min(corners[0][2], corners[1][2]);
+    }
+
+    public int maxZ() {
+        return Math.max(corners[0][2], corners[1][2]);
+    }
+
+    /** Bottom of the claim. When extending, the claim's own range is kept too. */
     public int minY() {
-        return minY;
+        int box = Math.min(corners[0][1], corners[1][1]);
+        return mode == Mode.EXTEND ? Math.min(box, baseMinY) : box;
     }
 
     public int maxY() {
-        return maxY;
+        int box = Math.max(corners[0][1], corners[1][1]);
+        return mode == Mode.EXTEND ? Math.max(box, baseMaxY) : box;
     }
 
-    public Side side() {
-        return side;
+    /** How many cells the box itself covers. */
+    public long boxCells() {
+        long width = (long) Cells.of(maxX(), cellSize) - Cells.of(minX(), cellSize) + 1;
+        long depth = (long) Cells.of(maxZ(), cellSize) - Cells.of(minZ(), cellSize) + 1;
+        return width * depth;
     }
 
-    public void setSide(Side side) {
-        this.side = side;
+    public boolean tooBig() {
+        return boxCells() > MAX_BOX_CELLS;
     }
 
-    /** Adds a row of cells on the chosen side, or raises the top / lowers the bottom. False if nothing changed. */
-    public boolean grow(int verticalStep, int worldMinY, int worldMaxY) {
-        switch (side) {
-            case UP -> {
-                int top = Math.min(worldMaxY, maxY + verticalStep);
-                boolean changed = top != maxY;
-                maxY = top;
-                return changed;
-            }
-            case DOWN -> {
-                int bottom = Math.max(worldMinY, minY - verticalStep);
-                boolean changed = bottom != minY;
-                minY = bottom;
-                return changed;
-            }
-            default -> {
-                Set<Long> added = new HashSet<>();
-                for (Map.Entry<Integer, int[]> line : lines().entrySet()) {
-                    int[] range = line.getValue();
-                    added.add(switch (side) {
-                        case NORTH -> Cells.key(line.getKey(), range[0] - 1);
-                        case SOUTH -> Cells.key(line.getKey(), range[1] + 1);
-                        case WEST -> Cells.key(range[0] - 1, line.getKey());
-                        default -> Cells.key(range[1] + 1, line.getKey());
-                    });
+    /** The cells the claim would have. Empty if the box is {@link #tooBig()}. */
+    public Set<Long> cells() {
+        Set<Long> cells = new HashSet<>();
+        if (tooBig()) {
+            return cells;
+        }
+        int minCX = Cells.of(minX(), cellSize);
+        int maxCX = Cells.of(maxX(), cellSize);
+        int minCZ = Cells.of(minZ(), cellSize);
+        int maxCZ = Cells.of(maxZ(), cellSize);
+        if (mode == Mode.EXTEND) {
+            cells.addAll(base);
+        }
+        for (int x = minCX; x <= maxCX; x++) {
+            for (int z = minCZ; z <= maxCZ; z++) {
+                long cell = Cells.key(x, z);
+                boolean insideOldBounds = x >= baseMinCX && x <= baseMaxCX && z >= baseMinCZ && z <= baseMaxCZ;
+                if (mode != Mode.RESIZE || !insideOldBounds || base.contains(cell)) {
+                    cells.add(cell);
                 }
-                return cells.addAll(added);
             }
         }
-    }
-
-    /** Removes the outermost row of cells on the chosen side, or lowers the top / raises the bottom. */
-    public boolean shrink(int verticalStep) {
-        switch (side) {
-            case UP -> {
-                int top = Math.max(minY, maxY - verticalStep);
-                boolean changed = top != maxY;
-                maxY = top;
-                return changed;
-            }
-            case DOWN -> {
-                int bottom = Math.min(maxY, minY + verticalStep);
-                boolean changed = bottom != minY;
-                minY = bottom;
-                return changed;
-            }
-            default -> {
-                Set<Long> removed = new HashSet<>();
-                for (Map.Entry<Integer, int[]> line : lines().entrySet()) {
-                    int[] range = line.getValue();
-                    if (range[0] == range[1]) {
-                        // Only one cell left in this line; removing it would cut the claim apart.
-                        continue;
-                    }
-                    removed.add(switch (side) {
-                        case NORTH -> Cells.key(line.getKey(), range[0]);
-                        case SOUTH -> Cells.key(line.getKey(), range[1]);
-                        case WEST -> Cells.key(range[0], line.getKey());
-                        default -> Cells.key(range[1], line.getKey());
-                    });
-                }
-                return cells.removeAll(removed);
-            }
-        }
-    }
-
-    /** For north/south: per cell x, the lowest and highest cell z. For east/west: per cell z, the x range. */
-    private Map<Integer, int[]> lines() {
-        boolean northSouth = side == Side.NORTH || side == Side.SOUTH;
-        Map<Integer, int[]> lines = new HashMap<>();
-        for (long cell : cells) {
-            int line = northSouth ? Cells.x(cell) : Cells.z(cell);
-            int along = northSouth ? Cells.z(cell) : Cells.x(cell);
-            int[] range = lines.computeIfAbsent(line, k -> new int[]{along, along});
-            range[0] = Math.min(range[0], along);
-            range[1] = Math.max(range[1], along);
-        }
-        return lines;
+        return cells;
     }
 }

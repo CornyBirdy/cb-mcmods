@@ -22,6 +22,7 @@ import dev.cornybirdy.estate.core.storage.SqliteStorage;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -83,10 +84,23 @@ final class LandCommand {
                 .executes(c -> run(c, LandCommand::open))
                 .then(Commands.literal("help").executes(c -> run(c, (rt, src) -> help(rt, src))))
                 .then(Commands.literal("menu").executes(c -> run(c, LandCommand::open)))
-                .then(Commands.literal("claim").executes(c -> player(c, (rt, p) -> {
-                    Menus.newClaim(rt, p);
-                    return 1;
-                })))
+                .then(Commands.literal("claim")
+                        .executes(c -> player(c, (rt, p) -> {
+                            rt.claimTool.start(p);
+                            return 1;
+                        }))
+                        .then(Commands.literal("confirm").executes(c -> player(c, (rt, p) -> rt.claimTool.confirm(p) ? 1 : 0)))
+                        .then(Commands.literal("cancel").executes(c -> player(c, (rt, p) -> {
+                            rt.claimTool.end(p);
+                            rt.send(p, "draft-cancelled");
+                            return 1;
+                        })))
+                        .then(Commands.literal("edit").executes(c -> player(c, (rt, p) -> {
+                            Menus.editor(rt, p);
+                            return 1;
+                        }))))
+                .then(corner("pos1", 1))
+                .then(corner("pos2", 2))
                 .then(Commands.literal("unclaim")
                         .executes(c -> player(c, (rt, p) -> unclaim(rt, p, false)))
                         .then(Commands.literal("confirm").executes(c -> player(c, (rt, p) -> unclaim(rt, p, true)))))
@@ -144,6 +158,27 @@ final class LandCommand {
                 .then(admin()));
         dispatcher.register(Commands.literal("estate").executes(c -> run(c, LandCommand::open)).redirect(land));
         dispatcher.register(autoClaimBranch(Commands.literal("autoclaim")));
+    }
+
+    /** {@code /land pos1|pos2 [x y z]}: a corner where you stand, or at exact coordinates ({@code ~} works). */
+    private static LiteralArgumentBuilder<CommandSourceStack> corner(String name, int which) {
+        return Commands.literal(name)
+                .executes(c -> player(c, (rt, p) -> {
+                    rt.claimTool.pick(p, which, p.blockPosition().below());
+                    return 1;
+                }))
+                .then(Commands.argument("pos", BlockPosArgument.blockPos())
+                        .executes(c -> player(c, (rt, p) -> {
+                            BlockPos pos;
+                            try {
+                                pos = BlockPosArgument.getBlockPos(c, "pos");
+                            } catch (Exception e) {
+                                rt.send(p, "draft-bad-position");
+                                return 0;
+                            }
+                            rt.claimTool.setExact(p, which, pos);
+                            return 1;
+                        })));
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> autoClaimBranch(LiteralArgumentBuilder<CommandSourceStack> node) {

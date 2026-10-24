@@ -49,6 +49,7 @@ final class EstateRuntime {
     final PlacementIndex placements;
     final Borders borders;
     final AutoClaimer autoClaimer;
+    final ClaimTool claimTool;
     private final Map<UUID, Session> sessions = new HashMap<>();
     private final Path configFile;
     private final Path messagesFile;
@@ -76,6 +77,7 @@ final class EstateRuntime {
         this.kinds = new BlockKinds(config.accessBlocks, config.containerBlocks, config.autoClaimIgnoredBlocks);
         this.borders = new Borders(this);
         this.autoClaimer = new AutoClaimer(this);
+        this.claimTool = new ClaimTool(this);
         if (manager.cellSizeMismatch()) {
             LOGGER.warn("cellSize in config/estate.json is {}, but existing claims use {}. Claims keep using {}; "
                     + "the setting only changes while there are no claims.", config.cellSize, manager.cellSize(), manager.cellSize());
@@ -131,6 +133,8 @@ final class EstateRuntime {
         Session session = session(player);
         Claim here = claimAt(player.level(), player.blockPosition());
         session.currentClaim = here == null ? 0 : here.id();
+        // A claim tool left over from a crash or a stop is useless now.
+        ClaimTool.removeTools(player);
         if (record.firstSeen == record.lastSeen) {
             LOGGER.info("First visit from {}; auto-claim is {}", record.displayName(), record.autoClaim(config) ? "on" : "off");
         }
@@ -138,6 +142,7 @@ final class EstateRuntime {
 
     void left(ServerPlayer player) {
         manager.seen(player.getUUID(), player.getGameProfile().name());
+        ClaimTool.removeTools(player);
         sessions.remove(player.getUUID());
     }
 
@@ -247,6 +252,7 @@ final class EstateRuntime {
             }
         }
         borders.tick(tick);
+        claimTool.tick(tick);
         if (tick % BAN_CHECK_TICKS == 0) {
             checkBans();
         }

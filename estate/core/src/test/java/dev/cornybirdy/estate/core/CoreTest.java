@@ -62,21 +62,35 @@ class CoreTest {
     }
 
     @Test
-    void draftsGrowAndShrinkBySide() {
-        ClaimDraft draft = ClaimDraft.square(WORLD, 0, 0, 8, 3, 60, 80);
-        assertEquals(9, draft.cells().size());
-        draft.setSide(ClaimDraft.Side.NORTH);
-        assertTrue(draft.grow(4, -64, 320));
-        assertEquals(12, draft.cells().size());
-        draft.setSide(ClaimDraft.Side.EAST);
-        assertTrue(draft.shrink(4));
-        assertEquals(8, draft.cells().size());
-        draft.setSide(ClaimDraft.Side.UP);
-        assertTrue(draft.grow(4, -64, 320));
-        assertEquals(84, draft.maxY());
-        ClaimDraft strip = new ClaimDraft(null, WORLD, Set.of(Cells.key(0, 0), Cells.key(1, 0)), 0, 10);
-        strip.setSide(ClaimDraft.Side.NORTH);
-        assertTrue(!strip.shrink(4));
+    void draftsAreBoxesBetweenTwoCorners() {
+        ClaimDraft fresh = ClaimDraft.create(WORLD, 8, new int[]{20, 70, 9}, new int[]{0, 60, 0});
+        assertEquals(6, fresh.cells().size());
+        assertEquals(60, fresh.minY());
+        assertEquals(70, fresh.maxY());
+        assertEquals(0, fresh.minX());
+        assertEquals(20, fresh.maxX());
+
+        Claim ell = Claim.load(1, WORLD, java.util.UUID.randomUUID(), "L", 50, 80, 0, false,
+                Set.of(Cells.key(0, 0), Cells.key(1, 0), Cells.key(0, 1)), Map.of(), Map.of(), Map.of());
+        ClaimDraft resize = ClaimDraft.resize(ell, 8);
+        assertEquals(15, resize.maxX());
+        assertEquals(ell.cells(), resize.cells());
+        resize.setCorner(1, -8, 50, 0);
+        // The L keeps its shape and the new column to the west is claimed in full.
+        assertEquals(5, resize.cells().size());
+        resize.setCorner(2, 7, 80, 15);
+        assertEquals(Set.of(Cells.key(-1, 0), Cells.key(-1, 1), Cells.key(0, 0), Cells.key(0, 1)), resize.cells());
+        resize.move(2, 1, 4);
+        assertEquals(84, resize.maxY());
+
+        ClaimDraft extend = ClaimDraft.extend(ell, 8, new int[]{16, 70, 0}, new int[]{23, 75, 7});
+        assertEquals(4, extend.cells().size());
+        assertEquals(50, extend.minY());
+        assertEquals(80, extend.maxY());
+
+        ClaimDraft huge = ClaimDraft.create(WORLD, 8, new int[]{-1_000_000, 0, -1_000_000}, new int[]{1_000_000, 0, 1_000_000});
+        assertTrue(huge.tooBig());
+        assertTrue(huge.cells().isEmpty());
     }
 
     @Test
