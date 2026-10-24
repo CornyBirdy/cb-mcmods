@@ -1,6 +1,7 @@
 # Gatekeeper
 
 Turn **ender chests**, **the End**, **the Nether**, **netherite armor** and **netherite tools** on or off while the server runs, for **Paper 26.1+** and **Fabric 26.3**. One command does it, in game or in the server console, and nothing needs a restart. (Vanilla's `allow-nether` in `server.properties` only takes effect after a restart.)
+Also **opt-in PvP**: players choose for themselves with `/pvp on` or `/pvp off`.
 **Players don't need to install anything.**
 
 | Server | Download |
@@ -47,6 +48,17 @@ Get them from the [Gatekeeper releases](https://github.com/CornyBirdy/Paper-Corp
 
 Armor and tools are separate switches, so you can ban one and keep the other.
 
+## Opt-in PvP
+
+Everyone starts with PvP **off**. Players can only hurt each other when **both** have turned it on with `/pvp on`. That covers hitting, arrows and other projectiles, TNT someone lit, and pets attacking for their owner. Hitting someone who has PvP off just tells you so.
+
+- **Cooldown:** after changing it, a player has to wait 60 seconds before changing it again, so nobody can flip it on for one hit and straight back off.
+- **Combat timer:** after hitting or being hit by another player, both are in combat for 30 seconds and can't turn PvP off until it runs out. Every hit starts the timer again.
+- **Combat logging (off by default):** turn on `combat-log-kill` (`/gatekeeper combatlog on`) and a player who logs out while in combat is killed and drops their items where they stood. Players are warned when a fight starts. Server shutdowns don't count.
+- Each player's choice is kept across restarts (Paper: in their player data; Fabric: `<world>/gatekeeper/pvp.json`).
+
+Admins change the defaults, the cooldown, the combat timer and combat logging with `/gatekeeper` (below), live and from the console. Keep `pvp=true` in `server.properties`; Gatekeeper decides who can fight. On Fabric, claims made with [Estate](../estate/) also keep PvP off inside them by default, on top of this.
+
 Portals in chunks nobody is near light up as soon as someone gets close. If someone built something in a portal's space in the meantime, that block is left alone.
 
 All switches are saved in the config, so they stay the same after a restart. Closed portals are remembered in `plugins/Gatekeeper/closed-*-portals.yml` (Paper) or `<world>/gatekeeper/closed-*-portals.json` (Fabric).
@@ -63,7 +75,14 @@ Everything works in the server console (no slash needed there, e.g. `gatekeeper 
 | `/gatekeeper nether on` / `off` / `toggle` | Turn the Nether on or off |
 | `/gatekeeper netheritearmor on` / `off` / `toggle` | Turn netherite armor on or off |
 | `/gatekeeper netheritetools on` / `off` / `toggle` | Turn netherite tools on or off |
+| `/gatekeeper pvp` | Show the PvP settings |
+| `/gatekeeper pvpdefault on` / `off` | PvP for players who never used `/pvp` (default off) |
+| `/gatekeeper pvpcooldown <seconds>` | Wait between `/pvp` changes (default 60, `0` = none) |
+| `/gatekeeper pvpcombat <seconds>` | How long after a hit players can't turn PvP off (default 30) |
+| `/gatekeeper combatlog on` / `off` / `toggle` | Kill players who log out in combat (default off) |
 | `/gatekeeper reload` | Reload the config file |
+| `/pvp` | Everyone: show your PvP setting |
+| `/pvp on` / `off` / `toggle` | Everyone: turn your own PvP on or off |
 
 When the End or the Nether is switched, everyone online gets a message. Ender chest and netherite changes are quiet by default; set `announce-ender-chests`, `announce-netherite-armor` or `announce-netherite-tools` to `true` to announce those too.
 
@@ -72,6 +91,7 @@ When the End or the Nether is switched, everyone online gets a message. Ender ch
 | Paper | Fabric | Default | What it does |
 |---|---|---|---|
 | `gatekeeper.admin` | `gatekeeper:admin` | op (op level 2 on Fabric) | Use `/gatekeeper` |
+| `gatekeeper.pvp` | `gatekeeper:pvp` | everyone | Use `/pvp` |
 | `gatekeeper.bypass.enderchests` | `gatekeeper:bypass.enderchests` | nobody | Keep using ender chests while they're off |
 | `gatekeeper.bypass.end` | `gatekeeper:bypass.end` | nobody | Stay in the End while it's off |
 | `gatekeeper.bypass.nether` | `gatekeeper:bypass.nether` | nobody | Stay in the Nether while it's off |
@@ -96,6 +116,10 @@ Paper: `plugins/Gatekeeper/config.yml`. Fabric: `config/gatekeeper.json`. Both h
 | `announce-nether` | `true` | Tell everyone online when an admin turns the Nether on or off |
 | `announce-netherite-armor` | `false` | Tell everyone online when an admin turns netherite armor on or off |
 | `announce-netherite-tools` | `false` | Tell everyone online when an admin turns netherite tools on or off |
+| `pvp-default` | `false` | PvP for players who never used `/pvp` |
+| `pvp-toggle-cooldown-seconds` | `60` | Seconds between `/pvp` changes. `0` = no wait |
+| `pvp-combat-seconds` | `30` | Seconds after a hit during which PvP can't be turned off |
+| `combat-log-kill` | `false` | `true` = logging out in combat kills you |
 | `messages.*` | | All text, in [MiniMessage](https://docs.advntr.dev/minimessage/format.html) format. `<state>` is replaced by the `enabled` or `disabled` message |
 
 If you edit the file by hand, run `/gatekeeper reload` afterwards. Options missing from an older config file use the defaults.

@@ -9,6 +9,10 @@
   "announce-nether": true,
   "announce-netherite-armor": false,
   "announce-netherite-tools": false,
+  "pvp-default": false,
+  "pvp-toggle-cooldown-seconds": 60,
+  "pvp-combat-seconds": 30,
+  "combat-log-kill": false,
   "messages": {
     "ender-chest-blocked": "<red>Ender chests are disabled on this server.",
     "end-blocked": "<red>The End is disabled on this server.",
@@ -29,9 +33,24 @@
     "announce-nether": "<gold>The Nether has been <state><gold> by an admin.",
     "announce-netherite-armor": "<gold>Netherite armor has been <state><gold> by an admin.",
     "announce-netherite-tools": "<gold>Netherite tools have been <state><gold> by an admin.",
+    "pvp-status": "<gray>Your PvP is <state><gray>. Change it with /pvp on or /pvp off.",
+    "pvp-now-on": "<red>PvP is on.</red> <gray>Players who also have PvP on can hurt you, and you them.",
+    "pvp-now-off": "<green>PvP is off.</green> <gray>No player can hurt you, and you can't hurt them.",
+    "pvp-already": "<gray>Your PvP is already <state><gray>.",
+    "pvp-cooldown": "<red>You changed PvP a moment ago. Try again in <seconds>s.",
+    "pvp-in-combat": "<red>You're in a fight. You can turn PvP off in <seconds>s.",
+    "pvp-you-off": "<red>Your PvP is off. Use /pvp on to fight other players.",
+    "pvp-they-off": "<red><player> has PvP off.",
+    "pvp-players-only": "<red>Only players have a PvP setting. Use /gatekeeper pvp for the server settings.",
+    "combat-tagged": "<red>You're in combat. Logging out in the next <seconds>s will kill you.",
+    "combat-log-killed": "<red><player> logged out in combat and died.",
+    "pvp-default-state": "<gray>New players start with PvP <state><gray>.",
+    "pvp-cooldown-state": "<gray>Players wait <white><seconds>s</white> between /pvp changes.",
+    "pvp-combat-state": "<gray>After a hit, players can't turn PvP off for <white><seconds>s</white>.",
+    "combat-log-state": "<gray>Killing players who log out in combat is <state><gray>.",
     "enabled": "<green>enabled",
     "disabled": "<red>disabled",
     "reloaded": "<green>Gatekeeper config reloaded.",
-    "usage": "<gray>/gatekeeper status <dark_gray>|</dark_gray> /gatekeeper enderchests|end|nether|netheritearmor|netheritetools [on|off|toggle] <dark_gray>|</dark_gray> /gatekeeper reload"
+    "usage": "<gray>/gatekeeper status <dark_gray>|</dark_gray> /gatekeeper enderchests|end|nether|netheritearmor|netheritetools|combatlog [on|off|toggle] <dark_gray>|</dark_gray> /gatekeeper pvpdefault [on|off] <dark_gray>|</dark_gray> /gatekeeper pvpcooldown|pvpcombat [seconds] <dark_gray>|</dark_gray> /gatekeeper reload"
   }
 }

@@ -2,6 +2,7 @@ package dev.cornybirdy.gatekeeper;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerBlockEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -13,6 +14,7 @@ import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
@@ -20,8 +22,11 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -58,10 +63,12 @@ import java.util.concurrent.ConcurrentHashMap;
  *     <li>Netherite armor or tools off: they can't be made at a smithing table. Armor can't be worn (anyone wearing
  *     it has it moved into their inventory), tools can't mine or hit. Nothing is deleted.</li>
  * </ul>
+ * Also opt-in PvP with {@code /pvp}, see {@link Pvp}.
  */
 public final class Gatekeeper implements ModInitializer {
 
     static final Identifier ADMIN_PERMISSION = Identifier.fromNamespaceAndPath("gatekeeper", "admin");
+    static final Identifier PVP_PERMISSION = Identifier.fromNamespaceAndPath("gatekeeper", "pvp");
     /** {@code gatekeeper:bypass.<command>}, e.g. {@code gatekeeper:bypass.nether}. */
     private static final Map<Feature, Identifier> BYPASS = bypassPermissions();
     private static final EquipmentSlot[] ARMOR_SLOTS = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
@@ -75,6 +82,7 @@ public final class Gatekeeper implements ModInitializer {
     private static Settings settings;
     private static EndPortals endPortals;
     private static NetherPortals netherPortals;
+    private static Pvp pvp;
 
     @Override
     public void onInitialize() {
@@ -86,10 +94,12 @@ public final class Gatekeeper implements ModInitializer {
             migrateFromEndLock(server);
             endPortals = new EndPortals(server);
             netherPortals = new NetherPortals(server);
+            pvp = new Pvp(server, () -> settings);
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             endPortals = null;
             netherPortals = null;
+            pvp = null;
         });
         ServerChunkEvents.CHUNK_LOAD.register((level, chunk, generated) -> {
             if (netherPortals != null) {
@@ -132,7 +142,9 @@ public final class Gatekeeper implements ModInitializer {
                 }
             }
         });
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> lastWarning.remove(handler.getPlayer().getUUID()));
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register(Gatekeeper::allowPvpDamage);
+        ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamage, damageTaken, blocked) -> tagCombat(entity, source));
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> disconnected(handler.getPlayer(), server));
         CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> GatekeeperCommand.register(dispatcher));
     }
 
@@ -181,6 +193,76 @@ public final class Gatekeeper implements ModInitializer {
             }
         }
         return saved;
+    }
+
+    /** Null while no server is running. */
+    static Pvp pvp() {
+        return pvp;
+    }
+
+    /** The player behind some damage: the one hitting, shooting, or owning the pet. Null if it's not a player. */
+    static ServerPlayer attacker(DamageSource source) {
+        Entity entity = source.getEntity();
+        if (entity instanceof ServerPlayer player) {
+            return player;
+        }
+        if (entity instanceof OwnableEntity pet && pet.getOwner() instanceof ServerPlayer owner) {
+            return owner;
+        }
+        return null;
+    }
+
+    /** Players only hurt each other when both have PvP on. */
+    static boolean allowPvpDamage(LivingEntity entity, DamageSource source, float amount) {
+        if (pvp == null || !(entity instanceof ServerPlayer victim)) {
+            return true;
+        }
+        ServerPlayer attacker = attacker(source);
+        if (attacker == null || pvp.mayHurt(attacker.getUUID(), victim.getUUID())) {
+            return true;
+        }
+        if (!pvp.enabled(attacker.getUUID())) {
+            warn(attacker, "pvp-you-off", Map.of());
+        } else {
+            warn(attacker, "pvp-they-off", Map.of("player", victim.getGameProfile().name()));
+        }
+        return false;
+    }
+
+    /** After a hit between players, both are in combat and can't turn PvP off for a while. */
+    private static void tagCombat(LivingEntity entity, DamageSource source) {
+        ServerPlayer attacker = attacker(source);
+        if (pvp == null || !(entity instanceof ServerPlayer victim) || attacker == null || attacker == victim) {
+            return;
+        }
+        for (ServerPlayer player : List.of(attacker, victim)) {
+            if (pvp.tag(player.getUUID()) && settings.option(Pvp.COMBAT_LOG)) {
+                player.sendSystemMessage(settings.message("combat-tagged", null,
+                        Map.of("seconds", String.valueOf(settings.integer(Pvp.COMBAT)))));
+            }
+        }
+    }
+
+    /** With {@code combat-log-kill} on, leaving the game in the middle of a fight kills you. */
+    private static void disconnected(ServerPlayer player, MinecraftServer server) {
+        lastWarning.remove(player.getUUID());
+        if (pvp == null || !pvp.inCombat(player.getUUID())) {
+            return;
+        }
+        pvp.endCombat(player.getUUID());
+        // Not when the whole server shuts down.
+        if (!settings.option(Pvp.COMBAT_LOG) || !server.isRunning()) {
+            return;
+        }
+        String name = player.getGameProfile().name();
+        LOGGER.info("{} logged out during combat and was killed (combat-log-kill is on)", name);
+        player.kill(player.level());
+        Component announcement = settings.message("combat-log-killed", null, Map.of("player", name));
+        for (ServerPlayer other : server.getPlayerList().getPlayers()) {
+            if (other != player) {
+                other.sendSystemMessage(announcement);
+            }
+        }
     }
 
     /** Called by {@code EndPortalBlockMixin}. False stops the portal from sending the entity to the End. */
@@ -370,11 +452,15 @@ public final class Gatekeeper implements ModInitializer {
 
     /** Tells a player why something didn't work, at most once every few seconds (portals ask every tick). */
     private static void warn(ServerPlayer player, String messageKey) {
+        warn(player, messageKey, Map.of());
+    }
+
+    private static void warn(ServerPlayer player, String messageKey, Map<String, String> placeholders) {
         long now = System.currentTimeMillis();
         Long last = lastWarning.get(player.getUUID());
         if (last == null || now - last >= WARNING_COOLDOWN_MILLIS) {
             lastWarning.put(player.getUUID(), now);
-            player.sendSystemMessage(settings.message(messageKey));
+            player.sendSystemMessage(settings.message(messageKey, null, placeholders));
         }
     }
 }

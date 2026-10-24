@@ -3,6 +3,7 @@ package dev.cornybirdy.gatekeeper;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -30,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *     <li>Netherite armor or tools off: they can't be made at a smithing table. Armor can't be worn (anyone wearing
  *     it has it moved into their inventory), tools can't mine, hit or be used. Nothing is deleted.</li>
  * </ul>
+ * Also opt-in PvP with {@code /pvp}, see {@link Pvp}.
  */
 public final class Gatekeeper extends JavaPlugin {
 
@@ -50,7 +52,10 @@ public final class Gatekeeper extends JavaPlugin {
         endPortals = new EndPortals(this);
         netherPortals = new NetherPortals(this);
         getServer().getPluginManager().registerEvents(new LockListener(this, endPortals, netherPortals), this);
+        Pvp pvp = new Pvp(this);
+        getServer().getPluginManager().registerEvents(pvp, this);
         registerCommand("gatekeeper", List.of("gk"), new GatekeeperCommand(this));
+        registerCommand("pvp", new PvpCommand(this, pvp));
         applyState(Feature.END, false);
         applyState(Feature.NETHER, false);
         // Catches armor put on any way at all: inventory clicks, dispensers, other plugins.
@@ -174,11 +179,15 @@ public final class Gatekeeper extends JavaPlugin {
 
     /** Tells a player why something didn't work, at most once every few seconds (portals ask every tick). */
     void warn(Player player, String messageKey) {
+        warn(player, message(messageKey));
+    }
+
+    void warn(Player player, Component message) {
         long now = System.currentTimeMillis();
         Long last = lastWarning.get(player.getUniqueId());
         if (last == null || now - last >= WARNING_COOLDOWN_MILLIS) {
             lastWarning.put(player.getUniqueId(), now);
-            player.sendMessage(message(messageKey));
+            player.sendMessage(message);
         }
     }
 
@@ -186,9 +195,9 @@ public final class Gatekeeper extends JavaPlugin {
         lastWarning.remove(player.getUniqueId());
     }
 
-    /** Formats a MiniMessage string from the {@code messages} section of the config. */
-    Component message(String key) {
-        return MiniMessage.miniMessage().deserialize(raw(key));
+    /** Formats a MiniMessage string from the {@code messages} section of the config, with optional placeholders. */
+    Component message(String key, TagResolver... placeholders) {
+        return MiniMessage.miniMessage().deserialize(raw(key), placeholders);
     }
 
     /** Same as {@link #message(String)}, with {@code <state>} replaced by the enabled or disabled message. */

@@ -86,13 +86,40 @@ final class Settings {
         Files.writeString(file, GSON.toJson(config), StandardCharsets.UTF_8);
     }
 
+    /** A whole-number option, e.g. {@code pvp-toggle-cooldown-seconds}. */
+    int integer(String key) {
+        JsonElement value = config.get(key);
+        return (value != null && value.isJsonPrimitive() ? value : defaults.get(key)).getAsInt();
+    }
+
+    /** An on/off option that isn't a {@link Feature}, e.g. {@code combat-log-kill}. */
+    boolean option(String key) {
+        return bool(key);
+    }
+
+    /** Changes a number or on/off option and saves it to the config file. The change applies even if saving fails. */
+    synchronized void set(String key, Object value) throws IOException {
+        if (value instanceof Number number) {
+            config.addProperty(key, number);
+        } else {
+            config.addProperty(key, (Boolean) value);
+        }
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, GSON.toJson(config), StandardCharsets.UTF_8);
+    }
+
     /** A chat message from the {@code messages} section. {@code <state>} becomes the enabled/disabled message. */
     MutableComponent message(String key, Boolean state) {
+        return message(key, state, Map.of());
+    }
+
+    /** Like {@link #message(String, Boolean)}, with other {@code <name>} placeholders filled in as plain text. */
+    MutableComponent message(String key, Boolean state, Map<String, String> placeholders) {
         String template = raw(key);
         if (state != null) {
             template = template.replace("<state>", raw(state ? "enabled" : "disabled"));
         }
-        return Text.parse(template, Map.of());
+        return Text.parse(template, placeholders);
     }
 
     MutableComponent message(String key) {

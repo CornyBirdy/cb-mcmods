@@ -3,6 +3,7 @@ package dev.cornybirdy.gatekeeper;
 import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -21,6 +22,11 @@ import java.util.Locale;
  * /gatekeeper nether [on|off|toggle]          the Nether on or off
  * /gatekeeper netheritearmor [on|off|toggle]  netherite armor on or off
  * /gatekeeper netheritetools [on|off|toggle]  netherite tools on or off
+ * /gatekeeper pvp                             show the PvP settings
+ * /gatekeeper pvpdefault [on|off]             PvP for players who never used /pvp
+ * /gatekeeper pvpcooldown [seconds]           wait between /pvp changes
+ * /gatekeeper pvpcombat [seconds]             how long after a hit players can't turn PvP off
+ * /gatekeeper combatlog [on|off|toggle]       kill players who log out in combat
  * /gatekeeper reload                          reload config.yml
  * </pre>
  */
@@ -46,8 +52,14 @@ final class GatekeeperCommand implements BasicCommand {
                 for (Feature each : Feature.values()) {
                     show(sender, each);
                 }
+                pvpSettings(sender);
                 sender.sendMessage(plugin.message("usage"));
             }
+            case "pvp" -> pvpSettings(sender);
+            case "pvpdefault" -> option(sender, Pvp.DEFAULT, args);
+            case "combatlog" -> option(sender, Pvp.COMBAT_LOG, args);
+            case "pvpcooldown" -> seconds(sender, Pvp.COOLDOWN, args);
+            case "pvpcombat" -> seconds(sender, Pvp.COMBAT, args);
             case "reload" -> {
                 plugin.reload();
                 sender.sendMessage(plugin.message("reloaded"));
@@ -59,13 +71,14 @@ final class GatekeeperCommand implements BasicCommand {
     @Override
     public Collection<String> suggest(CommandSourceStack source, String[] args) {
         if (args.length <= 1) {
-            List<String> options = new ArrayList<>(List.of("status", "reload"));
+            List<String> options = new ArrayList<>(List.of("status", "reload", "pvp", "pvpdefault", "pvpcooldown", "pvpcombat", "combatlog"));
             for (Feature feature : Feature.values()) {
                 options.add(feature.command);
             }
             return startingWith(options, args.length == 0 ? "" : args[0]);
         }
-        if (args.length == 2 && feature(args[0].toLowerCase(Locale.ROOT)) != null) {
+        String sub = args.length == 0 ? "" : args[0].toLowerCase(Locale.ROOT);
+        if (args.length == 2 && (feature(sub) != null || sub.equals("combatlog") || sub.equals("pvpdefault"))) {
             return startingWith(List.of("on", "off", "toggle"), args[1]);
         }
         return List.of();
@@ -105,6 +118,61 @@ final class GatekeeperCommand implements BasicCommand {
                 }
             }
         }
+    }
+
+    private void pvpSettings(CommandSender sender) {
+        var config = plugin.getConfig();
+        sender.sendMessage(plugin.message("pvp-default-state", config.getBoolean(Pvp.DEFAULT)));
+        sender.sendMessage(plugin.message("pvp-cooldown-state", Placeholder.unparsed("seconds", String.valueOf(config.getInt(Pvp.COOLDOWN)))));
+        sender.sendMessage(plugin.message("pvp-combat-state", Placeholder.unparsed("seconds", String.valueOf(config.getInt(Pvp.COMBAT)))));
+        sender.sendMessage(plugin.message("combat-log-state", config.getBoolean(Pvp.COMBAT_LOG)));
+    }
+
+    /** {@code /gatekeeper pvpdefault|combatlog [on|off|toggle]} */
+    private void option(CommandSender sender, String key, String[] args) {
+        if (args.length < 2) {
+            pvpSettings(sender);
+            return;
+        }
+        boolean value;
+        switch (args[1].toLowerCase(Locale.ROOT)) {
+            case "on", "enable", "true" -> value = true;
+            case "off", "disable", "false" -> value = false;
+            case "toggle" -> value = !plugin.getConfig().getBoolean(key);
+            default -> {
+                sender.sendMessage(plugin.message("usage"));
+                return;
+            }
+        }
+        save(sender, key, value);
+    }
+
+    /** {@code /gatekeeper pvpcooldown|pvpcombat [seconds]} */
+    private void seconds(CommandSender sender, String key, String[] args) {
+        if (args.length < 2) {
+            pvpSettings(sender);
+            return;
+        }
+        int seconds;
+        try {
+            seconds = Integer.parseInt(args[1]);
+        } catch (NumberFormatException e) {
+            seconds = -1;
+        }
+        if (seconds < 0 || seconds > 86_400) {
+            sender.sendMessage(plugin.message("usage"));
+            return;
+        }
+        save(sender, key, seconds);
+    }
+
+    private void save(CommandSender sender, String key, Object value) {
+        plugin.getConfig().set(key, value);
+        plugin.saveConfig();
+        if (sender instanceof Player) {
+            plugin.getLogger().info(sender.getName() + " set " + key + " to " + value);
+        }
+        pvpSettings(sender);
     }
 
     private static Feature feature(String command) {
