@@ -1,3 +1,7 @@
+### New in 1.3.1
+- **Denser particle outlines.** Four particles per block within 24 blocks of you, drawn twice as often.
+- **Holding the claim tool shows claims within 16 blocks** of you, so you can see where you can claim.
+
 ### New in 1.3.0
 - **PvP and mob flags removed.** Estate no longer touches PvP (Gatekeeper's `/pvp` handles it) or mobs (they behave as in vanilla; use the `mobGriefing` game rule). Explosions, including creepers, are still protected. Owners can now change explosions, fire, water and lava, pistons and animals on their own claims.
 - **Menu colours fixed.** "protected" and "not protected" show in green and red instead of as `<green>` text.

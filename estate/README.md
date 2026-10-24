@@ -66,10 +66,10 @@ Estate doesn't touch **PvP** (use Gatekeeper's `/pvp`) or **mobs**: endermen, zo
 
 Every button says what it does and ends with "» Click to …".
 
-- **Show borders** shows nearby claims for 10 seconds as particle outlines: **green** for yours, **red** for other players', **yellow** for every claim's buffer (yours too) and **aqua** for town zones. Your own claims (and the claim you're drawing) are also filled in as boxes of tinted glass. (`borderStyle particles` leaves out the glass.) They follow you while you walk and fade by themselves. (`borderStyle particles` switches to particles.)
+- **Show borders** shows nearby claims for 10 seconds as particle outlines (denser close to you): **green** for yours, **red** for other players', **yellow** for every claim's buffer (yours too) and **aqua** for town zones. Your own claims (and the claim you're drawing) are also filled in as boxes of tinted glass. (`borderStyle particles` leaves out the glass.) They follow you while you walk and fade by themselves. (`borderStyle particles` switches to particles.)
 - **Claim land** gives you the **claim tool** (a golden shovel), like a Litematica selection:
   - **Left-click** a block for **corner 1** (red). Then just look around: the box follows your crosshair, and the action bar shows its size, cost and the claim blocks you'd have left.
-  - **Right-click** for **corner 2** (blue). You can re-pick either corner as often as you like, up to 64 blocks away. The tool never digs, hits anything or wears out. Dropping it makes it vanish; while you're drawing a claim it comes straight back.
+  - **Right-click** for **corner 2** (blue). You can re-pick either corner as often as you like, up to 64 blocks away. The tool never digs, hits anything or wears out. Dropping it makes it vanish; while you're drawing a claim it comes straight back. While you hold it, claims within 16 blocks of you are shown.
   - Corners are **real coordinates**. `/land pos1 [x y z]` and `/land pos2 [x y z]` set them exactly (where you stand if you leave the coordinates out).
   - The claim is exactly the blocks between the corners. If you pick corners on the ground, a few blocks below and 24 above are added for you.
   - A message with **[Confirm] [Edit corners] [Cancel]** appears. The outline is **white** when it can be confirmed and **red** when it can't (over budget, overlapping someone, in a buffer, someone else's blocks), with the reason.

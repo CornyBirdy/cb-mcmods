@@ -24,6 +24,8 @@ final class Session {
     long bordersUntil;
     /** Only draw this claim (from the claim list); 0 = everything nearby. */
     int bordersClaim;
+    /** Only draw claims this close (while holding the claim tool); 0 = the full view distance. */
+    int bordersRadius;
     /** A new claim or resize being edited in the menu. */
     ClaimDraft draft;
     /** Whether the draft can be confirmed right now; it's drawn red otherwise. */

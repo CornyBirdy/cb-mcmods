@@ -45,9 +45,9 @@ import java.util.Set;
  * buffers, aqua for town zones, and white (or red when it can't be confirmed) for a claim being drawn or resized.
  * They fade by themselves after {@code borderParticleSeconds}.
  * <p>
- * Every outline is coloured dust particles, redrawn every half second. With {@code borderStyle: blocks} (the default)
- * the player's own claims and the claim being drawn are also filled in as boxes of tinted glass (walls, floor and
- * ceiling), and the corners being drawn are glowing cubes. Those are block display entities that only exist on that
+ * Every outline is coloured dust particles, redrawn four times a second and denser close to the player. With
+ * {@code borderStyle: blocks} (the default) the player's own claims and the claim being drawn are also filled in as
+ * boxes of tinted glass (walls, floor and ceiling), and the corners being drawn are glowing cubes. Those are block display entities that only exist on that
  * player's screen: the server sends the entity packets to them alone and never adds the entities to the world, so
  * nothing is left behind after a restart. Each redraw only sends what changed, in one bundle, so nothing flickers.
  */
@@ -95,15 +95,21 @@ final class Borders {
             this.rgb = rgb;
             this.glass = glass.defaultBlockState();
             this.edge = edge.defaultBlockState();
-            this.dust = new DustParticleOptions(rgb, 1.4f);
+            this.dust = new DustParticleOptions(rgb, 1.6f);
         }
     }
 
     private static final int REDRAW_TICKS = 10;
+    /** While the claim tool is held, claims this close to the player are shown. */
+    private static final int HOLD_RADIUS = 16;
+    private static final int PARTICLE_TICKS = 5;
+    /** Within this many blocks of the player, outlines get {@link #DENSITY} particles per block; further out, one. */
+    private static final int DENSE_DISTANCE = 24;
+    private static final int DENSITY = 4;
     /** How far around the player borders are drawn, sideways and up or down. */
     private static final int VIEW_DISTANCE = 64;
     private static final int VIEW_HEIGHT = 24;
-    private static final int MAX_PARTICLES = 1500;
+    private static final int MAX_PARTICLES = 3000;
     private static final int MAX_DISPLAYS = 800;
     /** Glass walls are split into panels of at most this many blocks, so the glass texture doesn't stretch. */
     private static final int PANEL = 16;
@@ -127,7 +133,24 @@ final class Borders {
         Session session = rt.session(player);
         session.bordersUntil = rt.server.getTickCount() + rt.config.borderParticleSeconds * 20L;
         session.bordersClaim = onlyClaim;
+        session.bordersRadius = 0;
         refresh(player);
+    }
+
+    /** Called while the player holds the claim tool: keeps the claims close by visible, unless more is shown already. */
+    void hold(ServerPlayer player) {
+        Session session = rt.session(player);
+        long tick = rt.server.getTickCount();
+        if (session.bordersUntil >= tick + 20) {
+            return;
+        }
+        boolean showing = session.bordersUntil > tick;
+        session.bordersUntil = tick + 24;
+        session.bordersClaim = 0;
+        session.bordersRadius = HOLD_RADIUS;
+        if (!showing) {
+            refresh(player);
+        }
     }
 
     /** Draws again straight away, e.g. after the claim being edited changed. */
@@ -148,6 +171,8 @@ final class Borders {
                 if (tick % REDRAW_TICKS == 0) {
                     // Follows the player as they walk; only what changed is sent.
                     refresh(player);
+                } else if (tick % PARTICLE_TICKS == 0) {
+                    drawParticles(player, session);
                 }
                 continue;
             }
@@ -173,7 +198,8 @@ final class Borders {
                     session.draftOk ? Colour.DRAFT_OK : Colour.DRAFT_BAD, Kind.BOX, 0));
         }
         int buffer = rt.config.bufferDistance;
-        for (Claim claim : rt.manager.claimsNear(world, player.getBlockX(), player.getBlockZ(), VIEW_DISTANCE + buffer)) {
+        int radius = session.bordersRadius > 0 ? session.bordersRadius : VIEW_DISTANCE + buffer;
+        for (Claim claim : rt.manager.claimsNear(world, player.getBlockX(), player.getBlockZ(), radius)) {
             if (session.bordersClaim != 0 && claim.id() != session.bordersClaim) {
                 continue;
             }
@@ -190,7 +216,7 @@ final class Borders {
                         Math.max(bottom, Math.min(top, lineY))));
             }
         }
-        if (session.bordersClaim == 0) {
+        if (session.bordersClaim == 0 && session.bordersRadius == 0) {
             for (TownZone town : rt.manager.towns()) {
                 if (town.world().equals(world)) {
                     shapes.add(new Shape(Region.of(town.box()), 0, level.getMinY(), level.getMaxY(), Colour.TOWN, Kind.LINE, lineY));
@@ -425,22 +451,38 @@ final class Borders {
                 }
                 int bottom = Math.max(shape.minY(), py - 3);
                 int top = Math.min(shape.maxY() + 1, py + 5);
-                for (int y = bottom; y <= top && budget[0] > 0; y++) {
-                    particle(player, segment.x1(), y + 0.5, segment.z1(), dust, budget);
-                    particle(player, segment.x2(), y + 0.5, segment.z2(), dust, budget);
-                }
+                column(player, segment.x1(), segment.z1(), bottom, top, dust, budget);
+                column(player, segment.x2(), segment.z2(), bottom, top, dust, budget);
             }
         }
     }
 
+    /** Particles along a border line: {@link #DENSITY} per block near the player, one per block further away. */
     private static void line(ServerPlayer player, Outline.Segment segment, double y, DustParticleOptions dust, int[] budget) {
-        int length = segment.length();
-        for (int i = 0; i <= length && budget[0] > 0; i++) {
-            double t = length == 0 ? 0 : (double) i / length;
+        int steps = segment.length() * DENSITY;
+        for (int i = 0; i <= steps && budget[0] > 0; i++) {
+            double t = steps == 0 ? 0 : (double) i / steps;
             double x = segment.x1() + (segment.x2() - segment.x1()) * t;
             double z = segment.z1() + (segment.z2() - segment.z1()) * t;
+            if (i % DENSITY != 0 && !dense(player, x, z)) {
+                continue;
+            }
             particle(player, x, y, z, dust, budget);
         }
+    }
+
+    /** A vertical line of particles at a corner, from {@code bottom} to {@code top}. */
+    private static void column(ServerPlayer player, int x, int z, int bottom, int top, DustParticleOptions dust, int[] budget) {
+        int perBlock = dense(player, x, z) ? DENSITY : 1;
+        for (int i = 0; i <= (top - bottom) * perBlock && budget[0] > 0; i++) {
+            particle(player, x, bottom + (double) i / perBlock, z, dust, budget);
+        }
+    }
+
+    private static boolean dense(ServerPlayer player, double x, double z) {
+        double dx = x - player.getX();
+        double dz = z - player.getZ();
+        return dx * dx + dz * dz <= DENSE_DISTANCE * DENSE_DISTANCE;
     }
 
     private static void particle(ServerPlayer player, double x, double y, double z, DustParticleOptions dust, int[] budget) {

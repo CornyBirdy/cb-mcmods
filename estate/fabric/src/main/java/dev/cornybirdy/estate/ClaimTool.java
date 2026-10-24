@@ -518,6 +518,7 @@ final class ClaimTool {
                 continue;
             }
             selection.lastActive = now;
+            rt.borders.hold(player);
             if (selection.picked1 == null) {
                 rt.actionBar(player, "claim-tool-hint-first");
                 continue;
