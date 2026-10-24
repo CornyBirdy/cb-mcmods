@@ -119,6 +119,38 @@ public final class AutoClaimPlanner {
         return new Create(region, minY - padding, maxY + padding, hits.size());
     }
 
+    /** What an auto-made claim shrinks to after part of its build was removed. */
+    public record Fit(Region region, int minY, int maxY) {
+    }
+
+    /**
+     * Fits an auto-made claim to what's left of its build: the margin around each remaining block of the owner (or of
+     * players trusted to build there), never more than the claim already has.
+     *
+     * @return the smaller claim, or null if nothing of the build is left
+     */
+    public static Fit refit(ClaimManager manager, PlacementIndex placements, Claim claim, Predicate<String> countsBlock) {
+        EstateConfig config = manager.config();
+        int margin = config.autoClaimMargin;
+        List<PlacementIndex.Hit> hits = placements.within(claim.world(), claim.region(), claim.minY(), claim.maxY(),
+                id -> id.equals(claim.owner()) || manager.has(claim, id, Permission.BUILD));
+        hits.removeIf(hit -> !countsBlock.test(hit.block()));
+        if (hits.isEmpty()) {
+            return null;
+        }
+        List<Region.Box> boxes = new java.util.ArrayList<>(hits.size());
+        int minY = Integer.MAX_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        for (PlacementIndex.Hit hit : hits) {
+            boxes.add(Region.Box.of(hit.x() - margin, hit.z() - margin, hit.x() + margin, hit.z() + margin));
+            minY = Math.min(minY, hit.y());
+            maxY = Math.max(maxY, hit.y());
+        }
+        Region region = Region.of(boxes).intersect(claim.region());
+        return new Fit(region, Math.max(claim.minY(), minY - config.verticalPadding),
+                Math.min(claim.maxY(), maxY + config.verticalPadding));
+    }
+
     private static int verticalGap(Claim claim, int y) {
         return y < claim.minY() ? claim.minY() - y : Math.max(0, y - claim.maxY());
     }

@@ -96,7 +96,7 @@ class CoreTest {
         assertEquals(20, fresh.maxX());
 
         Region shape = Region.box(0, 0, 15, 7).union(Region.box(0, 8, 7, 15));
-        Claim ell = Claim.load(1, WORLD, UUID.randomUUID(), "L", 50, 80, 0, false, shape, Map.of(), Map.of(), Map.of());
+        Claim ell = Claim.load(1, WORLD, UUID.randomUUID(), "L", 50, 80, 0, false, false, shape, Map.of(), Map.of(), Map.of());
         ClaimDraft resize = ClaimDraft.resize(ell);
         assertEquals(15, resize.maxX());
         assertEquals(shape, resize.region());
@@ -187,6 +187,26 @@ class CoreTest {
         assertTrue(grow.region().contains(far + margin, 0));
         assertTrue(grow.region().contains(far - 3, 0));
         assertFalse(grow.region().contains(far + margin + 1, 0));
+        // An auto-made claim shrinks to what's left of the build, and goes when it's all gone.
+        manager.setAutoClaimed(claim, true);
+        AutoClaimPlanner.Fit fit = AutoClaimPlanner.refit(manager, index, claim, b -> true);
+        assertEquals(claim.region(), fit.region());
+        for (int x = 0; x < 7; x++) {
+            for (int z = 0; z < 7; z++) {
+                if (x > 1 || z > 1) {
+                    index.removed(WORLD, x, 64, z);
+                }
+            }
+        }
+        index.removed(WORLD, 0, 65, 0);
+        fit = AutoClaimPlanner.refit(manager, index, claim, b -> true);
+        assertEquals(Region.box(-margin, -margin, 1 + margin, 1 + margin), fit.region());
+        for (int x = 0; x < 2; x++) {
+            for (int z = 0; z < 2; z++) {
+                index.removed(WORLD, x, 64, z);
+            }
+        }
+        assertNull(AutoClaimPlanner.refit(manager, index, claim, b -> true));
         // Building high above it moves the top.
         AutoClaimPlanner.Grow up = assertInstanceOf(AutoClaimPlanner.Grow.class,
                 AutoClaimPlanner.plan(manager, index, WORLD, alice, 2, 90, 2, b -> true));

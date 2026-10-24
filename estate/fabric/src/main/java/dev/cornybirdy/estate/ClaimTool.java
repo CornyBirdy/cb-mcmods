@@ -480,6 +480,8 @@ final class ClaimTool {
                 rt.send(player, result.problem().messageKey, Messages.problemPlaceholders(rt, result));
                 return false;
             }
+            // Changed by hand: it no longer shrinks with the build.
+            manager.setAutoClaimed(claim, false);
             rt.send(player, "claim-resized", "claim", claim.name(), "blocks", claim.size(),
                     "left", manager.budgetLeft(claim.owner()));
         }

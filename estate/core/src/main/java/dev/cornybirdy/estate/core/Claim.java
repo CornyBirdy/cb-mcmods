@@ -23,6 +23,8 @@ public final class Claim {
     private int minY;
     private int maxY;
     private boolean expiryExempt;
+    /** Made by auto-claim and not changed by hand since: it shrinks with the build and goes when the build is gone. */
+    private boolean autoClaimed;
     private Region region = Region.EMPTY;
     private final Map<UUID, TrustTier> trust = new HashMap<>();
     private final Map<Flag, Boolean> flags = new EnumMap<>(Flag.class);
@@ -69,6 +71,10 @@ public final class Claim {
 
     public boolean expiryExempt() {
         return expiryExempt;
+    }
+
+    public boolean autoClaimed() {
+        return autoClaimed;
     }
 
     public Region region() {
@@ -157,6 +163,10 @@ public final class Claim {
         this.expiryExempt = exempt;
     }
 
+    void setAutoClaimed(boolean autoClaimed) {
+        this.autoClaimed = autoClaimed;
+    }
+
     void setRegion(Region region) {
         this.region = region;
         trimShares();
@@ -204,10 +214,11 @@ public final class Claim {
 
     /** Used by storage when loading. */
     public static Claim load(int id, String world, UUID owner, String name, int minY, int maxY, long created,
-                             boolean expiryExempt, Region region, Map<UUID, TrustTier> trust,
+                             boolean expiryExempt, boolean autoClaimed, Region region, Map<UUID, TrustTier> trust,
                              Map<Flag, Boolean> flags, Map<UUID, Integer> shares) {
         Claim claim = new Claim(id, world, owner, name, minY, maxY, created);
         claim.expiryExempt = expiryExempt;
+        claim.autoClaimed = autoClaimed;
         claim.region = region;
         claim.trust.putAll(trust);
         claim.flags.putAll(flags);

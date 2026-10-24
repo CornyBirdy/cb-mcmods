@@ -46,8 +46,8 @@ import java.util.Set;
  * They fade by themselves after {@code borderParticleSeconds}.
  * <p>
  * Every outline is coloured dust particles, redrawn four times a second and denser close to the player. With
- * {@code borderStyle: blocks} (the default) the player's own claims and the claim being drawn are also filled in as
- * boxes of tinted glass (walls, floor and ceiling), and the corners being drawn are glowing cubes. Those are block display entities that only exist on that
+ * {@code borderStyle: blocks} (the default) the player's own claims, the claim being drawn and other players' claims
+ * within 16 blocks are also filled in as boxes of tinted glass (walls, floor and ceiling), and the corners being drawn are glowing cubes. Those are block display entities that only exist on that
  * player's screen: the server sends the entity packets to them alone and never adds the entities to the world, so
  * nothing is left behind after a restart. Each redraw only sends what changed, in one bundle, so nothing flickers.
  */
@@ -64,9 +64,9 @@ final class Borders {
     }
 
     private enum Kind {
-        /** Glass walls, floor and ceiling with glowing edges: your own claims and the one being drawn. */
+        /** Glass walls, floor and ceiling: your own claims, the one being drawn, and others' claims close by. */
         BOX,
-        /** Only the glowing edges: other players' claims, so several claims close together stay readable. */
+        /** Only the outline: other players' claims further away, so several claims close together stay readable. */
         FRAME,
         /** A glowing line around it at one height. */
         LINE
@@ -102,6 +102,8 @@ final class Borders {
     private static final int REDRAW_TICKS = 10;
     /** While the claim tool is held, claims this close to the player are shown. */
     private static final int HOLD_RADIUS = 16;
+    /** Other players' claims are filled with glass when the player is this close to them, outlined further away. */
+    private static final int GLASS_DISTANCE = 16;
     private static final int PARTICLE_TICKS = 5;
     /** Within this many blocks of the player, outlines get {@link #DENSITY} particles per block; further out, one. */
     private static final int DENSE_DISTANCE = 24;
@@ -207,8 +209,9 @@ final class Borders {
                 continue;
             }
             boolean own = claim.owner().equals(player.getUUID());
+            boolean close = claim.region().distance(player.getBlockX(), player.getBlockZ()) <= GLASS_DISTANCE;
             shapes.add(new Shape(claim.region(), 0, claim.minY(), claim.maxY(), own ? Colour.OWN : Colour.OTHER,
-                    own ? Kind.BOX : Kind.FRAME, 0));
+                    own || close ? Kind.BOX : Kind.FRAME, 0));
             if (buffer > 0) {
                 int bottom = claim.minY() - buffer;
                 int top = claim.maxY() + buffer;

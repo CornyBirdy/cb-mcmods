@@ -68,9 +68,38 @@ final class AutoClaimer {
             explain(player, change.check());
             return;
         }
+        rt.manager.setAutoClaimed(change.claim(), true);
         rt.session(player).noBudgetShown = false;
         rt.send(player, "auto-created", "blocks", change.claim().size(), "left", rt.manager.budgetLeft(player.getUUID()));
         rt.borders.show(player, 0);
+    }
+
+    /**
+     * A block was broken. An auto-made claim shrinks to what's left of its build, and is removed once nothing of it is
+     * left, so knocking a build down gives the land back. Claims drawn or changed by hand never shrink by themselves.
+     */
+    void broken(ServerLevel level, BlockPos pos) {
+        Claim claim = rt.claimAt(level, pos);
+        if (claim == null || !claim.autoClaimed()) {
+            return;
+        }
+        ClaimManager manager = rt.manager;
+        AutoClaimPlanner.Fit fit = AutoClaimPlanner.refit(manager, rt.placements, claim, rt.kinds::countsForAutoClaim);
+        ServerPlayer owner = rt.server.getPlayerList().getPlayer(claim.owner());
+        if (fit == null) {
+            manager.delete(claim, null, "auto-remove");
+            if (owner != null) {
+                rt.send(owner, "auto-removed", "claim", claim.name(), "left", manager.budgetLeft(claim.owner()));
+            }
+            return;
+        }
+        if (fit.region().equals(claim.region()) && fit.minY() == claim.minY() && fit.maxY() == claim.maxY()) {
+            return;
+        }
+        if (manager.resize(claim, fit.region(), fit.minY(), fit.maxY(), claim.owner(), rt.oracle(), true).allowed()
+                && owner != null) {
+            rt.actionBar(owner, "auto-shrank", "claim", claim.name(), "left", manager.budgetLeft(claim.owner()));
+        }
     }
 
     private void prompt(ServerPlayer player, AutoClaimPlanner.Prompt prompt) {

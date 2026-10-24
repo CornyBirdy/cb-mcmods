@@ -35,6 +35,8 @@
   "not-allowed": "<red>You can't do that.",
   "auto-created": "<green>Your build is now protected! <gray>A claim of <white><blocks></white> blocks was made around it (<white><left></white> left to claim). It grows as you keep building. <yellow>/land</yellow> to manage it.",
   "auto-grew": "<green>Claim grew <gray>(<white><left></white> claim blocks left)",
+  "auto-shrank": "<gray>Your auto-claim shrank to fit your build <gray>(<white><left></white> claim blocks left)",
+  "auto-removed": "<yellow>Your build is gone, so its claim <white><claim></white> was removed. <gray>You have <white><left></white> claim blocks.",
   "auto-world-not-claimable": "<gray>Builds in this world can't be claimed.",
   "auto-claim-empty": "<gray>Nothing to claim here.",
   "auto-bad-height": "<gray>Couldn't work out a height for this claim.",

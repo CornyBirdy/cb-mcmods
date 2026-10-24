@@ -100,6 +100,10 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
                     "DROP TABLE old_cell",
                     "DROP TABLE claim_cells",
                     "DELETE FROM meta WHERE key = 'cell_size'"
+            },
+            // Version 3: claims remember whether auto-claim made them, so they can shrink with the build.
+            new String[]{
+                    "ALTER TABLE claims ADD COLUMN auto_claimed INTEGER NOT NULL DEFAULT 0"
             });
 
     public static final int SCHEMA_VERSION = MIGRATIONS.size();
@@ -257,11 +261,11 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
             }
             List<Claim> claims = new ArrayList<>();
             try (Statement st = connection.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT id, world, owner, name, min_y, max_y, created, expiry_exempt FROM claims")) {
+                 ResultSet rs = st.executeQuery("SELECT id, world, owner, name, min_y, max_y, created, expiry_exempt, auto_claimed FROM claims")) {
                 while (rs.next()) {
                     int id = rs.getInt(1);
                     claims.add(Claim.load(id, rs.getString(2), UUID.fromString(rs.getString(3)), rs.getString(4),
-                            rs.getInt(5), rs.getInt(6), rs.getLong(7), rs.getInt(8) != 0,
+                            rs.getInt(5), rs.getInt(6), rs.getLong(7), rs.getInt(8) != 0, rs.getInt(9) != 0,
                             Region.of(boxes.getOrDefault(id, List.of())), trust.getOrDefault(id, Map.of()),
                             flags.getOrDefault(id, Map.of()), shares.getOrDefault(id, Map.of())));
                 }
@@ -303,15 +307,18 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
         int maxY = claim.maxY();
         long created = claim.created();
         boolean exempt = claim.expiryExempt();
+        boolean auto = claim.autoClaimed();
         List<Region.Box> boxes = claim.region().boxes();
         Map<UUID, TrustTier> trust = Map.copyOf(claim.trust());
         Map<Flag, Boolean> flags = Map.copyOf(claim.flagOverrides());
         Map<UUID, Integer> shares = Map.copyOf(claim.shares());
         transaction(() -> {
             try (PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO claims (id, world, owner, name, min_y, max_y, created, expiry_exempt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                    "INSERT INTO claims (id, world, owner, name, min_y, max_y, created, expiry_exempt, auto_claimed)"
+                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
                             + " ON CONFLICT(id) DO UPDATE SET world = excluded.world, owner = excluded.owner, name = excluded.name,"
-                            + " min_y = excluded.min_y, max_y = excluded.max_y, expiry_exempt = excluded.expiry_exempt")) {
+                            + " min_y = excluded.min_y, max_y = excluded.max_y, expiry_exempt = excluded.expiry_exempt,"
+                            + " auto_claimed = excluded.auto_claimed")) {
                 ps.setInt(1, id);
                 ps.setString(2, world);
                 ps.setString(3, owner);
@@ -320,6 +327,7 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
                 ps.setInt(6, maxY);
                 ps.setLong(7, created);
                 ps.setInt(8, exempt ? 1 : 0);
+                ps.setInt(9, auto ? 1 : 0);
                 ps.executeUpdate();
             }
             deleteChildren(id);

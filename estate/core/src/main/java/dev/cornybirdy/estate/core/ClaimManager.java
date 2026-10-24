@@ -562,6 +562,14 @@ public final class ClaimManager {
         store.log(Action.of(now(), actor, "rename", claim, old + " -> " + name));
     }
 
+    /** Marks a claim as made by auto-claim (it then follows the build), or as taken over by hand. */
+    public void setAutoClaimed(Claim claim, boolean autoClaimed) {
+        if (claim.autoClaimed() != autoClaimed) {
+            claim.setAutoClaimed(autoClaimed);
+            store.saveClaim(claim);
+        }
+    }
+
     public void setExpiryExempt(Claim claim, boolean exempt, UUID actor) {
         claim.setExpiryExempt(exempt);
         store.saveClaim(claim);

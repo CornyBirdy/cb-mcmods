@@ -158,6 +158,31 @@ public final class PlacementIndex {
         return null;
     }
 
+    /** Every recorded block inside an area and heights whose builder passes {@code whose}. */
+    public List<Hit> within(String world, Region region, int minY, int maxY, Predicate<UUID> whose) {
+        Set<Long> chunks = new LinkedHashSet<>();
+        for (Region.Box box : region.boxes()) {
+            for (int cx = box.minX() >> 4; cx <= box.maxX() >> 4; cx++) {
+                for (int cz = box.minZ() >> 4; cz <= box.maxZ() >> 4; cz++) {
+                    chunks.add(Cells.key(cx, cz));
+                }
+            }
+        }
+        List<Hit> found = new ArrayList<>();
+        for (long chunk : chunks) {
+            for (Map.Entry<Long, PlacementStore.Placed> entry : chunkMap(world, chunk).entrySet()) {
+                long pos = entry.getKey();
+                PlacementStore.Placed placed = entry.getValue();
+                int y = y(pos);
+                if (y >= minY && y <= maxY && !expired(placed) && region.contains(x(pos), z(pos))
+                        && whose.test(placed.player())) {
+                    found.add(new Hit(x(pos), y, z(pos), placed.block()));
+                }
+            }
+        }
+        return found;
+    }
+
     /** Drops a chunk from the cache, e.g. when it unloads. Nothing is lost; it's reloaded when needed. */
     public void forgetChunk(String world, int chunkX, int chunkZ) {
         cache.remove(new ChunkRef(world, Cells.key(chunkX, chunkZ)));

@@ -38,6 +38,7 @@ class SqliteStorageTest {
             manager.trust(claim, bob, TrustTier.CONTAINERS, alice);
             manager.setFlag(claim, Flag.FIRE_SPREAD, false, alice);
             manager.donate(claim, bob, 100);
+            manager.setAutoClaimed(claim, true);
             manager.createTown(WORLD, "Spawn", -10, -10, 10, 10, alice);
             assertFalse(storage.actionsForClaim(claimId, 10).get().isEmpty());
         }
@@ -52,6 +53,7 @@ class SqliteStorageTest {
             assertEquals(TrustTier.CONTAINERS, claim.trust().get(bob));
             assertEquals(Boolean.FALSE, claim.flagOverrides().get(Flag.FIRE_SPREAD));
             assertEquals(100, claim.share(bob));
+            assertTrue(claim.autoClaimed());
             assertEquals(9 * 64 - 100, claim.ownerShare());
             assertTrue(manager.autoClaim(alice));
             assertEquals(10, manager.player(bob).bonusBudget);
@@ -106,6 +108,7 @@ class SqliteStorageTest {
         try (java.sql.Connection c = new org.sqlite.JDBC().connect("jdbc:sqlite:" + file, new java.util.Properties());
              java.sql.Statement st = c.createStatement()) {
             st.execute("DROP TABLE claim_boxes");
+            st.execute("ALTER TABLE claims DROP COLUMN auto_claimed");
             st.execute("CREATE TABLE claim_cells (claim_id INTEGER NOT NULL, cx INTEGER NOT NULL, cz INTEGER NOT NULL,"
                     + " PRIMARY KEY (claim_id, cx, cz)) WITHOUT ROWID");
             st.execute("ALTER TABLE claim_shares RENAME COLUMN blocks TO cells");

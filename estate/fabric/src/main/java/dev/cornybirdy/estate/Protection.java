@@ -80,6 +80,9 @@ public final class Protection {
         EstateRuntime rt = Estate.runtime();
         if (rt != null) {
             rt.placements.removed(EstateRuntime.world(level), pos.getX(), pos.getY(), pos.getZ());
+            if (level instanceof ServerLevel serverLevel) {
+                rt.autoClaimer.broken(serverLevel, pos);
+            }
         }
     }
 

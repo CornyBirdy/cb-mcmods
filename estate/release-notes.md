@@ -1,6 +1,8 @@
 ### New in 1.3.1
 - **Denser particle outlines.** Four particles per block within 24 blocks of you, drawn twice as often.
 - **Holding the claim tool shows claims within 16 blocks** of you, so you can see where you can claim.
+- **Other players' claims are glass when you're close** (within 16 blocks), particle outlines further away.
+- **Auto-claims follow your build both ways.** Break blocks and the claim shrinks to what's left; knock the whole build down and the claim is removed, giving the blocks back. Claims you drew or resized yourself never shrink by themselves. (Applies to claims auto-claim makes from now on.)
 
 ### New in 1.3.0
 - **PvP and mob flags removed.** Estate no longer touches PvP (Gatekeeper's `/pvp` handles it) or mobs (they behave as in vanilla; use the `mobGriefing` game rule). Explosions, including creepers, are still protected. Owners can now change explosions, fire, water and lava, pistons and animals on their own claims.
