@@ -442,9 +442,9 @@ final class Borders {
             if (level.isLoaded(pos)) {
                 for (int y = around + GROUND_SEARCH; y >= around - GROUND_SEARCH; y--) {
                     pos.setY(y - 1);
-                    boolean solidBelow = level.getBlockState(pos).blocksMotion();
+                    boolean solidBelow = solid(pos);
                     pos.setY(y);
-                    if (solidBelow && !level.getBlockState(pos).blocksMotion()) {
+                    if (solidBelow && !solid(pos)) {
                         found = y;
                         break;
                     }
@@ -452,6 +452,11 @@ final class Borders {
             }
             columns.put(key, found);
             return found;
+        }
+
+        /** Something you can stand on (or bump into), not air, plants or water. */
+        private boolean solid(BlockPos pos) {
+            return !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
         }
     }
 
