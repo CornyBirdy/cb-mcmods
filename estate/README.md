@@ -1,7 +1,7 @@
 # Estate
 
 Land claims for survival servers, for **Fabric 26.3**. Built for a small group of friends who play at different times: everyone gets the **same flat claim budget** (playtime never buys more land), builds are **claimed automatically** if you want, and everything works **without an admin online**.
-**Players don't need to install anything.** The menu is a chest screen and the borders are particles, so any vanilla client works.
+**Players don't need to install anything.** The menu is a chest screen and the borders are glowing block outlines the server sends to each player (nothing is placed in the world), so any vanilla client works.
 
 | Server | Download |
 |---|---|
@@ -56,16 +56,27 @@ Dispensers outside a claim can't fire into it, and projectiles from untrusted pl
 `/land` opens it. Everything in it is also a command.
 
 ```
-┌──────────────────────────────────────────────┐
-│ ▪  ▪  ▪  ▪  ☺  ▪  ▪  ▪  ▪   │  ☺ = budget, claims, auto-claim, where you are
-│ ▪  👁  ▦  ⇳  👤  ◼  ✦  ✖  ▪   │  borders, new claim, resize, trust, auto-claim, protection, unclaim
-│ ?  ▪  ▪  ▪  ▣  ▪  ▪  ▪  ⚙   │  help, your claims, server settings (admins)
-└──────────────────────────────────────────────┘
+┌───────────────────────────────────────┐
+│ ▪  ▪  ▪  ▪  ★  ▪  ▪  ▪  ▪ │  ★ = your land: budget bar, claims, where you are
+│ ▪  👁  ▪  ✚  ▪  ⇳  ▪  ✖  ▪ │  show borders, claim land, resize, remove claim
+│ ▪  👤  ▪  🛡  ▪  ⚡  ▪  ▣  ▪ │  friends, protection, auto-claim, your claims
+│ ?  ▪  ▪  ▪  ▪  ▪  ▪  ▪  ⚙ │  help, server settings (admins)
+└───────────────────────────────────────┘
 ```
 
-- **View borders** shows claim corners and edges for 10 seconds: **green** for yours, **red** for other players', **yellow** for buffers, **aqua** for town zones. They fade by themselves.
-- **New claim** and **Resize** open the same editor: pick a side (north, south, east, west, top, bottom), use **-** and **+** to remove or add a row of cells (or move the top or bottom by 4 blocks), and watch the outline change. It's **white** when it can be confirmed and **red** when it can't (over budget, overlapping someone, in a buffer, someone else's blocks). The cost and the cells you'd have left are shown, then **Confirm**.
-- **Trusted players**: left-click a head to change their level, right-click to remove them, or add someone who's online.
+Every button says what it does and ends with "» Click to …".
+
+- **Show borders** draws claim edges for 10 seconds as glowing block outlines: **green** for yours, **red** for other players', **gold** for buffers, **aqua** for town zones. They fade by themselves. (`borderStyle particles` switches back to particles.)
+- **Claim land** gives you the **claim tool** (a golden shovel), like a Litematica selection:
+  - **Right-click** a block for **corner 1** (red). Then just look around: the box follows your crosshair, and the action bar shows its size, cost and the cells you'd have left.
+  - **Sneak + right-click** for **corner 2** (blue). You can re-pick either corner as often as you like, up to 64 blocks away.
+  - Corners are **real coordinates**. `/land pos1 [x y z]` and `/land pos2 [x y z]` set them exactly (where you stand if you leave the coordinates out).
+  - The box snaps sideways to the 8x8 cells; the top and bottom are exact. If you pick corners on the ground, a few blocks below and 24 above are added for you.
+  - A message with **[Confirm] [Edit corners] [Cancel]** appears. The outline is **white** when it can be confirmed and **red** when it can't (over budget, overlapping someone, in a buffer, someone else's blocks), with the reason.
+  - Drawing a box that touches your own claim adds to that claim instead of making a new one.
+- **Edit corners** (`/land claim edit`) opens the coordinate editor: corner 1 and corner 2 each have an **X**, **Y** and **Z** button showing the value. Left-click **+1**, right-click **-1**, shift for a whole cell (or 10 for Y). There's also "corner where I stand", "type corner" (fills in `/land posN` in chat), which way you're facing, and **Confirm**.
+- **Resize** opens the same editor with the corners on the claim's current bounding box. Move them out to grow it, in to shrink it.
+- **Friends**: left-click a head to change their level, right-click to remove them, or add someone who's online.
 - An action bar message shows when you walk into or out of a claim.
 
 ## Commands
@@ -74,9 +85,11 @@ Dispensers outside a claim can't fire into it, and projectiles from untrusted pl
 |---|---|
 | `/land` | Open the menu (in the console: show help) |
 | `/land autoclaim [on\|off]` (also `/autoclaim`) | Turn auto-claim on or off |
-| `/land claim` | Claim the land around you, with a preview first |
+| `/land claim` | Get the claim tool and start drawing a claim |
+| `/land pos1 [x y z]`, `/land pos2 [x y z]` | Set a corner to exact coordinates (or where you stand) |
+| `/land claim confirm\|edit\|cancel` | Confirm the box, open the coordinate editor, or stop |
 | `/land unclaim [confirm]` | Remove the claim you're standing in (or your only claim) |
-| `/land resize` | Resize the claim you're standing in |
+| `/land resize` | Resize the claim you're standing in (coordinate editor) |
 | `/land trust <player> [access\|containers\|build\|manage]` | Trust someone (Build if no level is given). Works for offline players |
 | `/land untrust <player>`, `/land trustlist` | Remove someone, see the list |
 | `/land info` | What's here: whose claim, its size, trust list, flags, expiry |
@@ -134,12 +147,11 @@ Give it with a permissions mod that supports the Fabric Permission API, like Luc
 | `autoClaimDefault` | `false` | Auto-claim for new players |
 | `buildPrompt` | `true` | Show the build tip to players with auto-claim off |
 | `autoExtendVertical` | `true` | Move a claim's top or bottom when the owner builds above or below it |
-| `newClaimSize` | `3` | Width of a claim made with `/land claim`, in cells |
-| `newClaimHeadroom` | `24` | Blocks of room above the ground in a new claim |
-| `resizeVerticalStep` | `4` | Blocks the top and bottom move per click |
+| `newClaimHeadroom` | `24` | Blocks of room added above corners picked on the ground |
 | `inactivityDays` | `30` | Remove claims of players away this long. `0` = never |
 | `unclaimOnPermanentBan` | `true` | Remove the claims of permanently banned players |
 | `borderParticleSeconds` | `10` | How long borders stay visible |
+| `borderStyle` | `blocks` | `blocks` (glowing outlines) or `particles` |
 | `placedBlockRetentionDays` | `90` | How long placed-block records are kept. `0` = forever |
 | `enterLeaveMessages` | `true` | Action bar message when walking into or out of a claim |
 | `claimableWorlds` | `minecraft:overworld` | Dimensions where claims can be made |
