@@ -38,7 +38,8 @@ import java.util.List;
  * live. The tool never breaks blocks, hurts anything or wears out.
  * {@code /land pos1|pos2 [x y z]} set corners to exact coordinates, and the editor screen nudges or types them.
  * Drawing right next to your own claim adds the box to it. The tool disappears when the claim is confirmed or
- * cancelled, after 10 idle minutes, or on logout.
+ * cancelled, after 10 idle minutes, or on logout. A dropped tool vanishes, and while a claim is being drawn the player
+ * gets it back.
  */
 final class ClaimTool {
 
@@ -507,6 +508,10 @@ final class ClaimTool {
                 end(player);
                 rt.send(player, "claim-tool-timeout");
                 continue;
+            }
+            if (!hasTool(player) && !isTool(player.containerMenu.getCarried())) {
+                // Dropped or put away: it comes back while the claim is being drawn.
+                player.getInventory().add(tool());
             }
             boolean holding = isTool(player.getMainHandItem()) || isTool(player.getOffhandItem());
             if (!holding) {

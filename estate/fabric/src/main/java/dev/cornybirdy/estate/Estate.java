@@ -4,6 +4,7 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
@@ -17,6 +18,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.item.ItemEntity;
 
 /**
  * Land claims for Fabric servers. Players need no mod: claims are protected on the server, the menu is a chest
@@ -56,6 +58,12 @@ public final class Estate implements ModInitializer {
         ServerChunkEvents.CHUNK_UNLOAD.register((level, chunk) -> {
             if (runtime != null) {
                 runtime.placements.forgetChunk(EstateRuntime.world(level), chunk.getPos().x(), chunk.getPos().z());
+            }
+        });
+        // A dropped claim tool vanishes; the player keeps theirs while they're drawing a claim.
+        ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> {
+            if (runtime != null && entity instanceof ItemEntity item && ClaimTool.isTool(item.getItem())) {
+                runtime.server.execute(item::discard);
             }
         });
         // The claim tool goes first, so picking a corner inside someone's claim isn't refused as "using an item".

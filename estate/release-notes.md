@@ -2,6 +2,8 @@
 - **PvP and mob flags removed.** Estate no longer touches PvP (Gatekeeper's `/pvp` handles it) or mobs (they behave as in vanilla; use the `mobGriefing` game rule). Explosions, including creepers, are still protected. Owners can now change explosions, fire, water and lava, pistons and animals on their own claims.
 - **Menu colours fixed.** "protected" and "not protected" show in green and red instead of as `<green>` text.
 - **Glass borders stay visible.** They no longer vanish when one corner of a wall is out of sight (this happened most with Sodium), and they're drawn 64 blocks around you.
+- **Clearer borders in crowded areas.** Only your own claims (and the one you're drawing) are glass boxes; other players' claims are red edges. Your own buffer now shows as a yellow line too.
+- **The claim tool can't be dropped.** A dropped tool vanishes, and you get it back while you're drawing a claim.
 
 ### Since 1.2.0
 - Claims are exact to the block, shown as glass boxes, and drawn with the claim tool: left-click for corner 1, right-click for corner 2.

@@ -46,8 +46,9 @@ import java.util.Set;
  * buffers, aqua for town zones, and white (or red when it can't be confirmed) for a claim being drawn or resized.
  * They fade by themselves after {@code borderParticleSeconds}.
  * <p>
- * With {@code borderStyle: blocks} (the default) a claim is drawn as a box of tinted glass walls, floor and ceiling,
- * with glowing edges that show through terrain. It's all block display entities that only exist on that player's
+ * With {@code borderStyle: blocks} (the default) the player's own claims and the claim being drawn are boxes of tinted
+ * glass walls, floor and ceiling with glowing edges that show through terrain; other players' claims only get the
+ * glowing edges, and every claim's buffer is a yellow line. It's all block display entities that only exist on that player's
  * screen: the server sends the entity packets to them alone and never adds the entities to the world, so nothing is
  * left behind after a restart. Each redraw only sends what changed, in one bundle, so nothing flickers. With
  * {@code particles} the borders are coloured dust, redrawn every half second.
@@ -65,8 +66,10 @@ final class Borders {
     }
 
     private enum Kind {
-        /** Glass walls, floor and ceiling with glowing edges. */
+        /** Glass walls, floor and ceiling with glowing edges: your own claims and the one being drawn. */
         BOX,
+        /** Only the glowing edges: other players' claims, so several claims close together stay readable. */
+        FRAME,
         /** A glowing line around it at one height. */
         LINE
     }
@@ -101,7 +104,7 @@ final class Borders {
     private static final int REDRAW_TICKS = 10;
     /** How far around the player borders are drawn, sideways and up or down. */
     private static final int VIEW_DISTANCE = 64;
-    private static final int VIEW_HEIGHT = 32;
+    private static final int VIEW_HEIGHT = 24;
     private static final int MAX_PARTICLES = 1500;
     private static final int MAX_DISPLAYS = 800;
     /** Glass walls are split into panels of at most this many blocks, so the glass texture doesn't stretch. */
@@ -181,8 +184,9 @@ final class Borders {
                 continue;
             }
             boolean own = claim.owner().equals(player.getUUID());
-            shapes.add(new Shape(claim.region(), 0, claim.minY(), claim.maxY(), own ? Colour.OWN : Colour.OTHER, Kind.BOX, 0));
-            if (buffer > 0 && !own && !rt.manager.bufferWaived(claim, player.getUUID())) {
+            shapes.add(new Shape(claim.region(), 0, claim.minY(), claim.maxY(), own ? Colour.OWN : Colour.OTHER,
+                    own ? Kind.BOX : Kind.FRAME, 0));
+            if (buffer > 0) {
                 int bottom = claim.minY() - buffer;
                 int top = claim.maxY() + buffer;
                 shapes.add(new Shape(claim.region(), buffer, bottom, top, Colour.BUFFER, Kind.LINE,
@@ -228,7 +232,9 @@ final class Borders {
                 if (!near(segment, px, pz)) {
                     continue;
                 }
-                walls(shape.colour(), segment, wallFrom, wallTo, px, pz, specs);
+                if (shape.kind() == Kind.BOX) {
+                    walls(shape.colour(), segment, wallFrom, wallTo, px, pz, specs);
+                }
                 if (seeBottom) {
                     specs.add(edge(shape.colour(), segment, bottom));
                 }
@@ -244,7 +250,7 @@ final class Borders {
                 specs.add(new Spec(shape.colour().edge, cx - EDGE / 2, bottom, cz - EDGE / 2, EDGE, top - bottom, EDGE,
                         shape.colour().rgb));
             }
-            for (Region.Box box : shape.region().boxes()) {
+            for (Region.Box box : shape.kind() == Kind.BOX ? shape.region().boxes() : List.<Region.Box>of()) {
                 if (seeBottom) {
                     flat(shape.colour(), box, bottom, px, pz, specs);
                 }
