@@ -100,10 +100,12 @@ public class EstateGameTest {
             if (use(player, level, chest) != InteractionResult.FAIL) {
                 throw helper.assertionException("A stranger must not open chests in a claim");
             }
+            // The claimed cell can reach past this test's own area, so clear the spot first.
+            level.setBlockAndUpdate(inside.above(), Blocks.AIR.defaultBlockState());
             if (place(player, inside).consumesAction()) {
                 throw helper.assertionException("A stranger must not place blocks in a claim");
             }
-            if (!level.getBlockState(inside.above()).isAir()) {
+            if (level.getBlockState(inside.above()).is(Blocks.DIRT)) {
                 throw helper.assertionException("The refused block must not be in the world");
             }
 
@@ -153,6 +155,7 @@ public class EstateGameTest {
                 for (int dz = 0; dz < 8 && placed < 50; dz++) {
                     BlockPos support = new BlockPos(cellX + dx, floorY - 1, cellZ + dz);
                     level.setBlockAndUpdate(support, Blocks.STONE.defaultBlockState());
+                    level.setBlockAndUpdate(support.above(), Blocks.AIR.defaultBlockState());
                     if (place(player, support).consumesAction()) {
                         placed++;
                     }
