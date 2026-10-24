@@ -1,6 +1,8 @@
 Turn ender chests, the End, the Nether, netherite armor and netherite tools on or off while the server runs, for **Paper 26.1+** and **Fabric 26.3**. Works from the server console, no restart needed. Players don't need to install anything.
 
-**New: opt-in PvP.** Everyone starts with PvP off and switches it with `/pvp toggle`; players only hurt each other when both have it on. Changing it has a cooldown (60s), players in a fight can't turn it off until the combat timer runs out (30s after the last hit), and killing players who log out in combat can be turned on with `/gatekeeper combatlog on` (off by default). Admins change all of it with `/gatekeeper pvpdefault|pvpcooldown|pvpcombat|combatlog`. Keep `pvp=true` in `server.properties`.
+**New in 1.4.0:** `/pvp on` and `/pvp off` are gone; `/pvp toggle` is the one way to switch, so there's no confusion between them.
+
+**Opt-in PvP.** Everyone starts with PvP off and switches it with `/pvp toggle`; players only hurt each other when both have it on. Changing it has a cooldown (60s), players in a fight can't turn it off until the combat timer runs out (30s after the last hit), and killing players who log out in combat can be turned on with `/gatekeeper combatlog on` (off by default). Admins change all of it with `/gatekeeper pvpdefault|pvpcooldown|pvpcombat|combatlog`. Keep `pvp=true` in `server.properties`.
 
 Exceptions: two players who `/pvp allow` each other can fight even with PvP off (`/pvp list` shows who), and admins can lock someone's PvP on or off with `/gatekeeper pvpforce <player> on|off|clear`.
 
