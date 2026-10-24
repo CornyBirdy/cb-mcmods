@@ -1,8 +1,6 @@
 package dev.cornybirdy.estate.core;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
 
@@ -20,12 +18,12 @@ public final class AutoClaimPlanner {
         INSTANCE
     }
 
-    /** Grow an own claim to these cells and heights. {@code verticalOnly} when only the top or bottom moves. */
-    public record Grow(Claim claim, Set<Long> cells, int minY, int maxY, boolean verticalOnly) implements Plan {
+    /** Grow an own claim to this area and heights. {@code verticalOnly} when only the top or bottom moves. */
+    public record Grow(Claim claim, Region region, int minY, int maxY, boolean verticalOnly) implements Plan {
     }
 
     /** Make a new claim around a build of {@code blocks} blocks. */
-    public record Create(Set<Long> cells, int minY, int maxY, int blocks) implements Plan {
+    public record Create(Region region, int minY, int maxY, int blocks) implements Plan {
     }
 
     /** The player has auto-claim off and has just built something worth protecting. */
@@ -41,24 +39,23 @@ public final class AutoClaimPlanner {
     public static Plan plan(ClaimManager manager, PlacementIndex placements, String world, UUID player,
                             int x, int y, int z, Predicate<String> countsBlock) {
         EstateConfig config = manager.config();
-        int cellSize = manager.cellSize();
         int padding = config.verticalPadding;
+        int margin = config.autoClaimMargin;
         int radius = config.autoClaimClusterRadius;
         if (!config.isClaimable(world) || manager.claimAt(world, x, y, z) != null) {
             return Nothing.INSTANCE;
         }
         boolean auto = manager.autoClaim(player);
-        long cell = Cells.containing(x, z, cellSize);
 
         // Building above or below an own claim: move its top or bottom.
         Claim column = null;
-        for (Claim claim : manager.claimsInCell(world, cell)) {
+        for (Claim claim : manager.claimsInColumn(world, x, z)) {
             if (claim.owner().equals(player) && (column == null || verticalGap(claim, y) < verticalGap(column, y))) {
                 column = claim;
             }
         }
         if (column != null && (auto || config.autoExtendVertical)) {
-            return new Grow(column, column.cells(), Math.min(column.minY(), y - padding),
+            return new Grow(column, column.region(), Math.min(column.minY(), y - padding),
                     Math.max(column.maxY(), y + padding), true);
         }
 
@@ -69,18 +66,19 @@ public final class AutoClaimPlanner {
                 if (!claim.owner().equals(player) || verticalGap(claim, y) > radius) {
                     continue;
                 }
-                for (long own : claim.cells()) {
-                    int distance = Cells.distance(x, z, own, cellSize);
-                    if (distance <= radius && distance < best) {
-                        best = distance;
-                        nearest = claim;
-                    }
+                int distance = claim.region().distance(x, z);
+                if (distance <= radius && distance < best) {
+                    best = distance;
+                    nearest = claim;
                 }
             }
             if (nearest != null) {
-                Set<Long> cells = new HashSet<>(nearest.cells());
-                cells.add(cell);
-                return new Grow(nearest, cells, Math.min(nearest.minY(), y - padding),
+                // The block plus a margin around it, stretched to reach the claim so it stays in one piece.
+                int[] edge = nearest.region().nearest(x, z);
+                Region.Box joined = Region.Box.of(Math.min(x - margin, edge[0]), Math.min(z - margin, edge[1]),
+                        Math.max(x + margin, edge[0]), Math.max(z + margin, edge[1]));
+                Region grown = nearest.region().union(Region.of(joined));
+                return new Grow(nearest, grown, Math.min(nearest.minY(), y - padding),
                         Math.max(nearest.maxY(), y + padding), false);
             }
         }
@@ -102,15 +100,23 @@ public final class AutoClaimPlanner {
             return config.buildPrompt && (record == null || !record.promptDone)
                     ? new Prompt(hits.size()) : Nothing.INSTANCE;
         }
-        Set<Long> cells = new HashSet<>();
+        int minX = Integer.MAX_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxZ = Integer.MIN_VALUE;
         int minY = Integer.MAX_VALUE;
         int maxY = Integer.MIN_VALUE;
         for (PlacementIndex.Hit hit : hits) {
-            cells.add(Cells.containing(hit.x(), hit.z(), cellSize));
+            minX = Math.min(minX, hit.x());
+            minZ = Math.min(minZ, hit.z());
+            maxX = Math.max(maxX, hit.x());
+            maxZ = Math.max(maxZ, hit.z());
             minY = Math.min(minY, hit.y());
             maxY = Math.max(maxY, hit.y());
         }
-        return new Create(cells, minY - padding, maxY + padding, hits.size());
+        // A box around the whole build, with a margin of land around it.
+        Region region = Region.box(minX - margin, minZ - margin, maxX + margin, maxZ + margin);
+        return new Create(region, minY - padding, maxY + padding, hits.size());
     }
 
     private static int verticalGap(Claim claim, int y) {

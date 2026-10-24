@@ -20,6 +20,7 @@
     "RabbitRaidGardenGoalMixin",
     "RavagerMixin",
     "ServerExplosionMixin",
+    "ServerGamePacketListenerImplMixin",
     "VehicleEntityMixin",
     "WitherBossMixin"
   ],

@@ -3,9 +3,7 @@ package dev.cornybirdy.estate.core;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,27 +31,29 @@ class ClaimManagerTest {
         manager.seen(bob, "Bob");
     }
 
-    static Set<Long> square(int cx, int cz, int size) {
-        Set<Long> cells = new HashSet<>();
-        for (int x = cx; x < cx + size; x++) {
-            for (int z = cz; z < cz + size; z++) {
-                cells.add(Cells.key(x, z));
-            }
-        }
-        return cells;
+    /** The tests think in 8x8 squares ("cells") to keep the numbers readable; claims are exact to the block. */
+    static final int CELL = 8;
+    static final int CELL_AREA = CELL * CELL;
+
+    static Region square(int cx, int cz, int size) {
+        return Region.box(cx * CELL, cz * CELL, (cx + size) * CELL - 1, (cz + size) * CELL - 1);
     }
 
-    Claim claim(UUID owner, Set<Long> cells, int minY, int maxY) {
-        ClaimManager.Change change = manager.create(WORLD, owner, "test", cells, minY, maxY, owner, PlacementOracle.NONE, false);
+    static Region cell(int cx, int cz) {
+        return square(cx, cz, 1);
+    }
+
+    Claim claim(UUID owner, Region region, int minY, int maxY) {
+        ClaimManager.Change change = manager.create(WORLD, owner, "test", region, minY, maxY, owner, PlacementOracle.NONE, false);
         assertTrue(change.ok(), () -> "claim refused: " + change.check());
         return change.claim();
     }
 
     @Test
     void budgetIsFlatAndReturnedOnUnclaim() {
-        assertEquals(64, manager.budgetLimit(alice));
+        assertEquals(4096, manager.budgetLimit(alice));
         Claim first = claim(alice, square(0, 0, 4), 60, 80);
-        assertEquals(16, manager.budgetUsed(alice));
+        assertEquals(16 * CELL_AREA, manager.budgetUsed(alice));
         Check tooBig = manager.check(WORLD, alice, square(20, 20, 7), 60, 80, null, PlacementOracle.NONE, false);
         assertEquals(Problem.NO_BUDGET, tooBig.problem());
         manager.delete(first, alice, "unclaim");
@@ -63,10 +63,10 @@ class ClaimManagerTest {
 
     @Test
     void adminGrantRaisesBudgetUpToTheGrantCap() {
-        manager.setBonusBudget(alice, 1000, null);
-        assertEquals(256, manager.budgetLimit(alice));
+        manager.setBonusBudget(alice, 100_000, null);
+        assertEquals(16384, manager.budgetLimit(alice));
         manager.setBonusBudget(alice, 0, null);
-        assertEquals(64, manager.budgetLimit(alice));
+        assertEquals(4096, manager.budgetLimit(alice));
     }
 
     @Test
@@ -81,21 +81,21 @@ class ClaimManagerTest {
     @Test
     void overlapAndBufferBlockStrangersButNotTrustedOrTowns() {
         Claim home = claim(alice, square(0, 0, 2), 60, 80);
-        Check overlap = manager.check(WORLD, bob, Set.of(Cells.key(1, 1)), 60, 80, null, PlacementOracle.NONE, false);
+        Check overlap = manager.check(WORLD, bob, cell(1, 1), 60, 80, null, PlacementOracle.NONE, false);
         assertEquals(Problem.OVERLAP, overlap.problem());
         assertSame(home, overlap.other());
 
-        Check buffer = manager.check(WORLD, bob, Set.of(Cells.key(2, 0)), 60, 80, null, PlacementOracle.NONE, false);
+        Check buffer = manager.check(WORLD, bob, cell(2, 0), 60, 80, null, PlacementOracle.NONE, false);
         assertEquals(Problem.BUFFER, buffer.problem());
-        assertTrue(manager.check(WORLD, bob, Set.of(Cells.key(3, 0)), 60, 80, null, PlacementOracle.NONE, false).allowed());
+        assertTrue(manager.check(WORLD, bob, cell(3, 0), 60, 80, null, PlacementOracle.NONE, false).allowed());
 
         manager.trust(home, bob, TrustTier.BUILD, alice);
-        assertTrue(manager.check(WORLD, bob, Set.of(Cells.key(2, 0)), 60, 80, null, PlacementOracle.NONE, false).allowed());
+        assertTrue(manager.check(WORLD, bob, cell(2, 0), 60, 80, null, PlacementOracle.NONE, false).allowed());
         manager.trust(home, bob, TrustTier.ACCESS, alice);
-        assertFalse(manager.check(WORLD, bob, Set.of(Cells.key(2, 0)), 60, 80, null, PlacementOracle.NONE, false).allowed());
+        assertFalse(manager.check(WORLD, bob, cell(2, 0), 60, 80, null, PlacementOracle.NONE, false).allowed());
 
         manager.createTown(WORLD, "spawn", -100, -100, 100, 100, null);
-        assertTrue(manager.check(WORLD, bob, Set.of(Cells.key(2, 0)), 60, 80, null, PlacementOracle.NONE, false).allowed());
+        assertTrue(manager.check(WORLD, bob, cell(2, 0), 60, 80, null, PlacementOracle.NONE, false).allowed());
     }
 
     @Test
@@ -141,7 +141,7 @@ class ClaimManagerTest {
 
     @Test
     void othersBlocksStopClaimingUnlessFriendOrInactive() {
-        PlacementOracle bobBuiltHere = (world, cells, minY, maxY, counts) -> counts.test(bob) ? bob : null;
+        PlacementOracle bobBuiltHere = (world, region, minY, maxY, counts) -> counts.test(bob) ? bob : null;
         Check check = manager.check(WORLD, alice, square(0, 0, 2), 60, 80, null, bobBuiltHere, false);
         assertEquals(Problem.OTHERS_BLOCKS, check.problem());
         assertEquals(bob, check.blocker());
@@ -155,9 +155,9 @@ class ClaimManagerTest {
     void resizeChargesAndRefundsTheOwner() {
         Claim home = claim(alice, square(0, 0, 2), 60, 80);
         assertTrue(manager.resize(home, square(0, 0, 3), 60, 80, alice, PlacementOracle.NONE, false).allowed());
-        assertEquals(9, manager.budgetUsed(alice));
+        assertEquals(9 * CELL_AREA, manager.budgetUsed(alice));
         assertTrue(manager.resize(home, square(0, 0, 1), 60, 80, alice, PlacementOracle.NONE, false).allowed());
-        assertEquals(1, manager.budgetUsed(alice));
+        assertEquals(CELL_AREA, manager.budgetUsed(alice));
         assertSame(home, manager.claimAt(WORLD, 1, 70, 1));
         assertNull(manager.claimAt(WORLD, 9, 70, 1));
     }
@@ -165,21 +165,40 @@ class ClaimManagerTest {
     @Test
     void pooledClaimsShareTheCost() {
         Claim town = claim(alice, square(0, 0, 8), 60, 80);
-        assertEquals(64, manager.budgetUsed(alice));
+        assertEquals(64 * CELL_AREA, manager.budgetUsed(alice));
         manager.trust(town, bob, TrustTier.BUILD, alice);
-        assertNull(manager.donate(town, bob, 20));
-        assertEquals(44, manager.budgetUsed(alice));
-        assertEquals(20, manager.budgetUsed(bob));
+        assertNull(manager.donate(town, bob, 20 * CELL_AREA));
+        assertEquals(44 * CELL_AREA, manager.budgetUsed(alice));
+        assertEquals(20 * CELL_AREA, manager.budgetUsed(bob));
         // Alice can now grow beyond her own budget.
-        Set<Long> bigger = new HashSet<>(town.cells());
-        bigger.addAll(square(8, 0, 2));
+        Region bigger = town.region().union(square(8, 0, 2));
         assertTrue(manager.resize(town, bigger, 60, 80, alice, PlacementOracle.NONE, false).allowed());
-        assertEquals(48, manager.budgetUsed(alice));
-        assertEquals(Problem.NO_BUDGET, manager.withdraw(town, bob, 20));
+        assertEquals(48 * CELL_AREA, manager.budgetUsed(alice));
+        assertEquals(Problem.NO_BUDGET, manager.withdraw(town, bob, 20 * CELL_AREA));
         // Shrinking below the donations gives them back.
         assertTrue(manager.resize(town, square(0, 0, 4), 60, 80, alice, PlacementOracle.NONE, false).allowed());
         assertEquals(0, manager.budgetUsed(alice));
-        assertEquals(16, manager.budgetUsed(bob));
+        assertEquals(16 * CELL_AREA, manager.budgetUsed(bob));
+    }
+
+    @Test
+    void claimsAreExactToTheBlock() {
+        Claim home = claim(alice, Region.box(0, 0, 4, 2), 60, 70);
+        assertEquals(15, home.size());
+        assertSame(home, manager.claimAt(WORLD, 4, 65, 2));
+        assertNull(manager.claimAt(WORLD, 5, 65, 2));
+        assertNull(manager.claimAt(WORLD, -1, 65, 0));
+        // The buffer starts right at the edge: 8 blocks out is too close, 9 is fine.
+        assertEquals(Problem.BUFFER,
+                manager.check(WORLD, bob, Region.box(12, 0, 14, 2), 60, 70, null, PlacementOracle.NONE, false).problem());
+        assertTrue(manager.check(WORLD, bob, Region.box(13, 0, 15, 2), 60, 70, null, PlacementOracle.NONE, false).allowed());
+        assertEquals(1, manager.claimsNear(WORLD, 12, 1, 8).size());
+        assertTrue(manager.claimsNear(WORLD, 13, 1, 8).isEmpty());
+        // A town zone only lifts the buffer for the part of the claim inside it.
+        manager.createTown(WORLD, "market", 10, -50, 50, 50, null);
+        assertTrue(manager.check(WORLD, bob, Region.box(12, 0, 14, 2), 60, 70, null, PlacementOracle.NONE, false).allowed());
+        assertEquals(Problem.BUFFER,
+                manager.check(WORLD, bob, Region.box(9, 0, 14, 2), 60, 70, null, PlacementOracle.NONE, false).problem());
     }
 
     @Test

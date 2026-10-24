@@ -1,9 +1,9 @@
 package dev.cornybirdy.estate;
 
-import dev.cornybirdy.estate.core.Cells;
 import dev.cornybirdy.estate.core.Claim;
 import dev.cornybirdy.estate.core.ClaimDraft;
 import dev.cornybirdy.estate.core.PlacementOracle;
+import dev.cornybirdy.estate.core.Region;
 import dev.cornybirdy.estate.core.TrustTier;
 import net.fabricmc.fabric.api.entity.FakePlayer;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
@@ -26,7 +26,6 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 /** Runs on a real (headless) server in CI: checks every mixin applies and claims really protect blocks. */
@@ -54,7 +53,8 @@ public class EstateGameTest {
                 "net.minecraft.world.entity.decoration.ItemFrame",
                 "net.minecraft.world.entity.decoration.BlockAttachedEntity",
                 "net.minecraft.world.entity.vehicle.VehicleEntity",
-                "net.minecraft.world.entity.decoration.ArmorStand");
+                "net.minecraft.world.entity.decoration.ArmorStand",
+                "net.minecraft.server.network.ServerGamePacketListenerImpl");
         for (String target : targets) {
             try {
                 Class.forName(target, true, EstateGameTest.class.getClassLoader());
@@ -74,17 +74,16 @@ public class EstateGameTest {
         }
         ServerLevel level = helper.getLevel();
         String world = EstateRuntime.world(level);
-        int cellSize = rt.manager.cellSize();
         BlockPos base = helper.absolutePos(new BlockPos(0, 1, 0));
-        long cell = Cells.containing(base.getX(), base.getZ(), cellSize);
-        int cellX = Cells.x(cell) * cellSize;
-        int cellZ = Cells.z(cell) * cellSize;
+        int cellX = base.getX() + 3;
+        int cellZ = base.getZ() + 3;
         int y = base.getY();
         BlockPos inside = new BlockPos(cellX + 3, y, cellZ + 3);
         BlockPos outside = new BlockPos(cellX - 1, y, cellZ + 3);
         UUID owner = UUID.randomUUID();
         rt.manager.seen(owner, "EstateTestOwner");
-        Claim claim = rt.manager.create(world, owner, "test", Set.of(cell), y - 5, y + 10, owner, PlacementOracle.NONE, true).claim();
+        Claim claim = rt.manager.create(world, owner, "test", Region.box(cellX, cellZ, cellX + 6, cellZ + 6), y - 5, y + 10,
+                owner, PlacementOracle.NONE, true).claim();
         if (claim == null) {
             throw helper.assertionException("Could not create a test claim");
         }
@@ -101,7 +100,7 @@ public class EstateGameTest {
             if (use(player, level, chest) != InteractionResult.FAIL) {
                 throw helper.assertionException("A stranger must not open chests in a claim");
             }
-            // The claimed cell can reach past this test's own area, so clear the spot first.
+            // Make sure the spot above is free first.
             level.setBlockAndUpdate(inside.above(), Blocks.AIR.defaultBlockState());
             if (place(player, inside).consumesAction()) {
                 throw helper.assertionException("A stranger must not place blocks in a claim");
@@ -116,6 +115,9 @@ public class EstateGameTest {
             }
             rt.manager.trust(claim, player.getUUID(), null, owner);
 
+            if (rt.claimAt(level, outside) != null || rt.claimAt(level, inside) != claim) {
+                throw helper.assertionException("Claims must be exact to the block");
+            }
             if (Protection.mayFlow(level, outside, outside.east())) {
                 throw helper.assertionException("Water from outside must not flow into a claim");
             }
@@ -190,7 +192,6 @@ public class EstateGameTest {
         FakePlayer player = FakePlayer.get(level);
         UUID id = player.getUUID();
         String world = EstateRuntime.world(level);
-        int cellSize = rt.manager.cellSize();
         BlockPos base = helper.absolutePos(new BlockPos(1, 1, 1));
         player.setPos(base.getX() + 0.5, base.getY(), base.getZ() + 0.5);
         boolean autoBefore = rt.manager.autoClaim(id);
@@ -210,11 +211,25 @@ public class EstateGameTest {
             if (rt.session(player).selection == null || !hasTool(player)) {
                 throw helper.assertionException("Claim land should hand out the claim tool");
             }
+            ItemStack tool = toolStack(player);
+            if (tool.isDamageableItem()) {
+                throw helper.assertionException("The claim tool must not wear out");
+            }
+            ItemStack held = player.getMainHandItem();
+            player.setItemInHand(InteractionHand.MAIN_HAND, tool);
+            if (rt.claimTool.attackBlock(player, level, InteractionHand.MAIN_HAND, base) != InteractionResult.FAIL
+                    || mayBreak(level, player, base)) {
+                throw helper.assertionException("The claim tool must not break blocks");
+            }
+            player.setItemInHand(InteractionHand.MAIN_HAND, held);
             BlockPos corner2 = base.offset(12, 15, 5);
             rt.claimTool.setExact(player, 1, base);
             rt.claimTool.setExact(player, 2, corner2);
-            int expected = ClaimDraft.create(world, cellSize, new int[]{base.getX(), base.getY(), base.getZ()},
-                    new int[]{corner2.getX(), corner2.getY(), corner2.getZ()}).cells().size();
+            int expected = (int) ClaimDraft.create(world, new int[]{base.getX(), base.getY(), base.getZ()},
+                    new int[]{corner2.getX(), corner2.getY(), corner2.getZ()}).region().area();
+            if (expected != 13 * 6) {
+                throw helper.assertionException("The box between the corners should be 13 x 6 blocks, got " + expected);
+            }
             Menus.editor(rt, player);
             Gui editor = Gui.lastOffscreen;
             editor.press(Menus.SLOT_CONFIRM, Gui.Click.LEFT);
@@ -229,11 +244,11 @@ public class EstateGameTest {
 
             main.press(Menus.SLOT_RESIZE, Gui.Click.LEFT);
             Gui resize = Gui.lastOffscreen;
-            long rows = claim.cells().stream().map(dev.cornybirdy.estate.core.Cells::z).distinct().count();
+            int rows = claim.region().bounds().depth();
             resize.press(Menus.SLOTS_CORNER2[0], Gui.Click.SHIFT_LEFT);
             resize.press(Menus.SLOT_CONFIRM, Gui.Click.LEFT);
-            if (claim.size() != expected + rows) {
-                throw helper.assertionException("Moving corner 2 one cell east should add a column, got " + claim.size());
+            if (claim.size() != expected + 10 * rows) {
+                throw helper.assertionException("Moving corner 2 ten blocks east should add ten columns, got " + claim.size());
             }
 
             main.press(Menus.SLOT_TRUST, Gui.Click.LEFT);
@@ -268,12 +283,16 @@ public class EstateGameTest {
     }
 
     private static boolean hasTool(FakePlayer player) {
+        return !toolStack(player).isEmpty();
+    }
+
+    private static ItemStack toolStack(FakePlayer player) {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             if (ClaimTool.isTool(player.getInventory().getItem(i))) {
-                return true;
+                return player.getInventory().getItem(i);
             }
         }
-        return false;
+        return ItemStack.EMPTY;
     }
 
     private static boolean mayBreak(ServerLevel level, FakePlayer player, BlockPos pos) {

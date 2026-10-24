@@ -150,11 +150,11 @@ final class LandCommand {
                                         .executes(c -> player(c, (rt, p) -> flag(rt, p, StringArgumentType.getString(c, "flag"),
                                                 StringArgumentType.getString(c, "value")))))))
                 .then(Commands.literal("donate")
-                        .then(Commands.argument("cells", IntegerArgumentType.integer(1))
-                                .executes(c -> player(c, (rt, p) -> donate(rt, p, IntegerArgumentType.getInteger(c, "cells"), true)))))
+                        .then(Commands.argument("blocks", IntegerArgumentType.integer(1))
+                                .executes(c -> player(c, (rt, p) -> donate(rt, p, IntegerArgumentType.getInteger(c, "blocks"), true)))))
                 .then(Commands.literal("withdraw")
-                        .then(Commands.argument("cells", IntegerArgumentType.integer(1))
-                                .executes(c -> player(c, (rt, p) -> donate(rt, p, IntegerArgumentType.getInteger(c, "cells"), false)))))
+                        .then(Commands.argument("blocks", IntegerArgumentType.integer(1))
+                                .executes(c -> player(c, (rt, p) -> donate(rt, p, IntegerArgumentType.getInteger(c, "blocks"), false)))))
                 .then(admin()));
         dispatcher.register(Commands.literal("estate").executes(c -> run(c, LandCommand::open)).redirect(land));
         dispatcher.register(autoClaimBranch(Commands.literal("autoclaim")));
@@ -362,16 +362,16 @@ final class LandCommand {
                 flags.append(flag.key).append(flag == Flag.PVP ? " on" : " off");
             }
         }
-        int[] center = Menus.center(claim, manager.cellSize());
+        int[] center = claim.region().middle();
         long days = manager.daysUntilExpiry(claim.owner());
         source.sendSystemMessage(rt.msg.get("info-claim", "claim", claim.name(), "id", claim.id(),
-                "owner", rt.name(claim.owner()), "cells", claim.size(), "miny", claim.minY(), "maxy", claim.maxY(),
+                "owner", rt.name(claim.owner()), "blocks", claim.size(), "miny", claim.minY(), "maxy", claim.maxY(),
                 "x", center[0], "z", center[1],
                 "trusted", trusted.isEmpty() ? rt.msg.raw("nobody") : trusted.toString(),
                 "flags", flags.isEmpty() ? rt.msg.raw("all-protected") : flags.toString(),
                 "expiry", claim.expiryExempt() ? rt.msg.raw("expiry-exempt")
                         : days < 0 ? rt.msg.raw("expiry-never") : rt.msg.raw("expiry-days").replace("<days>", String.valueOf(days)),
-                "pool", claim.donated() > 0 ? rt.msg.raw("info-pool").replace("<cells>", String.valueOf(claim.donated())) : ""));
+                "pool", claim.donated() > 0 ? rt.msg.raw("info-pool").replace("<blocks>", String.valueOf(claim.donated())) : ""));
     }
 
     private static int rename(EstateRuntime rt, ServerPlayer player, String name) {
@@ -433,14 +433,14 @@ final class LandCommand {
         }
         Problem problem = give ? rt.manager.donate(claim, player.getUUID(), cells) : rt.manager.withdraw(claim, player.getUUID(), cells);
         if (problem != null) {
-            rt.send(player, (give ? "donate-" : "withdraw-") + problem.messageKey, "cells", cells,
+            rt.send(player, (give ? "donate-" : "withdraw-") + problem.messageKey, "blocks", cells,
                     "left", rt.manager.budgetLeft(player.getUUID()), "owner", rt.name(claim.owner()));
             return 0;
         }
-        rt.send(player, give ? "donated" : "withdrawn", "cells", cells, "claim", claim.name(),
+        rt.send(player, give ? "donated" : "withdrawn", "blocks", cells, "claim", claim.name(),
                 "share", claim.share(player.getUUID()), "left", rt.manager.budgetLeft(player.getUUID()));
         rt.notifyOwner(claim.owner(), rt.msg.get(give ? "donated-owner" : "withdrawn-owner",
-                "player", player.getGameProfile().name(), "cells", cells, "claim", claim.name()));
+                "player", player.getGameProfile().name(), "blocks", cells, "claim", claim.name()));
         return 1;
     }
 
@@ -492,12 +492,12 @@ final class LandCommand {
                 .then(Commands.literal("budget")
                         .then(Commands.argument("player", StringArgumentType.word()).suggests(PLAYERS)
                                 .executes(c -> run(c, (rt, src) -> budget(rt, src, StringArgumentType.getString(c, "player"), null, false)))
-                                .then(Commands.literal("grant").then(Commands.argument("cells", IntegerArgumentType.integer(0))
+                                .then(Commands.literal("grant").then(Commands.argument("blocks", IntegerArgumentType.integer(0))
                                         .executes(c -> run(c, (rt, src) -> budget(rt, src, StringArgumentType.getString(c, "player"),
-                                                IntegerArgumentType.getInteger(c, "cells"), false)))))
-                                .then(Commands.literal("add").then(Commands.argument("cells", IntegerArgumentType.integer())
+                                                IntegerArgumentType.getInteger(c, "blocks"), false)))))
+                                .then(Commands.literal("add").then(Commands.argument("blocks", IntegerArgumentType.integer())
                                         .executes(c -> run(c, (rt, src) -> budget(rt, src, StringArgumentType.getString(c, "player"),
-                                                IntegerArgumentType.getInteger(c, "cells"), true)))))))
+                                                IntegerArgumentType.getInteger(c, "blocks"), true)))))))
                 .then(Commands.literal("claims")
                         .executes(c -> run(c, (rt, src) -> claims(rt, src, null)))
                         .then(Commands.argument("player", StringArgumentType.word()).suggests(PLAYERS)
@@ -645,11 +645,10 @@ final class LandCommand {
             claims = rt.manager.claimsOf(target.id());
         }
         source.sendSystemMessage(rt.msg.get("claims-header", "count", claims.size()));
-        int cellSize = rt.manager.cellSize();
         for (Claim claim : claims) {
-            int[] center = Menus.center(claim, cellSize);
+            int[] center = claim.region().middle();
             source.sendSystemMessage(rt.msg.get("claims-entry", "id", claim.id(), "claim", claim.name(), "owner", rt.name(claim.owner()),
-                    "cells", claim.size(), "x", center[0], "z", center[1], "world", claim.world().replace("minecraft:", "")));
+                    "blocks", claim.size(), "x", center[0], "z", center[1], "world", claim.world().replace("minecraft:", "")));
         }
         return claims.size();
     }

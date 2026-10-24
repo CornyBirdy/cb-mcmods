@@ -23,7 +23,7 @@ import java.util.Set;
 public final class EstateConfig {
 
     /** Bump when a setting is renamed or its meaning changes, and add a step to {@link ConfigFile#migrate}. */
-    public static final int CURRENT_VERSION = 1;
+    public static final int CURRENT_VERSION = 2;
 
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.FIELD)
@@ -41,18 +41,16 @@ public final class EstateConfig {
     @Hidden
     public int configVersion = CURRENT_VERSION;
 
-    /** Blocks per cell side. Can't be changed once claims exist. */
-    @Range(min = 2, max = 64)
-    public int cellSize = 8;
-    /** Cells every player can claim. The same for everyone; playtime never changes it. */
-    @Range(min = 0, max = 1_000_000)
-    public int baseBudget = 64;
-    /** Most cells a player can hold in total across all claims, without an admin grant. */
-    @Range(min = 0, max = 1_000_000)
-    public int maxTotalBudget = 64;
-    /** Most cells a player with an admin grant can hold in total. */
-    @Range(min = 0, max = 1_000_000)
-    public int maxGrantedBudget = 256;
+    /** Blocks of land (counted from above, so height is free) every player can claim. The same for everyone;
+     * playtime never changes it. 4096 is a 64x64 area. */
+    @Range(min = 0, max = 100_000_000)
+    public int baseBudget = 4096;
+    /** Most blocks a player can claim in total across all claims, without an admin grant. */
+    @Range(min = 0, max = 100_000_000)
+    public int maxTotalBudget = 4096;
+    /** Most blocks a player with an admin grant can claim in total. */
+    @Range(min = 0, max = 100_000_000)
+    public int maxGrantedBudget = 16384;
     @Range(min = 1, max = 1000)
     public int maxClaimsPerPlayer = 5;
     /** Blocks added above the highest and below the lowest block of a claim. */
@@ -71,6 +69,9 @@ public final class EstateConfig {
     /** Blocks within this distance of the newest block count as one build. */
     @Range(min = 2, max = 128)
     public int autoClaimClusterRadius = 16;
+    /** Blocks of land auto-claim adds around a build on every side. */
+    @Range(min = 0, max = 64)
+    public int autoClaimMargin = 4;
     /** Whether auto-claim starts on for new players. */
     public boolean autoClaimDefault = false;
     /** Tell players with auto-claim off about claims once they've built something (once per session). */
@@ -88,7 +89,7 @@ public final class EstateConfig {
     /** How long "View borders" and previews stay visible. */
     @Range(min = 1, max = 300)
     public int borderParticleSeconds = 10;
-    /** How borders are drawn: "blocks" (thin glowing outlines, seen through walls) or "particles". */
+    /** How borders are drawn: "blocks" (glass walls with glowing edges) or "particles". */
     public String borderStyle = "blocks";
     /** How long placed-block records are kept. 0 = forever. */
     @Range(min = 0, max = 100_000)

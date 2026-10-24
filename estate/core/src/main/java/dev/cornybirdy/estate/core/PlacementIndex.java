@@ -1,10 +1,9 @@
 package dev.cornybirdy.estate.core;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -121,21 +120,17 @@ public final class PlacementIndex {
     }
 
     /**
-     * Finds someone whose block is inside these cells and heights. Records of blocks that are no longer there are
+     * Finds someone whose block is inside this area and heights. Records of blocks that are no longer there are
      * dropped along the way.
      *
      * @param counts whose blocks matter
      * @return a player who built there, or null
      */
-    public UUID findBuilder(String world, Collection<Long> cells, int cellSize, int minY, int maxY,
-                            Predicate<UUID> counts, Verifier verifier) {
-        Set<Long> cellSet = cells instanceof Set<Long> set ? set : new HashSet<>(cells);
-        Set<Long> chunks = new HashSet<>();
-        for (long cell : cellSet) {
-            int minX = Cells.x(cell) * cellSize;
-            int minZ = Cells.z(cell) * cellSize;
-            for (int cx = minX >> 4; cx <= (minX + cellSize - 1) >> 4; cx++) {
-                for (int cz = minZ >> 4; cz <= (minZ + cellSize - 1) >> 4; cz++) {
+    public UUID findBuilder(String world, Region region, int minY, int maxY, Predicate<UUID> counts, Verifier verifier) {
+        Set<Long> chunks = new LinkedHashSet<>();
+        for (Region.Box box : region.boxes()) {
+            for (int cx = box.minX() >> 4; cx <= box.maxX() >> 4; cx++) {
+                for (int cz = box.minZ() >> 4; cz <= box.maxZ() >> 4; cz++) {
                     chunks.add(Cells.key(cx, cz));
                 }
             }
@@ -148,7 +143,7 @@ public final class PlacementIndex {
                 PlacementStore.Placed placed = entry.getValue();
                 int y = y(pos);
                 if (y < minY || y > maxY || expired(placed) || !counts.test(placed.player())
-                        || !cellSet.contains(Cells.containing(x(pos), z(pos), cellSize))) {
+                        || !region.contains(x(pos), z(pos))) {
                     continue;
                 }
                 Boolean there = verifier.stillThere(world, x(pos), y, z(pos), placed.block());

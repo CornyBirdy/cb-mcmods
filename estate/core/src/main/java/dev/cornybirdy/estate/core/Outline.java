@@ -1,13 +1,11 @@
 package dev.cornybirdy.estate.core;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.TreeSet;
 
-/** Works out the border lines of a claim (or of its buffer) so they can be drawn with particles. */
+/** Works out the border lines of a claim (or of its buffer) so they can be drawn. */
 public final class Outline {
 
     /** A straight border line on block edges, from (x1, z1) to (x2, z2). */
@@ -17,119 +15,74 @@ public final class Outline {
         }
     }
 
-    private static final long MAX_GRID = 4_000_000;
-
     private Outline() {
     }
 
     /**
-     * The outline of the area covered by these cells, grown by {@code grow} blocks on every side (0 for the claim
-     * itself, the buffer distance for its buffer). Touching cells share one outline.
+     * The outline of a region, grown by {@code grow} blocks on every side (0 for the claim itself, the buffer
+     * distance for its buffer). Touching boxes share one outline.
      */
-    public static List<Segment> of(Collection<Long> cells, int cellSize, int grow) {
-        if (cells.isEmpty()) {
+    public static List<Segment> of(Region region, int grow) {
+        Region area = region.grow(grow);
+        if (area.isEmpty()) {
             return List.of();
         }
-        int unit = grow == 0 ? cellSize : 1;
-        int pad = grow == 0 ? 0 : grow;
-        int minX = Integer.MAX_VALUE;
-        int minZ = Integer.MAX_VALUE;
-        int maxX = Integer.MIN_VALUE;
-        int maxZ = Integer.MIN_VALUE;
-        for (long cell : cells) {
-            minX = Math.min(minX, Cells.x(cell));
-            minZ = Math.min(minZ, Cells.z(cell));
-            maxX = Math.max(maxX, Cells.x(cell));
-            maxZ = Math.max(maxZ, Cells.z(cell));
+        // A grid cut only where boxes start or end, so it stays small whatever the size of the claim.
+        TreeSet<Integer> xCuts = new TreeSet<>();
+        TreeSet<Integer> zCuts = new TreeSet<>();
+        for (Region.Box box : area.boxes()) {
+            xCuts.add(box.minX());
+            xCuts.add(box.maxX() + 1);
+            zCuts.add(box.minZ());
+            zCuts.add(box.maxZ() + 1);
         }
-        // Grid origin and size in units.
-        int originX = minX * cellSize - pad;
-        int originZ = minZ * cellSize - pad;
-        long width = ((long) (maxX - minX + 1) * cellSize + 2L * pad) / unit;
-        long depth = ((long) (maxZ - minZ + 1) * cellSize + 2L * pad) / unit;
-        if (width * depth > MAX_GRID) {
-            // Cells spread far apart: draw each cell on its own rather than allocate a huge grid.
-            List<Segment> segments = new ArrayList<>();
-            for (long cell : cells) {
-                segments.addAll(of(List.of(cell), cellSize, grow));
-            }
-            return segments;
-        }
-        int w = (int) width;
-        int d = (int) depth;
+        int[] xs = xCuts.stream().mapToInt(Integer::intValue).toArray();
+        int[] zs = zCuts.stream().mapToInt(Integer::intValue).toArray();
+        int w = xs.length - 1;
+        int d = zs.length - 1;
         boolean[] grid = new boolean[w * d];
-        int cellUnits = cellSize / unit;
-        for (long cell : cells) {
-            int startX = (Cells.x(cell) * cellSize - originX - pad) / unit;
-            int startZ = (Cells.z(cell) * cellSize - originZ - pad) / unit;
-            int padUnits = pad / unit;
-            for (int i = startX; i < startX + cellUnits + 2 * padUnits; i++) {
-                for (int j = startZ; j < startZ + cellUnits + 2 * padUnits; j++) {
+        for (Region.Box box : area.boxes()) {
+            int i0 = Arrays.binarySearch(xs, box.minX());
+            int i1 = Arrays.binarySearch(xs, box.maxX() + 1);
+            int j0 = Arrays.binarySearch(zs, box.minZ());
+            int j1 = Arrays.binarySearch(zs, box.maxZ() + 1);
+            for (int i = i0; i < i1; i++) {
+                for (int j = j0; j < j1; j++) {
                     grid[j * w + i] = true;
                 }
             }
         }
-        // Edges between covered and uncovered units, keyed by line and side so they can be merged.
-        Map<Long, TreeMap<Integer, Integer>> horizontal = new HashMap<>();
-        Map<Long, TreeMap<Integer, Integer>> vertical = new HashMap<>();
-        for (int j = 0; j < d; j++) {
-            for (int i = 0; i < w; i++) {
-                if (!grid[j * w + i]) {
-                    continue;
-                }
-                if (j == 0 || !grid[(j - 1) * w + i]) {
-                    addEdge(horizontal, j, 0, i);
-                }
-                if (j == d - 1 || !grid[(j + 1) * w + i]) {
-                    addEdge(horizontal, j + 1, 1, i);
-                }
-                if (i == 0 || !grid[j * w + i - 1]) {
-                    addEdge(vertical, i, 0, j);
-                }
-                if (i == w - 1 || !grid[j * w + i + 1]) {
-                    addEdge(vertical, i + 1, 1, j);
-                }
-            }
-        }
         List<Segment> segments = new ArrayList<>();
-        for (Map.Entry<Long, TreeMap<Integer, Integer>> line : horizontal.entrySet()) {
-            int z = originZ + (int) (line.getKey() >> 1) * unit;
-            for (int[] run : runs(line.getValue())) {
-                segments.add(new Segment(originX + run[0] * unit, z, originX + (run[1] + 1) * unit, z));
+        // Lines along x, at every z cut: runs of grid cells whose covered state differs across the line.
+        for (int j = 0; j <= d; j++) {
+            int start = -1;
+            for (int i = 0; i <= w; i++) {
+                boolean edge = i < w && (cell(grid, w, d, i, j - 1) != cell(grid, w, d, i, j));
+                if (edge && start < 0) {
+                    start = i;
+                } else if (!edge && start >= 0) {
+                    segments.add(new Segment(xs[start], zs[j], xs[i], zs[j]));
+                    start = -1;
+                }
             }
         }
-        for (Map.Entry<Long, TreeMap<Integer, Integer>> line : vertical.entrySet()) {
-            int x = originX + (int) (line.getKey() >> 1) * unit;
-            for (int[] run : runs(line.getValue())) {
-                segments.add(new Segment(x, originZ + run[0] * unit, x, originZ + (run[1] + 1) * unit));
+        // Lines along z, at every x cut.
+        for (int i = 0; i <= w; i++) {
+            int start = -1;
+            for (int j = 0; j <= d; j++) {
+                boolean edge = j < d && (cell(grid, w, d, i - 1, j) != cell(grid, w, d, i, j));
+                if (edge && start < 0) {
+                    start = j;
+                } else if (!edge && start >= 0) {
+                    segments.add(new Segment(xs[i], zs[start], xs[i], zs[j]));
+                    start = -1;
+                }
             }
         }
         return segments;
     }
 
-    private static void addEdge(Map<Long, TreeMap<Integer, Integer>> lines, int line, int side, int position) {
-        lines.computeIfAbsent(((long) line << 1) | side, k -> new TreeMap<>()).put(position, position);
-    }
-
-    /** Joins neighbouring unit edges into runs of [first, last]. */
-    private static List<int[]> runs(TreeMap<Integer, Integer> positions) {
-        List<int[]> runs = new ArrayList<>();
-        int start = Integer.MIN_VALUE;
-        int last = Integer.MIN_VALUE;
-        for (int position : positions.keySet()) {
-            if (start != Integer.MIN_VALUE && position == last + 1) {
-                last = position;
-                continue;
-            }
-            if (start != Integer.MIN_VALUE) {
-                runs.add(new int[]{start, last});
-            }
-            start = position;
-            last = position;
-        }
-        if (start != Integer.MIN_VALUE) {
-            runs.add(new int[]{start, last});
-        }
-        return runs;
+    private static boolean cell(boolean[] grid, int w, int d, int i, int j) {
+        return i >= 0 && j >= 0 && i < w && j < d && grid[j * w + i];
     }
 }

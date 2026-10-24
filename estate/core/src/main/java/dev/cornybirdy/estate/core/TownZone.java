@@ -7,8 +7,7 @@ public record TownZone(int id, String world, String name, int minX, int minZ, in
         return this.world.equals(world) && x >= minX && x <= maxX && z >= minZ && z <= maxZ;
     }
 
-    /** True if the middle of the cell is in the zone. */
-    public boolean containsCell(String world, long cell, int cellSize) {
-        return contains(world, Cells.x(cell) * cellSize + cellSize / 2, Cells.z(cell) * cellSize + cellSize / 2);
+    public Region.Box box() {
+        return new Region.Box(minX, minZ, maxX, maxZ);
     }
 }

@@ -1,13 +1,13 @@
 package dev.cornybirdy.estate.core.storage;
 
 import dev.cornybirdy.estate.core.Action;
-import dev.cornybirdy.estate.core.Cells;
 import dev.cornybirdy.estate.core.Claim;
 import dev.cornybirdy.estate.core.ClaimStore;
 import dev.cornybirdy.estate.core.Flag;
 import dev.cornybirdy.estate.core.PlacementIndex;
 import dev.cornybirdy.estate.core.PlacementStore;
 import dev.cornybirdy.estate.core.PlayerRecord;
+import dev.cornybirdy.estate.core.Region;
 import dev.cornybirdy.estate.core.TownZone;
 import dev.cornybirdy.estate.core.TrustTier;
 
@@ -23,11 +23,9 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -85,6 +83,23 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
                     "CREATE INDEX actions_claim ON actions (claim_id, time)",
                     "CREATE INDEX actions_actor ON actions (actor, time)",
                     "CREATE INDEX actions_time ON actions (time)"
+            },
+            // Version 2: claims are exact to the block. Each old cell becomes a box (the boxes are merged when the
+            // claim is loaded), and budgets that were counted in cells are now counted in blocks.
+            new String[]{
+                    "CREATE TABLE claim_boxes (claim_id INTEGER NOT NULL, min_x INTEGER NOT NULL, min_z INTEGER NOT NULL,"
+                            + " max_x INTEGER NOT NULL, max_z INTEGER NOT NULL)",
+                    "CREATE INDEX claim_boxes_claim ON claim_boxes (claim_id)",
+                    "CREATE TEMP TABLE old_cell (size INTEGER NOT NULL)",
+                    "INSERT INTO old_cell SELECT COALESCE((SELECT CAST(value AS INTEGER) FROM meta WHERE key = 'cell_size'), 8)",
+                    "INSERT INTO claim_boxes (claim_id, min_x, min_z, max_x, max_z) SELECT claim_id, cx * size, cz * size,"
+                            + " cx * size + size - 1, cz * size + size - 1 FROM claim_cells, old_cell",
+                    "UPDATE claim_shares SET cells = cells * (SELECT size * size FROM old_cell)",
+                    "ALTER TABLE claim_shares RENAME COLUMN cells TO blocks",
+                    "UPDATE players SET bonus_budget = bonus_budget * (SELECT size * size FROM old_cell)",
+                    "DROP TABLE old_cell",
+                    "DROP TABLE claim_cells",
+                    "DELETE FROM meta WHERE key = 'cell_size'"
             });
 
     public static final int SCHEMA_VERSION = MIGRATIONS.size();
@@ -205,11 +220,12 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
     @Override
     public Snapshot loadAll() {
         return call(() -> {
-            Map<Integer, Set<Long>> cells = new HashMap<>();
+            Map<Integer, List<Region.Box>> boxes = new HashMap<>();
             try (Statement st = connection.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT claim_id, cx, cz FROM claim_cells")) {
+                 ResultSet rs = st.executeQuery("SELECT claim_id, min_x, min_z, max_x, max_z FROM claim_boxes")) {
                 while (rs.next()) {
-                    cells.computeIfAbsent(rs.getInt(1), id -> new HashSet<>()).add(Cells.key(rs.getInt(2), rs.getInt(3)));
+                    boxes.computeIfAbsent(rs.getInt(1), id -> new ArrayList<>())
+                            .add(Region.Box.of(rs.getInt(2), rs.getInt(3), rs.getInt(4), rs.getInt(5)));
                 }
             }
             Map<Integer, Map<UUID, TrustTier>> trust = new HashMap<>();
@@ -234,7 +250,7 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
             }
             Map<Integer, Map<UUID, Integer>> shares = new HashMap<>();
             try (Statement st = connection.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT claim_id, player, cells FROM claim_shares")) {
+                 ResultSet rs = st.executeQuery("SELECT claim_id, player, blocks FROM claim_shares")) {
                 while (rs.next()) {
                     shares.computeIfAbsent(rs.getInt(1), id -> new HashMap<>()).put(UUID.fromString(rs.getString(2)), rs.getInt(3));
                 }
@@ -246,7 +262,7 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
                     int id = rs.getInt(1);
                     claims.add(Claim.load(id, rs.getString(2), UUID.fromString(rs.getString(3)), rs.getString(4),
                             rs.getInt(5), rs.getInt(6), rs.getLong(7), rs.getInt(8) != 0,
-                            cells.getOrDefault(id, Set.of()), trust.getOrDefault(id, Map.of()),
+                            Region.of(boxes.getOrDefault(id, List.of())), trust.getOrDefault(id, Map.of()),
                             flags.getOrDefault(id, Map.of()), shares.getOrDefault(id, Map.of())));
                 }
             }
@@ -272,15 +288,7 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
                             rs.getInt(6), rs.getInt(7)));
                 }
             }
-            Integer cellSize = null;
-            try (PreparedStatement ps = connection.prepareStatement("SELECT value FROM meta WHERE key = 'cell_size'")) {
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        cellSize = Integer.parseInt(rs.getString(1));
-                    }
-                }
-            }
-            return new Snapshot(claims, players, towns, cellSize);
+            return new Snapshot(claims, players, towns);
         });
     }
 
@@ -295,7 +303,7 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
         int maxY = claim.maxY();
         long created = claim.created();
         boolean exempt = claim.expiryExempt();
-        List<Long> cells = List.copyOf(claim.cells());
+        List<Region.Box> boxes = claim.region().boxes();
         Map<UUID, TrustTier> trust = Map.copyOf(claim.trust());
         Map<Flag, Boolean> flags = Map.copyOf(claim.flagOverrides());
         Map<UUID, Integer> shares = Map.copyOf(claim.shares());
@@ -315,11 +323,14 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
                 ps.executeUpdate();
             }
             deleteChildren(id);
-            try (PreparedStatement ps = connection.prepareStatement("INSERT INTO claim_cells (claim_id, cx, cz) VALUES (?, ?, ?)")) {
-                for (long cell : cells) {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "INSERT INTO claim_boxes (claim_id, min_x, min_z, max_x, max_z) VALUES (?, ?, ?, ?, ?)")) {
+                for (Region.Box box : boxes) {
                     ps.setInt(1, id);
-                    ps.setInt(2, Cells.x(cell));
-                    ps.setInt(3, Cells.z(cell));
+                    ps.setInt(2, box.minX());
+                    ps.setInt(3, box.minZ());
+                    ps.setInt(4, box.maxX());
+                    ps.setInt(5, box.maxZ());
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -342,7 +353,7 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
                 }
                 ps.executeBatch();
             }
-            try (PreparedStatement ps = connection.prepareStatement("INSERT INTO claim_shares (claim_id, player, cells) VALUES (?, ?, ?)")) {
+            try (PreparedStatement ps = connection.prepareStatement("INSERT INTO claim_shares (claim_id, player, blocks) VALUES (?, ?, ?)")) {
                 for (Map.Entry<UUID, Integer> entry : shares.entrySet()) {
                     ps.setInt(1, id);
                     ps.setString(2, entry.getKey().toString());
@@ -355,7 +366,7 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
     }
 
     private void deleteChildren(int id) throws SQLException {
-        for (String table : List.of("claim_cells", "claim_trust", "claim_flags", "claim_shares")) {
+        for (String table : List.of("claim_boxes", "claim_trust", "claim_flags", "claim_shares")) {
             try (PreparedStatement ps = connection.prepareStatement("DELETE FROM " + table + " WHERE claim_id = ?")) {
                 ps.setInt(1, id);
                 ps.executeUpdate();
@@ -425,17 +436,6 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
         transaction(() -> {
             try (PreparedStatement ps = connection.prepareStatement("DELETE FROM town_zones WHERE id = ?")) {
                 ps.setInt(1, townId);
-                ps.executeUpdate();
-            }
-        });
-    }
-
-    @Override
-    public void saveCellSize(int cellSize) {
-        transaction(() -> {
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "INSERT OR REPLACE INTO meta (key, value) VALUES ('cell_size', ?)")) {
-                ps.setString(1, String.valueOf(cellSize));
                 ps.executeUpdate();
             }
         });

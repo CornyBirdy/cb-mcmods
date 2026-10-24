@@ -78,11 +78,7 @@ final class EstateRuntime {
         this.borders = new Borders(this);
         this.autoClaimer = new AutoClaimer(this);
         this.claimTool = new ClaimTool(this);
-        if (manager.cellSizeMismatch()) {
-            LOGGER.warn("cellSize in config/estate.json is {}, but existing claims use {}. Claims keep using {}; "
-                    + "the setting only changes while there are no claims.", config.cellSize, manager.cellSize(), manager.cellSize());
-        }
-        LOGGER.info("Estate loaded {} claims ({}x{} block cells)", manager.claims().size(), manager.cellSize(), manager.cellSize());
+        LOGGER.info("Estate loaded {} claims", manager.claims().size());
     }
 
     void close() {
@@ -173,7 +169,7 @@ final class EstateRuntime {
 
     /** Checks placed-block records against the world, so blocks that are gone don't stop anyone claiming. */
     PlacementOracle oracle() {
-        return (world, cells, minY, maxY, counts) -> placements.findBuilder(world, cells, manager.cellSize(), minY, maxY,
+        return (world, region, minY, maxY, counts) -> placements.findBuilder(world, region, minY, maxY,
                 counts, (w, x, y, z, block) -> {
                     ServerLevel level = level(w);
                     BlockPos pos = new BlockPos(x, y, z);
@@ -332,7 +328,7 @@ final class EstateRuntime {
     int expire() {
         List<Claim> removed = manager.expireInactive(id -> server.getPlayerList().getPlayer(id) != null);
         for (Claim claim : removed) {
-            LOGGER.info("Claim #{} '{}' of {} expired ({} cells): owner inactive for over {} days", claim.id(), claim.name(),
+            LOGGER.info("Claim #{} '{}' of {} expired ({} blocks): owner inactive for over {} days", claim.id(), claim.name(),
                     manager.name(claim.owner()), claim.size(), config.inactivityDays);
         }
         return removed.size();

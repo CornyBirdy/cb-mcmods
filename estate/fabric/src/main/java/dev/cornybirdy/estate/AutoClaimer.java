@@ -47,7 +47,7 @@ final class AutoClaimer {
         Claim claim = grow.claim();
         int minY = Math.max(level.getMinY(), grow.minY());
         int maxY = Math.min(level.getMaxY(), grow.maxY());
-        Check check = rt.manager.resize(claim, grow.cells(), minY, maxY, player.getUUID(), rt.oracle(), false);
+        Check check = rt.manager.resize(claim, grow.region(), minY, maxY, player.getUUID(), rt.oracle(), false);
         if (!check.allowed()) {
             explain(player, check);
             return;
@@ -62,14 +62,14 @@ final class AutoClaimer {
         int minY = Math.max(level.getMinY(), create.minY());
         int maxY = Math.min(level.getMaxY(), create.maxY());
         String name = rt.msg.raw("default-claim-name").replace("<player>", player.getGameProfile().name());
-        ClaimManager.Change change = rt.manager.create(world, player.getUUID(), name, create.cells(), minY, maxY,
+        ClaimManager.Change change = rt.manager.create(world, player.getUUID(), name, create.region(), minY, maxY,
                 player.getUUID(), rt.oracle(), false);
         if (!change.ok()) {
             explain(player, change.check());
             return;
         }
         rt.session(player).noBudgetShown = false;
-        rt.send(player, "auto-created", "cells", change.claim().size(), "left", rt.manager.budgetLeft(player.getUUID()));
+        rt.send(player, "auto-created", "blocks", change.claim().size(), "left", rt.manager.budgetLeft(player.getUUID()));
         rt.borders.show(player, 0);
     }
 

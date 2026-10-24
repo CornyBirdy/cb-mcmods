@@ -2,6 +2,8 @@ package dev.cornybirdy.estate;
 
 import dev.cornybirdy.estate.core.ClaimDraft;
 import dev.cornybirdy.estate.core.Problem;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -26,8 +28,11 @@ final class Session {
     ClaimDraft draft;
     /** Whether the draft can be confirmed right now; it's drawn red otherwise. */
     boolean draftOk;
-    /** Ids of the border displays this player's client is showing. */
-    int[] displayIds = new int[0];
+    /** The border displays this player's client is showing, with their entity ids. */
+    final Map<Borders.Spec, Integer> displays = new HashMap<>();
+    /** Which player object and level those were sent to; a respawn or dimension change clears them on the client. */
+    ServerPlayer displaysFor;
+    ServerLevel displaysLevel;
     /** The claim tool in use, or null. */
     ClaimTool.Selection selection;
     /** When each kind of "you can't do that" message was last shown, to avoid spam. */

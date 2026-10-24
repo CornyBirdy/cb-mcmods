@@ -7,7 +7,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,7 +37,7 @@ class SqliteStorageTest {
             claimId = claim.id();
             manager.trust(claim, bob, TrustTier.CONTAINERS, alice);
             manager.setFlag(claim, Flag.PVP, true, alice);
-            manager.donate(claim, bob, 2);
+            manager.donate(claim, bob, 100);
             manager.createTown(WORLD, "Spawn", -10, -10, 10, 10, alice);
             assertFalse(storage.actionsForClaim(claimId, 10).get().isEmpty());
         }
@@ -47,17 +46,17 @@ class SqliteStorageTest {
             Claim claim = manager.claim(claimId);
             assertNotNull(claim);
             assertEquals("Home", claim.name());
-            assertEquals(9, claim.size());
+            assertEquals(9 * 64, claim.size());
+            assertEquals(ClaimManagerTest.square(0, 0, 3), claim.region());
             assertEquals(50, claim.minY());
             assertEquals(TrustTier.CONTAINERS, claim.trust().get(bob));
             assertEquals(Boolean.TRUE, claim.flagOverrides().get(Flag.PVP));
-            assertEquals(2, claim.share(bob));
-            assertEquals(7, claim.ownerShare());
+            assertEquals(100, claim.share(bob));
+            assertEquals(9 * 64 - 100, claim.ownerShare());
             assertTrue(manager.autoClaim(alice));
             assertEquals(10, manager.player(bob).bonusBudget);
             assertEquals("Alice", manager.player(alice).name);
             assertNotNull(manager.town("spawn"));
-            assertEquals(8, manager.cellSize());
             assertTrue(manager.claimAt(WORLD, 20, 60, 20) != null);
         }
     }
@@ -89,14 +88,46 @@ class SqliteStorageTest {
     @Test
     void aNewerDatabaseIsLeftAlone(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("estate.db");
-        try (SqliteStorage storage = new SqliteStorage(file)) {
-            storage.saveCellSize(8);
-        }
+        new SqliteStorage(file).close();
         try (java.sql.Connection c = new org.sqlite.JDBC().connect("jdbc:sqlite:" + file, new java.util.Properties());
              java.sql.Statement st = c.createStatement()) {
             st.execute("PRAGMA user_version=" + (SqliteStorage.SCHEMA_VERSION + 1));
         }
         assertThrows(IllegalStateException.class, () -> new SqliteStorage(file));
-        assertEquals(Set.of(), Set.of());
+    }
+
+    @Test
+    void cellClaimsFromVersion1BecomeBlockExact(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("estate.db");
+        UUID alice = UUID.randomUUID();
+        UUID bob = UUID.randomUUID();
+        new SqliteStorage(file).close();
+        // Turn the fresh file back into a version 1 file with an L-shaped claim of three 8x8 cells.
+        try (java.sql.Connection c = new org.sqlite.JDBC().connect("jdbc:sqlite:" + file, new java.util.Properties());
+             java.sql.Statement st = c.createStatement()) {
+            st.execute("DROP TABLE claim_boxes");
+            st.execute("CREATE TABLE claim_cells (claim_id INTEGER NOT NULL, cx INTEGER NOT NULL, cz INTEGER NOT NULL,"
+                    + " PRIMARY KEY (claim_id, cx, cz)) WITHOUT ROWID");
+            st.execute("ALTER TABLE claim_shares RENAME COLUMN blocks TO cells");
+            st.execute("INSERT INTO meta (key, value) VALUES ('cell_size', '8')");
+            st.execute("INSERT INTO claims (id, world, owner, name, min_y, max_y, created) VALUES (1, '" + WORLD + "', '"
+                    + alice + "', 'Old', 60, 80, 0)");
+            st.execute("INSERT INTO claim_cells VALUES (1, 0, 0), (1, 1, 0), (1, -1, 1)");
+            st.execute("INSERT INTO claim_shares VALUES (1, '" + bob + "', 1)");
+            st.execute("INSERT INTO players (uuid, name, bonus_budget) VALUES ('" + bob + "', 'Bob', 2)");
+            st.execute("PRAGMA user_version=1");
+        }
+        EstateConfig config = new EstateConfig();
+        config.refresh();
+        try (SqliteStorage storage = new SqliteStorage(file)) {
+            ClaimManager manager = new ClaimManager(storage, config, () -> 5000);
+            Claim claim = manager.claim(1);
+            assertEquals(Region.box(0, 0, 15, 7).union(Region.box(-8, 8, -1, 15)), claim.region());
+            assertEquals(3 * 64, claim.size());
+            assertEquals(64, claim.share(bob));
+            assertEquals(128, manager.player(bob).bonusBudget);
+            assertEquals(claim, manager.claimAt(WORLD, -8, 70, 15));
+        }
+        assertTrue(java.nio.file.Files.exists(dir.resolve("estate.db.v1.bak")));
     }
 }

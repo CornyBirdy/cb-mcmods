@@ -26,8 +26,8 @@ public final class ClaimManager {
     private final ClaimStore store;
     private final LongSupplier clock;
     private EstateConfig config;
-    private int cellSize;
     private final Map<Integer, Claim> claims = new LinkedHashMap<>();
+    /** Per world: the claims touching each 16x16 chunk column, so lookups by position stay fast. */
     private final Map<String, Map<Long, List<Claim>>> index = new HashMap<>();
     private final Map<UUID, PlayerRecord> players = new HashMap<>();
     private final Map<Integer, TownZone> towns = new LinkedHashMap<>();
@@ -52,33 +52,16 @@ public final class ClaimManager {
             towns.put(town.id(), town);
             nextTownId = Math.max(nextTownId, town.id() + 1);
         }
-        this.cellSize = snapshot.cellSize() != null ? snapshot.cellSize() : config.cellSize;
         setConfig(config);
-        if (snapshot.cellSize() == null) {
-            store.saveCellSize(cellSize);
-        }
     }
 
-    /** Uses a new or reloaded config. The cell size only changes while there are no claims. */
+    /** Uses a new or reloaded config. */
     public void setConfig(EstateConfig config) {
         this.config = config;
-        if (config.cellSize != cellSize && claims.isEmpty()) {
-            cellSize = config.cellSize;
-            store.saveCellSize(cellSize);
-        }
     }
 
     public EstateConfig config() {
         return config;
-    }
-
-    /** The cell size claims are stored in. Differs from the config only if it was changed while claims existed. */
-    public int cellSize() {
-        return cellSize;
-    }
-
-    public boolean cellSizeMismatch() {
-        return cellSize != config.cellSize;
     }
 
     public long now() {
@@ -120,34 +103,57 @@ public final class ClaimManager {
         return list;
     }
 
-    public List<Claim> claimsInCell(String world, long cell) {
-        Map<Long, List<Claim>> cells = index.get(world);
-        List<Claim> list = cells == null ? null : cells.get(cell);
+    private List<Claim> claimsInChunk(String world, int chunkX, int chunkZ) {
+        Map<Long, List<Claim>> chunks = index.get(world);
+        List<Claim> list = chunks == null ? null : chunks.get(Cells.key(chunkX, chunkZ));
         return list == null ? List.of() : list;
     }
 
     /** The claim covering a block, or null if it's unclaimed. */
     public Claim claimAt(String world, int x, int y, int z) {
-        for (Claim claim : claimsInCell(world, Cells.containing(x, z, cellSize))) {
-            if (claim.containsY(y)) {
+        for (Claim claim : claimsInChunk(world, x >> 4, z >> 4)) {
+            if (claim.contains(x, y, z)) {
                 return claim;
             }
         }
         return null;
     }
 
-    /** Every claim with a cell within {@code radius} blocks of a column, at any height. */
-    public Set<Claim> claimsNear(String world, int x, int z, int radius) {
-        Set<Claim> found = new LinkedHashSet<>();
-        int reach = Cells.reach(radius, cellSize);
-        int cx = Cells.of(x, cellSize);
-        int cz = Cells.of(z, cellSize);
-        for (int dx = -reach; dx <= reach; dx++) {
-            for (int dz = -reach; dz <= reach; dz++) {
-                found.addAll(claimsInCell(world, Cells.key(cx + dx, cz + dz)));
+    /** Every claim covering a column, at any height. */
+    public List<Claim> claimsInColumn(String world, int x, int z) {
+        List<Claim> found = new ArrayList<>(1);
+        for (Claim claim : claimsInChunk(world, x >> 4, z >> 4)) {
+            if (claim.region().contains(x, z)) {
+                found.add(claim);
             }
         }
         return found;
+    }
+
+    /** Every claim within {@code radius} blocks of a column (or covering it), at any height. */
+    public Set<Claim> claimsNear(String world, int x, int z, int radius) {
+        Set<Claim> found = new LinkedHashSet<>();
+        for (int cx = (x - radius) >> 4; cx <= (x + radius) >> 4; cx++) {
+            for (int cz = (z - radius) >> 4; cz <= (z + radius) >> 4; cz++) {
+                for (Claim claim : claimsInChunk(world, cx, cz)) {
+                    if (!found.contains(claim) && claim.region().distance(x, z) <= radius) {
+                        found.add(claim);
+                    }
+                }
+            }
+        }
+        return found;
+    }
+
+    /** Every claim in a world. */
+    public List<Claim> claimsIn(String world) {
+        List<Claim> list = new ArrayList<>();
+        for (Claim claim : claims.values()) {
+            if (claim.world().equals(world)) {
+                list.add(claim);
+            }
+        }
+        return list;
     }
 
     // ------------------------------------------------------------------ players and budgets
@@ -219,17 +225,17 @@ public final class ClaimManager {
         }
     }
 
-    /** Admin grant: extra cells on top of the base budget. */
-    public void setBonusBudget(UUID id, int cells, UUID actor) {
+    /** Admin grant: extra blocks on top of the base budget. */
+    public void setBonusBudget(UUID id, int blocks, UUID actor) {
         PlayerRecord player = ensurePlayer(id, null);
         int old = player.bonusBudget;
-        player.bonusBudget = Math.max(0, cells);
+        player.bonusBudget = Math.max(0, blocks);
         store.savePlayer(player);
         store.log(new Action(now(), actor, "admin-budget", null, null, null, null, null,
                 player.displayName() + ": " + old + " -> " + player.bonusBudget));
     }
 
-    /** Cells the player may hold in total. The same for everyone except admin grants. */
+    /** Blocks the player may claim in total. The same for everyone except admin grants. */
     public int budgetLimit(UUID id) {
         PlayerRecord player = players.get(id);
         int bonus = player == null ? 0 : player.bonusBudget;
@@ -237,7 +243,7 @@ public final class ClaimManager {
         return Math.max(0, Math.min(config.baseBudget + bonus, cap));
     }
 
-    /** Cells the player pays for across all claims, including what they donated to pooled claims. */
+    /** Blocks the player pays for across all claims, including what they donated to pooled claims. */
     public int budgetUsed(UUID id) {
         int used = 0;
         for (Claim claim : claims.values()) {
@@ -316,13 +322,15 @@ public final class ClaimManager {
         return false;
     }
 
-    private boolean inTown(String world, long cell) {
+    /** Every town zone in a world as one region. */
+    public Region townRegion(String world) {
+        List<Region.Box> boxes = new ArrayList<>();
         for (TownZone town : towns.values()) {
-            if (town.containsCell(world, cell, cellSize)) {
-                return true;
+            if (town.world().equals(world)) {
+                boxes.add(town.box());
             }
         }
-        return false;
+        return boxes.isEmpty() ? Region.EMPTY : Region.of(boxes);
     }
 
     /** True if the buffer rules don't apply to this player for this claim. */
@@ -371,38 +379,27 @@ public final class ClaimManager {
         if (y < claim.minY() - buffer || y > claim.maxY() + buffer) {
             return false;
         }
-        if (claim.contains(x, y, z, cellSize)) {
+        if (claim.contains(x, y, z)) {
             return false;
         }
         return near(claim, x, z, buffer);
     }
 
-    /** True if a column is within {@code distance} blocks of one of the claim's cells (or in one). */
-    private boolean near(Claim claim, int x, int z, int distance) {
-        int reach = Cells.reach(distance, cellSize);
-        int cx = Cells.of(x, cellSize);
-        int cz = Cells.of(z, cellSize);
-        for (int dx = -reach; dx <= reach; dx++) {
-            for (int dz = -reach; dz <= reach; dz++) {
-                long cell = Cells.key(cx + dx, cz + dz);
-                if (claim.containsCell(cell) && Cells.distance(x, z, cell, cellSize) <= distance) {
-                    return true;
-                }
-            }
-        }
-        return false;
+    /** True if a column is within {@code distance} blocks of the claim (or in it). */
+    private static boolean near(Claim claim, int x, int z, int distance) {
+        return claim.region().distance(x, z) <= distance;
     }
 
     // ------------------------------------------------------------------ checks
 
     /**
-     * Checks whether a claim can be created with these cells and heights, or an existing claim changed to them.
+     * Checks whether a claim can be created with this area and heights, or an existing claim changed to them.
      *
      * @param payer    who pays (the owner); ignored for an existing claim
      * @param existing the claim being changed, or null for a new claim
      * @param bypass   admin: skip budget, buffer, claim count and other players' blocks
      */
-    public Check check(String world, UUID payer, Set<Long> cells, int minY, int maxY, Claim existing,
+    public Check check(String world, UUID payer, Region region, int minY, int maxY, Claim existing,
                        PlacementOracle oracle, boolean bypass) {
         if (existing != null) {
             payer = existing.owner();
@@ -410,12 +407,13 @@ public final class ClaimManager {
         int budgetLeft = budgetLeft(payer);
         int donated = existing == null ? 0 : existing.donated();
         int oldShare = existing == null ? 0 : existing.ownerShare();
-        int cost = Math.max(0, cells.size() - donated) - oldShare;
+        int size = (int) Math.min(Integer.MAX_VALUE / 2, region.area());
+        int cost = Math.max(0, size - donated) - oldShare;
 
         if (!config.isClaimable(world) && !bypass) {
             return Check.fail(Problem.WORLD_NOT_CLAIMABLE, cost, budgetLeft);
         }
-        if (cells.isEmpty()) {
+        if (region.isEmpty()) {
             return Check.fail(Problem.EMPTY, cost, budgetLeft);
         }
         if (minY > maxY) {
@@ -425,43 +423,30 @@ public final class ClaimManager {
             return Check.fail(Problem.TOO_MANY_CLAIMS, cost, budgetLeft);
         }
 
+        // Only land that's new to the claim is checked, unless the claim got taller.
         boolean grew = existing == null || minY < existing.minY() || maxY > existing.maxY();
-        Set<Long> toCheck = new LinkedHashSet<>();
-        for (long cell : cells) {
-            if (grew || !existing.containsCell(cell)) {
-                toCheck.add(cell);
-            }
-        }
+        Region toCheck = grew ? region : region.minus(existing.region());
+        List<Claim> others = claimsIn(world);
+        others.remove(existing);
 
-        for (long cell : toCheck) {
-            for (Claim other : claimsInCell(world, cell)) {
-                if (other != existing && other.overlapsY(minY, maxY)) {
+        if (!toCheck.isEmpty()) {
+            for (Claim other : others) {
+                if (other.overlapsY(minY, maxY) && other.region().intersects(toCheck)) {
                     return Check.fail(Problem.OVERLAP, cost, budgetLeft).with(other);
                 }
             }
         }
 
         int buffer = config.bufferDistance;
-        if (!bypass && buffer > 0) {
-            int reach = Cells.reach(buffer, cellSize);
-            for (long cell : toCheck) {
-                if (inTown(world, cell)) {
+        if (!bypass && buffer > 0 && !toCheck.isEmpty()) {
+            Region outsideTowns = toCheck.minus(townRegion(world));
+            for (Claim other : others) {
+                if (other.owner().equals(payer) || bufferWaived(other, payer)
+                        || minY > other.maxY() + buffer || maxY < other.minY() - buffer) {
                     continue;
                 }
-                for (int dx = -reach; dx <= reach; dx++) {
-                    for (int dz = -reach; dz <= reach; dz++) {
-                        long near = Cells.key(Cells.x(cell) + dx, Cells.z(cell) + dz);
-                        for (Claim other : claimsInCell(world, near)) {
-                            if (other == existing || other.owner().equals(payer) || bufferWaived(other, payer)) {
-                                continue;
-                            }
-                            if (Cells.distance(cell, near, cellSize) > buffer
-                                    || minY > other.maxY() + buffer || maxY < other.minY() - buffer) {
-                                continue;
-                            }
-                            return Check.fail(Problem.BUFFER, cost, budgetLeft).with(other);
-                        }
-                    }
+                if (outsideTowns.within(other.region(), buffer)) {
+                    return Check.fail(Problem.BUFFER, cost, budgetLeft).with(other);
                 }
             }
         }
@@ -508,38 +493,38 @@ public final class ClaimManager {
         }
     }
 
-    public Change create(String world, UUID owner, String name, Set<Long> cells, int minY, int maxY, UUID actor,
+    public Change create(String world, UUID owner, String name, Region region, int minY, int maxY, UUID actor,
                          PlacementOracle oracle, boolean bypass) {
-        Check check = check(world, owner, cells, minY, maxY, null, oracle, bypass);
+        Check check = check(world, owner, region, minY, maxY, null, oracle, bypass);
         if (!check.allowed()) {
             return new Change(check, null);
         }
         Claim claim = new Claim(nextClaimId++, world, owner, name, minY, maxY, now());
-        claim.setCells(cells);
+        claim.setRegion(region);
         claims.put(claim.id(), claim);
         addToIndex(claim);
         store.saveClaim(claim);
         setPromptDone(owner);
         store.log(Action.of(now(), actor, bypass && !owner.equals(actor) ? "admin-create" : "create", claim,
-                cells.size() + " cells, y " + minY + ".." + maxY));
+                claim.size() + " blocks, y " + minY + ".." + maxY));
         return new Change(check, claim);
     }
 
-    public Check resize(Claim claim, Set<Long> cells, int minY, int maxY, UUID actor, PlacementOracle oracle,
+    public Check resize(Claim claim, Region region, int minY, int maxY, UUID actor, PlacementOracle oracle,
                         boolean bypass) {
-        Check check = check(claim.world(), claim.owner(), cells, minY, maxY, claim, oracle, bypass);
+        Check check = check(claim.world(), claim.owner(), region, minY, maxY, claim, oracle, bypass);
         if (!check.allowed()) {
             return check;
         }
         int oldSize = claim.size();
         String oldRange = claim.minY() + ".." + claim.maxY();
         removeFromIndex(claim);
-        claim.setCells(cells);
+        claim.setRegion(region);
         claim.setRange(minY, maxY);
         addToIndex(claim);
         store.saveClaim(claim);
         store.log(Action.of(now(), actor, bypass && !claim.owner().equals(actor) ? "admin-resize" : "resize", claim,
-                oldSize + " -> " + cells.size() + " cells, y " + oldRange + " -> " + minY + ".." + maxY));
+                oldSize + " -> " + claim.size() + " blocks, y " + oldRange + " -> " + minY + ".." + maxY));
         return check;
     }
 
@@ -550,7 +535,7 @@ public final class ClaimManager {
         }
         removeFromIndex(claim);
         store.deleteClaim(claim.id());
-        store.log(Action.of(now(), actor, type, claim, name(claim.owner()) + ", " + claim.size() + " cells"));
+        store.log(Action.of(now(), actor, type, claim, name(claim.owner()) + ", " + claim.size() + " blocks"));
     }
 
     public void transfer(Claim claim, UUID newOwner, UUID actor) {
@@ -589,15 +574,15 @@ public final class ClaimManager {
     }
 
     /**
-     * Moves cells of a player's budget into someone else's claim, so it can be bigger than the owner's budget.
+     * Moves blocks of a player's budget into someone else's claim, so it can be bigger than the owner's budget.
      *
      * @return null on success, otherwise why not
      */
-    public Problem donate(Claim claim, UUID donor, int cells) {
-        if (cells <= 0 || donor.equals(claim.owner())) {
+    public Problem donate(Claim claim, UUID donor, int blocks) {
+        if (blocks <= 0 || donor.equals(claim.owner())) {
             return Problem.NOT_ALLOWED;
         }
-        if (cells > budgetLeft(donor)) {
+        if (blocks > budgetLeft(donor)) {
             return Problem.NO_BUDGET;
         }
         // Donations can only cover what the owner pays for now; they make room for the claim to grow.
@@ -605,26 +590,26 @@ public final class ClaimManager {
         if (room <= 0) {
             return Problem.EMPTY;
         }
-        int amount = Math.min(cells, room);
+        int amount = Math.min(blocks, room);
         claim.setShare(donor, claim.share(donor) + amount);
         store.saveClaim(claim);
-        store.log(Action.of(now(), donor, "donate", claim, amount + " cells"));
+        store.log(Action.of(now(), donor, "donate", claim, amount + " blocks"));
         return null;
     }
 
-    /** Takes donated cells back. The owner has to be able to pay for them. Null on success. */
-    public Problem withdraw(Claim claim, UUID donor, int cells) {
+    /** Takes donated blocks back. The owner has to be able to pay for them. Null on success. */
+    public Problem withdraw(Claim claim, UUID donor, int blocks) {
         int share = claim.share(donor);
-        if (donor.equals(claim.owner()) || share <= 0 || cells <= 0) {
+        if (donor.equals(claim.owner()) || share <= 0 || blocks <= 0) {
             return Problem.NOT_ALLOWED;
         }
-        int amount = Math.min(cells, share);
+        int amount = Math.min(blocks, share);
         if (amount > budgetLeft(claim.owner())) {
             return Problem.NO_BUDGET;
         }
         claim.setShare(donor, share - amount);
         store.saveClaim(claim);
-        store.log(Action.of(now(), donor, "withdraw", claim, amount + " cells"));
+        store.log(Action.of(now(), donor, "withdraw", claim, amount + " blocks"));
         return null;
     }
 
@@ -717,24 +702,36 @@ public final class ClaimManager {
 
     // ------------------------------------------------------------------ index
 
+    private static Set<Long> chunksOf(Claim claim) {
+        Set<Long> chunks = new HashSet<>();
+        for (Region.Box box : claim.region().boxes()) {
+            for (int cx = box.minX() >> 4; cx <= box.maxX() >> 4; cx++) {
+                for (int cz = box.minZ() >> 4; cz <= box.maxZ() >> 4; cz++) {
+                    chunks.add(Cells.key(cx, cz));
+                }
+            }
+        }
+        return chunks;
+    }
+
     private void addToIndex(Claim claim) {
-        Map<Long, List<Claim>> cells = index.computeIfAbsent(claim.world(), w -> new HashMap<>());
-        for (long cell : claim.cells()) {
-            cells.computeIfAbsent(cell, c -> new ArrayList<>(1)).add(claim);
+        Map<Long, List<Claim>> chunks = index.computeIfAbsent(claim.world(), w -> new HashMap<>());
+        for (long chunk : chunksOf(claim)) {
+            chunks.computeIfAbsent(chunk, c -> new ArrayList<>(1)).add(claim);
         }
     }
 
     private void removeFromIndex(Claim claim) {
-        Map<Long, List<Claim>> cells = index.get(claim.world());
-        if (cells == null) {
+        Map<Long, List<Claim>> chunks = index.get(claim.world());
+        if (chunks == null) {
             return;
         }
-        for (long cell : claim.cells()) {
-            List<Claim> list = cells.get(cell);
+        for (long chunk : chunksOf(claim)) {
+            List<Claim> list = chunks.get(chunk);
             if (list != null) {
                 list.remove(claim);
                 if (list.isEmpty()) {
-                    cells.remove(cell);
+                    chunks.remove(chunk);
                 }
             }
         }

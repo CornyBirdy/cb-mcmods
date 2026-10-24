@@ -1,10 +1,10 @@
 package dev.cornybirdy.estate;
 
-import dev.cornybirdy.estate.core.Cells;
 import dev.cornybirdy.estate.core.Check;
 import dev.cornybirdy.estate.core.Claim;
 import dev.cornybirdy.estate.core.ClaimDraft;
 import dev.cornybirdy.estate.core.ClaimManager;
+import dev.cornybirdy.estate.core.Region;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
@@ -23,15 +23,19 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 
+import java.util.List;
+
 /**
  * Drawing claims as a box between two corners, the way Litematica selects areas. {@code /land claim} hands out a
- * temporary claim tool: right-click a block for corner 1 (red), sneak and right-click for corner 2 (blue), up to 64
- * blocks away. Until corner 2 is set it follows where the player looks, so the outline and cost update live.
+ * temporary claim tool: left-click for corner 1 (red), right-click for corner 2 (blue), on the block the player looks
+ * at up to 64 blocks away. Until corner 2 is set it follows where the player looks, so the outline and cost update
+ * live. The tool never breaks blocks, hurts anything or wears out.
  * {@code /land pos1|pos2 [x y z]} set corners to exact coordinates, and the editor screen nudges or types them.
  * Drawing right next to your own claim adds the box to it. The tool disappears when the claim is confirmed or
  * cancelled, after 10 idle minutes, or on logout.
@@ -46,7 +50,8 @@ final class ClaimTool {
         /** Corner 2 follows the crosshair until it's set. */
         boolean followLook = true;
         long lastActive;
-        long lastClickTick;
+        long lastLeftTick = -100;
+        long lastRightTick = -100;
     }
 
     private static final String TOOL_KEY = "estate_claim_tool";
@@ -78,13 +83,13 @@ final class ClaimTool {
             session.selection = null;
             return;
         }
-        rt.send(player, "claim-tool-start", "size", rt.manager.cellSize());
+        rt.send(player, "claim-tool-start", "reach", REACH);
     }
 
     /** Starts resizing a claim: the editor and the tool both work on its box. */
     void startResize(ServerPlayer player, Claim claim) {
         Session session = rt.session(player);
-        session.draft = ClaimDraft.resize(claim, rt.manager.cellSize());
+        session.draft = ClaimDraft.resize(claim);
         Selection selection = new Selection();
         selection.followLook = false;
         selection.lastActive = System.currentTimeMillis();
@@ -123,6 +128,11 @@ final class ClaimTool {
         item.set(DataComponents.CUSTOM_NAME, rt.msg.item("claim-tool-name"));
         item.set(DataComponents.LORE, new ItemLore(rt.msg.lore("claim-tool-lore")));
         item.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+        // Not a shovel any more: it doesn't dig, break blocks in creative or wear out.
+        item.set(DataComponents.TOOL, new Tool(List.of(), 0f, 0, false));
+        item.remove(DataComponents.MAX_DAMAGE);
+        item.remove(DataComponents.DAMAGE);
+        item.remove(DataComponents.ATTRIBUTE_MODIFIERS);
         CompoundTag tag = new CompoundTag();
         tag.putBoolean(TOOL_KEY, true);
         item.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
@@ -153,45 +163,114 @@ final class ClaimTool {
 
     // ------------------------------------------------------------------ clicks
 
-    /** Right-clicking with the tool in the air or far away. Runs before the protection checks. */
+    private static boolean holdingTool(Player player) {
+        return isTool(player.getMainHandItem());
+    }
+
+    /** Left-clicking a block with the tool: picks corner 1 instead of mining. Runs before the protection checks. */
+    InteractionResult attackBlock(Player player, Level level, InteractionHand hand, BlockPos pos) {
+        if (!(player instanceof ServerPlayer sp) || !holdingTool(sp)) {
+            return InteractionResult.PASS;
+        }
+        leftClick(sp, pos);
+        return InteractionResult.FAIL;
+    }
+
+    /** The tool doesn't hit mobs or players; the swing that comes with the click picks corner 1. */
+    InteractionResult attackEntity(Player player) {
+        return player instanceof ServerPlayer sp && holdingTool(sp) ? InteractionResult.FAIL : InteractionResult.PASS;
+    }
+
+    /** Nothing is ever broken with the tool in hand. */
+    boolean mayBreak(Player player) {
+        return !holdingTool(player);
+    }
+
+    /**
+     * The player swung their arm, which is all the server hears of a left-click in the air or on something far away.
+     * The same click on a nearby block already arrived as {@link #attackBlock}, and right-clicks and held-down mining
+     * swing too, so swings close to another click are ignored.
+     */
+    void swing(ServerPlayer player, InteractionHand hand) {
+        if (hand != InteractionHand.MAIN_HAND || !holdingTool(player)) {
+            return;
+        }
+        Selection selection = rt.session(player).selection;
+        long tick = rt.server.getTickCount();
+        if (selection != null && (tick - selection.lastRightTick <= 1 || tick - selection.lastLeftTick < 5)) {
+            if (tick - selection.lastLeftTick < 5) {
+                selection.lastLeftTick = tick;
+            }
+            return;
+        }
+        leftClick(player, lookedAt(player));
+    }
+
+    private void leftClick(ServerPlayer player, BlockPos pos) {
+        Selection selection = active(player);
+        if (selection == null) {
+            return;
+        }
+        long tick = rt.server.getTickCount();
+        boolean repeat = tick - selection.lastLeftTick < 5;
+        selection.lastLeftTick = tick;
+        if (repeat) {
+            return;
+        }
+        if (pos == null) {
+            rt.warn(player, "claim-tool-look", "reach", REACH);
+            return;
+        }
+        pick(player, 1, pos);
+    }
+
+    /** Right-clicking with the tool in the air or far away: corner 2. Runs before the protection checks. */
     InteractionResult useItem(Player player, Level level, InteractionHand hand) {
         if (!(player instanceof ServerPlayer sp) || !isTool(sp.getItemInHand(hand))) {
             return InteractionResult.PASS;
         }
-        click(sp);
+        rightClick(sp);
         return InteractionResult.SUCCESS;
     }
 
-    /** Right-clicking a block with the tool: picks it instead of making a path. */
+    /** Right-clicking a block with the tool: corner 2, instead of making a path. */
     InteractionResult useBlock(Player player, Level level, InteractionHand hand, BlockHitResult hit) {
         if (!(player instanceof ServerPlayer sp) || !isTool(sp.getItemInHand(hand))) {
             return InteractionResult.PASS;
         }
-        click(sp);
+        rightClick(sp);
         sp.connection.send(new ClientboundBlockUpdatePacket(level, hit.getBlockPos()));
         return InteractionResult.SUCCESS;
     }
 
-    private void click(ServerPlayer player) {
-        Session session = rt.session(player);
-        Selection selection = session.selection;
+    private void rightClick(ServerPlayer player) {
+        Selection selection = active(player);
         if (selection == null) {
-            removeTools(player);
-            rt.send(player, "claim-tool-expired");
             return;
         }
-        // One click can arrive as both "use on block" and "use item".
+        // One click can arrive as both "use on block" and "use item", and holding the button repeats it.
         long tick = rt.server.getTickCount();
-        if (tick - selection.lastClickTick < 4) {
+        boolean repeat = tick - selection.lastRightTick < 5;
+        selection.lastRightTick = tick;
+        if (repeat) {
             return;
         }
-        selection.lastClickTick = tick;
         BlockPos target = lookedAt(player);
         if (target == null) {
             rt.warn(player, "claim-tool-look", "reach", REACH);
             return;
         }
-        pick(player, player.isShiftKeyDown() ? 2 : 1, target);
+        pick(player, 2, target);
+    }
+
+    /** The selection the tool works on, or null (and the tool taken away) if it has expired. */
+    private Selection active(ServerPlayer player) {
+        Selection selection = rt.session(player).selection;
+        if (selection == null) {
+            removeTools(player);
+            rt.send(player, "claim-tool-expired");
+        }
+        return selection;
     }
 
     private static BlockPos lookedAt(ServerPlayer player) {
@@ -267,21 +346,16 @@ final class ClaimTool {
         session.draft = draftFor(player, new int[]{a.getX(), bottom, a.getZ()}, new int[]{b.getX(), top, b.getZ()});
     }
 
-    /** A new claim, or an extension of the player's own claim if the box touches it. */
+    /** A new claim, or an extension of the player's own claim if the box touches or overlaps it. */
     private ClaimDraft draftFor(ServerPlayer player, int[] corner1, int[] corner2) {
         String world = EstateRuntime.world(player.level());
-        int cellSize = rt.manager.cellSize();
-        ClaimDraft fresh = ClaimDraft.create(world, cellSize, corner1, corner2);
+        ClaimDraft fresh = ClaimDraft.create(world, corner1, corner2);
         if (!fresh.tooBig()) {
-            for (long cell : fresh.cells()) {
-                for (int dx = -1; dx <= 1; dx++) {
-                    for (int dz = -1; dz <= 1; dz++) {
-                        for (Claim claim : rt.manager.claimsInCell(world, Cells.key(Cells.x(cell) + dx, Cells.z(cell) + dz))) {
-                            if (claim.owner().equals(player.getUUID()) && claim.overlapsY(fresh.minY() - 1, fresh.maxY() + 1)) {
-                                return ClaimDraft.extend(claim, cellSize, corner1, corner2);
-                            }
-                        }
-                    }
+            Region box = fresh.box();
+            for (Claim claim : rt.manager.claimsOf(player.getUUID())) {
+                if (claim.world().equals(world) && claim.overlapsY(fresh.minY() - 1, fresh.maxY() + 1)
+                        && claim.region().within(box, 1)) {
+                    return ClaimDraft.extend(claim, corner1, corner2);
                 }
             }
         }
@@ -321,7 +395,7 @@ final class ClaimTool {
             return null;
         }
         Claim claim = draft.claimId == null ? null : rt.manager.claim(draft.claimId);
-        return rt.manager.check(draft.world, player.getUUID(), draft.cells(), draft.minY(), draft.maxY(), claim,
+        return rt.manager.check(draft.world, player.getUUID(), draft.region(), draft.minY(), draft.maxY(), claim,
                 rt.oracle(), rt.bypassing(player));
     }
 
@@ -338,8 +412,8 @@ final class ClaimTool {
             player.sendSystemMessage(rt.msg.get("draft-too-big"));
         } else {
             player.sendSystemMessage(rt.msg.get(draft.mode == ClaimDraft.Mode.NEW ? "draft-size-new" : "draft-size-change",
-                    "width", draft.maxX() - draft.minX() + 1, "depth", draft.maxZ() - draft.minZ() + 1,
-                    "cells", draft.cells().size(), "miny", draft.minY(), "maxy", draft.maxY(),
+                    "width", draft.width(), "depth", draft.depth(),
+                    "blocks", draft.region().area(), "miny", draft.minY(), "maxy", draft.maxY(),
                     "cost", check == null ? "?" : signed(check.cost()), "left", check == null ? "?" : check.budgetLeft() - check.cost()));
             if (check != null && !check.allowed()) {
                 player.sendSystemMessage(rt.msg.get(check.problem().messageKey, Messages.problemPlaceholders(rt, check)));
@@ -386,13 +460,13 @@ final class ClaimTool {
         boolean bypass = rt.bypassing(player);
         if (draft.claimId == null) {
             String name = rt.msg.raw("default-claim-name").replace("<player>", player.getGameProfile().name());
-            ClaimManager.Change change = manager.create(draft.world, player.getUUID(), name, draft.cells(), draft.minY(),
+            ClaimManager.Change change = manager.create(draft.world, player.getUUID(), name, draft.region(), draft.minY(),
                     draft.maxY(), player.getUUID(), rt.oracle(), bypass);
             if (!change.ok()) {
                 rt.send(player, change.check().problem().messageKey, Messages.problemPlaceholders(rt, change.check()));
                 return false;
             }
-            rt.send(player, "claim-created", "claim", change.claim().name(), "cells", change.claim().size(),
+            rt.send(player, "claim-created", "claim", change.claim().name(), "blocks", change.claim().size(),
                     "left", manager.budgetLeft(player.getUUID()));
         } else {
             Claim claim = manager.claim(draft.claimId);
@@ -400,12 +474,12 @@ final class ClaimTool {
                 rt.send(player, "claim-gone");
                 return false;
             }
-            Check result = manager.resize(claim, draft.cells(), draft.minY(), draft.maxY(), player.getUUID(), rt.oracle(), bypass);
+            Check result = manager.resize(claim, draft.region(), draft.minY(), draft.maxY(), player.getUUID(), rt.oracle(), bypass);
             if (!result.allowed()) {
                 rt.send(player, result.problem().messageKey, Messages.problemPlaceholders(rt, result));
                 return false;
             }
-            rt.send(player, "claim-resized", "claim", claim.name(), "cells", claim.size(),
+            rt.send(player, "claim-resized", "claim", claim.name(), "blocks", claim.size(),
                     "left", manager.budgetLeft(claim.owner()));
         }
         session.noBudgetShown = false;
@@ -461,8 +535,8 @@ final class ClaimTool {
                 rt.actionBar(player, "claim-tool-live-too-big");
             } else {
                 rt.actionBar(player, check != null && check.allowed() ? "claim-tool-live" : "claim-tool-live-bad",
-                        "width", draft.maxX() - draft.minX() + 1, "depth", draft.maxZ() - draft.minZ() + 1,
-                        "cells", draft.cells().size(), "cost", check == null ? "?" : signed(check.cost()),
+                        "width", draft.width(), "depth", draft.depth(),
+                        "blocks", draft.region().area(), "cost", check == null ? "?" : signed(check.cost()),
                         "left", check == null ? "?" : check.budgetLeft() - check.cost());
             }
         }

@@ -1,6 +1,5 @@
 package dev.cornybirdy.estate;
 
-import dev.cornybirdy.estate.core.Cells;
 import dev.cornybirdy.estate.core.Check;
 import dev.cornybirdy.estate.core.Claim;
 import dev.cornybirdy.estate.core.ClaimDraft;
@@ -213,8 +212,8 @@ final class Menus {
 
             gui.set(4, Gui.item(ok ? Items.STAINED_GLASS_PANE.lime() : Items.STAINED_GLASS_PANE.red(),
                     msg.item(ok ? "editor-info-ok" : "editor-info-bad"),
-                    msg.lore("editor-info-lore", "width", draft.maxX() - draft.minX() + 1, "depth", draft.maxZ() - draft.minZ() + 1,
-                            "cells", draft.tooBig() ? "?" : draft.cells().size(), "miny", draft.minY(), "maxy", draft.maxY(),
+                    msg.lore("editor-info-lore", "width", draft.width(), "depth", draft.depth(),
+                            "blocks", draft.tooBig() ? "?" : draft.region().area(), "miny", draft.minY(), "maxy", draft.maxY(),
                             "height", draft.maxY() - draft.minY() + 1,
                             "cost", check == null ? "?" : ClaimTool.signed(check.cost()),
                             "left", check == null ? "?" : check.budgetLeft() - check.cost(), "status", status)));
@@ -229,7 +228,7 @@ final class Menus {
                 String[] axes = {"x", "y", "z"};
                 for (int axis = 0; axis < 3; axis++) {
                     int a = axis;
-                    int big = axis == 1 ? 10 : rt.manager.cellSize();
+                    int big = 10;
                     gui.set(slots[axis], Gui.item(Items.PAPER, msg.item("editor-axis", "axis", axes[axis].toUpperCase(Locale.ROOT), "value", pos[axis]),
                             msg.lore(axis == 1 ? "editor-axis-y-lore" : "editor-axis-xz-lore", "big", big, "corner", corner)), (pl, c) -> {
                         int step = (c.shift() ? big : 1) * (c.right() ? -1 : 1);
@@ -443,13 +442,12 @@ final class Menus {
     static void claimList(EstateRuntime rt, ServerPlayer player, UUID owner) {
         Gui.open(player, rt.msg.get("list-title", "player", rt.name(owner)), 6, (gui, p) -> {
             Msg msg = rt.msg;
-            int cellSize = rt.manager.cellSize();
             List<Claim> claims = rt.manager.claimsOf(owner);
             for (int i = 0; i < Math.min(45, claims.size()); i++) {
                 Claim claim = claims.get(i);
-                int[] center = center(claim, cellSize);
+                int[] center = claim.region().middle();
                 gui.set(i, Gui.item(Items.GRASS_BLOCK, msg.item("list-entry", "claim", claim.name()),
-                        msg.lore("list-entry-lore", "id", claim.id(), "cells", claim.size(), "x", center[0], "z", center[1],
+                        msg.lore("list-entry-lore", "id", claim.id(), "blocks", claim.size(), "x", center[0], "z", center[1],
                                 "miny", claim.minY(), "maxy", claim.maxY(), "trusted", claim.trust().size(),
                                 "world", claim.world().replace("minecraft:", ""),
                                 "exempt", msg.raw(claim.expiryExempt() ? "yes" : "no"))), (pl, c) -> {
@@ -465,22 +463,11 @@ final class Menus {
         });
     }
 
-    static int[] center(Claim claim, int cellSize) {
-        long sx = 0;
-        long sz = 0;
-        for (long cell : claim.cells()) {
-            sx += Cells.x(cell) * (long) cellSize + cellSize / 2;
-            sz += Cells.z(cell) * (long) cellSize + cellSize / 2;
-        }
-        int n = Math.max(1, claim.size());
-        return new int[]{(int) (sx / n), (int) (sz / n)};
-    }
-
     static void unclaim(EstateRuntime rt, ServerPlayer player, Claim claim) {
         Gui.open(player, rt.msg.get("unclaim-title", "claim", claim.name()), 3, (gui, p) -> {
             Msg msg = rt.msg;
             gui.set(11, Gui.item(Items.STAINED_GLASS_PANE.lime(), msg.item("unclaim-yes", "claim", claim.name()),
-                    msg.lore("unclaim-yes-lore", "cells", claim.share(claim.owner()))), (pl, c) -> {
+                    msg.lore("unclaim-yes-lore", "blocks", claim.share(claim.owner()))), (pl, c) -> {
                 pl.closeContainer();
                 LandCommand.doUnclaim(rt, pl, claim);
             });
@@ -538,13 +525,6 @@ final class Menus {
     /** Changes a setting live and saves it; shared by the settings menu and /land admin set. Null on success. */
     static String changeSetting(EstateRuntime rt, ServerPlayer actor, String name, String value) {
         String canonical = EstateConfig.canonicalName(name);
-        if ("cellSize".equals(canonical) && rt.manager.hasClaims()) {
-            String error = rt.msg.raw("cell-size-locked").replace("<size>", String.valueOf(rt.manager.cellSize()));
-            if (actor != null) {
-                actor.sendSystemMessage(Text.parse(error, Map.of()));
-            }
-            return error;
-        }
         String old = canonical == null ? null : rt.config.get(canonical.contains(".") ? canonical.substring(0, canonical.indexOf('.')) : canonical);
         String error = rt.config.set(name, value);
         if (error == null) {

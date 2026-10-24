@@ -67,7 +67,19 @@ public final class ConfigFile {
 
     /** Upgrades an old config in place. Add a step here whenever {@link EstateConfig#CURRENT_VERSION} goes up. */
     static void migrate(JsonObject json, int fromVersion) {
-        // Version 1 is the first release; nothing to migrate yet.
+        if (fromVersion < 2) {
+            // Version 2: claims are exact to the block, so budgets are counted in blocks instead of cells.
+            int cellSize = json.has("cellSize") ? json.get("cellSize").getAsInt() : 8;
+            json.remove("cellSize");
+            json.remove("newClaimSize");
+            json.remove("resizeVerticalStep");
+            for (String key : new String[]{"baseBudget", "maxTotalBudget", "maxGrantedBudget"}) {
+                if (json.has(key)) {
+                    long blocks = json.get(key).getAsLong() * cellSize * cellSize;
+                    json.addProperty(key, (int) Math.min(100_000_000L, blocks));
+                }
+            }
+        }
         json.addProperty("configVersion", EstateConfig.CURRENT_VERSION);
     }
 
@@ -75,30 +87,76 @@ public final class ConfigFile {
         writeAtomically(file, GSON.toJson(config));
     }
 
-    /** Loads messages: the bundled defaults with the admin's file on top. Missing keys are added to the file. */
+    /** Bump when the bundled messages change so much that old files can't be kept (they're backed up and replaced). */
+    static final int MESSAGES_VERSION = 2;
+    private static final String MESSAGES_VERSION_KEY = "_version";
+
+    /**
+     * Loads messages: the bundled defaults with the admin's file on top. Missing keys are added to the file. A copy
+     * of the defaults the file was last written with is kept next to it, so messages the admin never changed follow
+     * the new defaults after an update while their own wording is kept.
+     */
     public static Map<String, String> loadMessages(Path file) throws IOException {
         Map<String, String> defaults = bundledMessages();
+        Path snapshot = file.resolveSibling("." + file.getFileName() + ".defaults");
         Map<String, String> messages = new LinkedHashMap<>(defaults);
-        boolean changed = !Files.exists(file);
-        if (!changed) {
+        boolean changed = true;
+        if (Files.exists(file)) {
             JsonObject json = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject();
-            for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
-                if (entry.getValue().isJsonPrimitive()) {
-                    messages.put(entry.getKey(), entry.getValue().getAsString());
+            int version = json.has(MESSAGES_VERSION_KEY) ? json.get(MESSAGES_VERSION_KEY).getAsInt() : 1;
+            if (version < MESSAGES_VERSION) {
+                Path backup = file.resolveSibling(file.getFileName() + ".v" + version + ".bak");
+                Files.copy(file, backup, StandardCopyOption.REPLACE_EXISTING);
+                org.slf4j.LoggerFactory.getLogger("Estate").warn("The messages changed a lot in this version, so {} was"
+                        + " reset to the new defaults. Your old file is at {}.", file.getFileName(), backup.getFileName());
+            } else {
+                Map<String, String> oldDefaults = Files.exists(snapshot) ? readFlat(snapshot) : Map.of();
+                changed = false;
+                for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
+                    String key = entry.getKey();
+                    if (key.startsWith("_") || !entry.getValue().isJsonPrimitive()) {
+                        continue;
+                    }
+                    String value = entry.getValue().getAsString();
+                    String newDefault = defaults.get(key);
+                    if (value.equals(oldDefaults.get(key)) && !value.equals(newDefault)) {
+                        // Never changed by the admin: use the new default (or drop it if the message is gone).
+                        changed = true;
+                        continue;
+                    }
+                    messages.put(key, value);
                 }
-            }
-            for (String key : defaults.keySet()) {
-                if (!json.has(key)) {
-                    changed = true;
+                for (String key : defaults.keySet()) {
+                    if (!json.has(key)) {
+                        changed = true;
+                    }
                 }
             }
         }
         if (changed) {
             JsonObject out = new JsonObject();
+            out.addProperty(MESSAGES_VERSION_KEY, MESSAGES_VERSION);
             messages.forEach(out::addProperty);
             writeAtomically(file, GSON.toJson(out));
         }
+        JsonObject copy = new JsonObject();
+        defaults.forEach(copy::addProperty);
+        String copyText = GSON.toJson(copy);
+        if (!Files.exists(snapshot) || !Files.readString(snapshot, StandardCharsets.UTF_8).equals(copyText)) {
+            writeAtomically(snapshot, copyText);
+        }
         return messages;
+    }
+
+    private static Map<String, String> readFlat(Path file) throws IOException {
+        Map<String, String> values = new LinkedHashMap<>();
+        JsonObject json = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject();
+        for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
+            if (entry.getValue().isJsonPrimitive()) {
+                values.put(entry.getKey(), entry.getValue().getAsString());
+            }
+        }
+        return values;
     }
 
     public static Map<String, String> bundledMessages() throws IOException {

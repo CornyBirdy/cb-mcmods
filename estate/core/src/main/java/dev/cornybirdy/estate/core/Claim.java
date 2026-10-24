@@ -3,15 +3,15 @@ package dev.cornybirdy.estate.core;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 /**
- * A set of cells in one world with a vertical range, an owner, a trust list and flag overrides. Only
- * {@link ClaimManager} changes claims, so its cell index stays correct; everyone else gets read-only views.
+ * An area of block columns in one world ({@link Region}, exact to the block) with a vertical range, an owner, a
+ * trust list and flag overrides. Only {@link ClaimManager} changes claims, so its index stays correct; everyone else
+ * gets read-only views.
  */
 public final class Claim {
 
@@ -23,10 +23,10 @@ public final class Claim {
     private int minY;
     private int maxY;
     private boolean expiryExempt;
-    private final Set<Long> cells = new HashSet<>();
+    private Region region = Region.EMPTY;
     private final Map<UUID, TrustTier> trust = new HashMap<>();
     private final Map<Flag, Boolean> flags = new EnumMap<>(Flag.class);
-    /** Cells other players paid for out of their own budget (pooled claims). The owner pays the rest. */
+    /** Blocks other players paid for out of their own budget (pooled claims). The owner pays the rest. */
     private final Map<UUID, Integer> shares = new HashMap<>();
 
     public Claim(int id, String world, UUID owner, String name, int minY, int maxY, long created) {
@@ -71,8 +71,8 @@ public final class Claim {
         return expiryExempt;
     }
 
-    public Set<Long> cells() {
-        return Collections.unmodifiableSet(cells);
+    public Region region() {
+        return region;
     }
 
     public Map<UUID, TrustTier> trust() {
@@ -88,27 +88,24 @@ public final class Claim {
         return Collections.unmodifiableMap(shares);
     }
 
+    /** The claim's area in blocks (columns), which is what it costs. */
     public int size() {
-        return cells.size();
-    }
-
-    public boolean containsCell(long cell) {
-        return cells.contains(cell);
+        return (int) Math.min(Integer.MAX_VALUE, region.area());
     }
 
     public boolean containsY(int y) {
         return y >= minY && y <= maxY;
     }
 
-    public boolean contains(int x, int y, int z, int cellSize) {
-        return containsY(y) && cells.contains(Cells.containing(x, z, cellSize));
+    public boolean contains(int x, int y, int z) {
+        return containsY(y) && region.contains(x, z);
     }
 
     public boolean overlapsY(int otherMinY, int otherMaxY) {
         return otherMinY <= maxY && minY <= otherMaxY;
     }
 
-    /** Cells paid for by contributors. */
+    /** Blocks paid for by contributors. */
     public int donated() {
         int total = 0;
         for (int share : shares.values()) {
@@ -117,12 +114,12 @@ public final class Claim {
         return total;
     }
 
-    /** Cells the owner pays for. */
+    /** Blocks the owner pays for. */
     public int ownerShare() {
-        return Math.max(0, cells.size() - donated());
+        return Math.max(0, size() - donated());
     }
 
-    /** Cells a player pays for in this claim. */
+    /** Blocks a player pays for in this claim. */
     public int share(UUID player) {
         return player.equals(owner) ? ownerShare() : shares.getOrDefault(player, 0);
     }
@@ -160,9 +157,8 @@ public final class Claim {
         this.expiryExempt = exempt;
     }
 
-    void setCells(Set<Long> newCells) {
-        cells.clear();
-        cells.addAll(newCells);
+    void setRegion(Region region) {
+        this.region = region;
         trimShares();
     }
 
@@ -182,17 +178,17 @@ public final class Claim {
         }
     }
 
-    void setShare(UUID player, int cells) {
-        if (cells <= 0) {
+    void setShare(UUID player, int blocks) {
+        if (blocks <= 0) {
             shares.remove(player);
         } else {
-            shares.put(player, cells);
+            shares.put(player, blocks);
         }
     }
 
     /** When a claim shrinks below what was donated, contributors get the difference back, biggest share first. */
     private void trimShares() {
-        int excess = donated() - cells.size();
+        int excess = donated() - size();
         while (excess > 0) {
             UUID biggest = null;
             for (Map.Entry<UUID, Integer> entry : shares.entrySet()) {
@@ -200,18 +196,19 @@ public final class Claim {
                     biggest = entry.getKey();
                 }
             }
-            setShare(biggest, shares.get(biggest) - 1);
-            excess--;
+            int take = Math.min(excess, shares.get(biggest));
+            setShare(biggest, shares.get(biggest) - take);
+            excess -= take;
         }
     }
 
     /** Used by storage when loading. */
     public static Claim load(int id, String world, UUID owner, String name, int minY, int maxY, long created,
-                             boolean expiryExempt, Set<Long> cells, Map<UUID, TrustTier> trust,
+                             boolean expiryExempt, Region region, Map<UUID, TrustTier> trust,
                              Map<Flag, Boolean> flags, Map<UUID, Integer> shares) {
         Claim claim = new Claim(id, world, owner, name, minY, maxY, created);
         claim.expiryExempt = expiryExempt;
-        claim.cells.addAll(cells);
+        claim.region = region;
         claim.trust.putAll(trust);
         claim.flags.putAll(flags);
         claim.shares.putAll(shares);
@@ -220,6 +217,6 @@ public final class Claim {
 
     @Override
     public String toString() {
-        return "Claim#" + id + "(" + name + ", " + cells.size() + " cells, y " + minY + ".." + maxY + ")";
+        return "Claim#" + id + "(" + name + ", " + size() + " blocks, y " + minY + ".." + maxY + ")";
     }
 }
