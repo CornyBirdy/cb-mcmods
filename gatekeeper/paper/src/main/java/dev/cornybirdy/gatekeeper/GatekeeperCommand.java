@@ -4,6 +4,7 @@ import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -27,6 +28,7 @@ import java.util.Locale;
  * /gatekeeper pvpcooldown [seconds]           wait between /pvp changes
  * /gatekeeper pvpcombat [seconds]             how long after a hit players can't turn PvP off
  * /gatekeeper combatlog [on|off|toggle]       kill players who log out in combat
+ * /gatekeeper pvpforce (player) [on|off|clear] lock a player's PvP on or off, or let them choose again
  * /gatekeeper reload                          reload config.yml
  * </pre>
  */
@@ -60,6 +62,7 @@ final class GatekeeperCommand implements BasicCommand {
             case "combatlog" -> option(sender, Pvp.COMBAT_LOG, args);
             case "pvpcooldown" -> seconds(sender, Pvp.COOLDOWN, args);
             case "pvpcombat" -> seconds(sender, Pvp.COMBAT, args);
+            case "pvpforce" -> force(sender, args);
             case "reload" -> {
                 plugin.reload();
                 sender.sendMessage(plugin.message("reloaded"));
@@ -71,7 +74,7 @@ final class GatekeeperCommand implements BasicCommand {
     @Override
     public Collection<String> suggest(CommandSourceStack source, String[] args) {
         if (args.length <= 1) {
-            List<String> options = new ArrayList<>(List.of("status", "reload", "pvp", "pvpdefault", "pvpcooldown", "pvpcombat", "combatlog"));
+            List<String> options = new ArrayList<>(List.of("status", "reload", "pvp", "pvpdefault", "pvpcooldown", "pvpcombat", "combatlog", "pvpforce"));
             for (Feature feature : Feature.values()) {
                 options.add(feature.command);
             }
@@ -80,6 +83,14 @@ final class GatekeeperCommand implements BasicCommand {
         String sub = args.length == 0 ? "" : args[0].toLowerCase(Locale.ROOT);
         if (args.length == 2 && (feature(sub) != null || sub.equals("combatlog") || sub.equals("pvpdefault"))) {
             return startingWith(List.of("on", "off", "toggle"), args[1]);
+        }
+        if (args.length == 2 && sub.equals("pvpforce")) {
+            String prefix = args[1].toLowerCase(Locale.ROOT);
+            return plugin.getServer().getOnlinePlayers().stream().map(Player::getName)
+                    .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(prefix)).toList();
+        }
+        if (args.length == 3 && sub.equals("pvpforce")) {
+            return startingWith(List.of("on", "off", "clear"), args[2]);
         }
         return List.of();
     }
@@ -173,6 +184,42 @@ final class GatekeeperCommand implements BasicCommand {
             plugin.getLogger().info(sender.getName() + " set " + key + " to " + value);
         }
         pvpSettings(sender);
+    }
+
+    /** {@code /gatekeeper pvpforce <player> [on|off|clear]} */
+    private void force(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(plugin.message("usage"));
+            return;
+        }
+        OfflinePlayer target = PvpCommand.find(plugin, args[1]);
+        if (target == null) {
+            sender.sendMessage(plugin.message("pvp-unknown-player", Placeholder.unparsed("player", args[1])));
+            return;
+        }
+        String name = target.getName() != null ? target.getName() : args[1];
+        if (args.length >= 3) {
+            Boolean on;
+            switch (args[2].toLowerCase(Locale.ROOT)) {
+                case "on", "true" -> on = true;
+                case "off", "false" -> on = false;
+                case "clear", "none" -> on = null;
+                default -> {
+                    sender.sendMessage(plugin.message("usage"));
+                    return;
+                }
+            }
+            plugin.pvp().force(target.getUniqueId(), on);
+            plugin.getLogger().info(sender.getName() + " set " + name + "'s PvP to "
+                    + (on == null ? "their own choice" : on ? "locked on" : "locked off"));
+            Player online = target.getPlayer();
+            if (online != null) {
+                online.sendMessage(plugin.message(on == null ? "pvp-forced-you-none" : on ? "pvp-forced-you-on" : "pvp-forced-you-off"));
+            }
+        }
+        Boolean lock = plugin.pvp().forced(target.getUniqueId());
+        String key = lock == null ? "pvp-force-none" : lock ? "pvp-force-on" : "pvp-force-off";
+        sender.sendMessage(plugin.message(key, plugin.pvp().enabled(target), Placeholder.unparsed("player", name)));
     }
 
     private static Feature feature(String command) {

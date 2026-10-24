@@ -318,6 +318,29 @@ public class GatekeeperGameTest {
         if (pvp.set(a.getUUID(), false).outcome() != Pvp.Outcome.COOLDOWN) {
             throw helper.assertionException("PvP can't be changed again straight away");
         }
+
+        // Exceptions: two players with PvP off who have allowed each other, and admin locks.
+        FakePlayer c = FakePlayer.get(level, new GameProfile(UUID.randomUUID(), "PvpTestC"));
+        FakePlayer d = FakePlayer.get(level, new GameProfile(UUID.randomUUID(), "PvpTestD"));
+        DamageSource cHits = level.damageSources().playerAttack(c);
+        pvp.setAllowed(c.getUUID(), d.getUUID(), true);
+        if (ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(d, cHits, 1)) {
+            throw helper.assertionException("Allowing someone only counts once they allow you back");
+        }
+        pvp.setAllowed(d.getUUID(), c.getUUID(), true);
+        if (!ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(d, cHits, 1)) {
+            throw helper.assertionException("Players who allowed each other can fight with PvP off");
+        }
+        pvp.force(d.getUUID(), false);
+        if (ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(d, cHits, 1)) {
+            throw helper.assertionException("Nobody can hurt a player an admin locked off");
+        }
+        pvp.force(d.getUUID(), null);
+        pvp.force(c.getUUID(), true);
+        if (pvp.set(c.getUUID(), false).outcome() != Pvp.Outcome.FORCED) {
+            throw helper.assertionException("Players can't change PvP an admin locked");
+        }
+        pvp.force(c.getUUID(), null);
         helper.succeed();
     }
 

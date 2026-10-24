@@ -44,6 +44,7 @@ public final class Gatekeeper extends JavaPlugin {
     private final Map<UUID, Long> lastWarning = new ConcurrentHashMap<>();
     private EndPortals endPortals;
     private NetherPortals netherPortals;
+    private Pvp pvp;
 
     @Override
     public void onEnable() {
@@ -52,7 +53,7 @@ public final class Gatekeeper extends JavaPlugin {
         endPortals = new EndPortals(this);
         netherPortals = new NetherPortals(this);
         getServer().getPluginManager().registerEvents(new LockListener(this, endPortals, netherPortals), this);
-        Pvp pvp = new Pvp(this);
+        pvp = new Pvp(this);
         getServer().getPluginManager().registerEvents(pvp, this);
         registerCommand("gatekeeper", List.of("gk"), new GatekeeperCommand(this));
         registerCommand("pvp", new PvpCommand(this, pvp));
@@ -64,6 +65,10 @@ public final class Gatekeeper extends JavaPlugin {
                 getServer().getOnlinePlayers().forEach(this::takeOffBannedArmor);
             }
         }, ARMOR_CHECK_TICKS, ARMOR_CHECK_TICKS);
+    }
+
+    Pvp pvp() {
+        return pvp;
     }
 
     boolean isEnabled(Feature feature) {
@@ -200,9 +205,10 @@ public final class Gatekeeper extends JavaPlugin {
         return MiniMessage.miniMessage().deserialize(raw(key), placeholders);
     }
 
-    /** Same as {@link #message(String)}, with {@code <state>} replaced by the enabled or disabled message. */
-    Component message(String key, boolean state) {
-        return MiniMessage.miniMessage().deserialize(raw(key), Placeholder.parsed("state", raw(state ? "enabled" : "disabled")));
+    /** Same as {@link #message(String, TagResolver...)}, with {@code <state>} replaced by the enabled or disabled message. */
+    Component message(String key, boolean state, TagResolver... placeholders) {
+        return MiniMessage.miniMessage().deserialize(raw(key), TagResolver.resolver(
+                Placeholder.parsed("state", raw(state ? "enabled" : "disabled")), TagResolver.resolver(placeholders)));
     }
 
     /** A message from config.yml, or the bundled default when an older config file doesn't have it yet. */

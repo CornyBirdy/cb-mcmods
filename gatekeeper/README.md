@@ -55,7 +55,9 @@ Everyone starts with PvP **off**. Players can only hurt each other when **both**
 - **Cooldown:** after changing it, a player has to wait 60 seconds before changing it again, so nobody can flip it on for one hit and straight back off.
 - **Combat timer:** after hitting or being hit by another player, both are in combat for 30 seconds and can't turn PvP off until it runs out. Every hit starts the timer again.
 - **Combat logging (off by default):** turn on `combat-log-kill` (`/gatekeeper combatlog on`) and a player who logs out while in combat is killed and drops their items where they stood. Players are warned when a fight starts. Server shutdowns don't count.
-- Each player's choice is kept across restarts (Paper: in their player data; Fabric: `<world>/gatekeeper/pvp.json`).
+- **Fighting a friend with PvP off:** `/pvp allow <player>` asks to be able to fight someone; once they `/pvp allow` you back, you two can fight each other whatever your PvP settings are. Everyone else still follows your on/off choice. The other player is told when you ask. `/pvp unallow <player>` takes it back (not in the middle of a fight with them), and `/pvp list` shows who you can fight, who you're waiting on and who's asking you.
+- **Admin locks:** `/gatekeeper pvpforce <player> on` locks someone's PvP on, `off` locks it off (nobody can fight them, and they can't fight anyone, allowed or not), and `clear` lets them choose again. Locked players can't change it with `/pvp`. Works for offline players too.
+- Everything is kept across restarts. Paper: choices in player data, allow lists and locks in `plugins/Gatekeeper/pvp.yml`. Fabric: `<world>/gatekeeper/pvp.json`.
 
 Admins change the defaults, the cooldown, the combat timer and combat logging with `/gatekeeper` (below), live and from the console. Keep `pvp=true` in `server.properties`; Gatekeeper decides who can fight. On Fabric, claims made with [Estate](../estate/) also keep PvP off inside them by default, on top of this.
 
@@ -80,9 +82,12 @@ Everything works in the server console (no slash needed there, e.g. `gatekeeper 
 | `/gatekeeper pvpcooldown <seconds>` | Wait between `/pvp` changes (default 60, `0` = none) |
 | `/gatekeeper pvpcombat <seconds>` | How long after a hit players can't turn PvP off (default 30) |
 | `/gatekeeper combatlog on` / `off` / `toggle` | Kill players who log out in combat (default off) |
+| `/gatekeeper pvpforce <player> on` / `off` / `clear` | Lock a player's PvP on or off, or let them choose again. Without `on`/`off`/`clear` it shows their setting |
 | `/gatekeeper reload` | Reload the config file |
 | `/pvp` | Everyone: show your PvP setting |
 | `/pvp on` / `off` / `toggle` | Everyone: turn your own PvP on or off |
+| `/pvp allow <player>` / `unallow <player>` | Everyone: fight someone even with PvP off, once they allow you too |
+| `/pvp list` | Everyone: who you can fight with PvP off, and who's waiting |
 
 When the End or the Nether is switched, everyone online gets a message. Ender chest and netherite changes are quiet by default; set `announce-ender-chests`, `announce-netherite-armor` or `announce-netherite-tools` to `true` to announce those too.
 

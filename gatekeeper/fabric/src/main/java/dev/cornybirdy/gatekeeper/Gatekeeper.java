@@ -212,7 +212,7 @@ public final class Gatekeeper implements ModInitializer {
         return null;
     }
 
-    /** Players only hurt each other when both have PvP on. */
+    /** Players only hurt each other when both have PvP on, or have allowed each other. */
     static boolean allowPvpDamage(LivingEntity entity, DamageSource source, float amount) {
         if (pvp == null || !(entity instanceof ServerPlayer victim)) {
             return true;
@@ -221,7 +221,11 @@ public final class Gatekeeper implements ModInitializer {
         if (attacker == null || pvp.mayHurt(attacker.getUUID(), victim.getUUID())) {
             return true;
         }
-        if (!pvp.enabled(attacker.getUUID())) {
+        if (Boolean.FALSE.equals(pvp.forced(attacker.getUUID()))) {
+            warn(attacker, "pvp-you-locked", Map.of());
+        } else if (Boolean.FALSE.equals(pvp.forced(victim.getUUID()))) {
+            warn(attacker, "pvp-they-locked", Map.of("player", victim.getGameProfile().name()));
+        } else if (!pvp.enabled(attacker.getUUID())) {
             warn(attacker, "pvp-you-off", Map.of());
         } else {
             warn(attacker, "pvp-they-off", Map.of("player", victim.getGameProfile().name()));
