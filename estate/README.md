@@ -1,7 +1,7 @@
 # Estate
 
 Land claims for survival servers, for **Fabric 26.3**. Built for a small group of friends who play at different times: everyone gets the **same flat claim budget** (playtime never buys more land), builds are **claimed automatically** if you want, and everything works **without an admin online**.
-**Players don't need to install anything.** The menu is a chest screen and the borders are glowing block outlines the server sends to each player (nothing is placed in the world), so any vanilla client works.
+**Players don't need to install anything.** The menu is a chest screen and claims show up as tinted glass boxes the server sends to each player (nothing is placed in the world), so any vanilla client works.
 
 | Server | Download |
 |---|---|
@@ -11,11 +11,11 @@ Land claims for survival servers, for **Fabric 26.3**. Built for a small group o
 
 ## How it works
 
-**Cells.** The world is split into a grid of 8x8 block cells (configurable). A claim is any set of cells, so it can be any shape: an L, a plus, a rough circle. Each claim also has a **height range**: from a bit below its lowest block to a bit above its highest (10 blocks of padding by default). A tower doesn't claim extra land, and someone else's underground base can sit below a surface claim.
+**Exact to the block.** A claim covers exactly the blocks you choose: a box between two corners, and boxes can be joined into any shape (an L, a plus, a courtyard). Each claim also has a **height range**: from a bit below its lowest block to a bit above its highest (10 blocks of padding by default). A tower doesn't claim extra land, and someone else's underground base can sit below a surface claim.
 
-**A flat budget.** Everyone can claim the same number of cells (64 by default, about a 64x64 block footprint). Unclaiming or shrinking gives the cells back right away, so you can merge everything into one big claim. There's a limit on the number of claims (5) so the budget can't be spread into dozens of tiny ones. Admins can give one player extra cells for an approved mega build.
+**A flat budget.** Everyone can claim the same number of blocks of land, counted from above so height is free (4096 by default, a 64x64 area). Unclaiming or shrinking gives the blocks back right away, so you can merge everything into one big claim. There's a limit on the number of claims (5) so the budget can't be spread into dozens of tiny ones. Admins can give one player extra blocks for an approved mega build.
 
-**Auto-claim** (`/land autoclaim on`, or the button in the menu). Off for new players by default. When it's on, once you've placed 50 blocks close together (within 16 blocks of each other), a claim is made around the cells your build touches, and it **grows as you keep building**. Torches, rails, ladders, scaffolding and the like don't count, and a pillar or a long bridge never reaches 50 blocks in one spot. Building above or below your own claim moves its top or bottom, even with auto-claim off. If you run out of cells you get one clear message, not a message for every block.
+**Auto-claim** (`/land autoclaim on`, or the button in the menu). Off for new players by default. When it's on, once you've placed 50 blocks close together (within 16 blocks of each other), a claim is made around your build (its box plus 4 blocks on every side), and it **grows as you keep building**: build a few blocks past the edge and the claim stretches to cover it, with no gap. Torches, rails, ladders, scaffolding and the like don't count, and a pillar or a long bridge never reaches 50 blocks in one spot. Building above or below your own claim moves its top or bottom, even with auto-claim off. If you run out of claim blocks you get one clear message, not a message for every block.
 
 **Build tip.** If auto-claim is off and you've built something worth protecting, you get one friendly message per session explaining claims, with clickable buttons to turn on auto-claim or open `/land`. Once you've made a claim or used `/land autoclaim`, it never shows again.
 
@@ -31,7 +31,7 @@ Land claims for survival servers, for **Fabric 26.3**. Built for a small group o
 
 What each level allows is in the config, so it can be changed later.
 
-**Pooled claims.** Players the owner trusts to build can put cells from their own budget into a claim with `/land donate <cells>` (and take them back with `/land withdraw`). That lets a group build one claim bigger than any one budget.
+**Pooled claims.** Players the owner trusts to build can put blocks from their own budget into a claim with `/land donate <blocks>` (and take them back with `/land withdraw`). That lets a group build one claim bigger than any one budget.
 
 **Protection.** Inside a claim, by default nothing can be harmed by anyone who isn't trusted, or by anything coming from outside:
 
@@ -66,15 +66,15 @@ Dispensers outside a claim can't fire into it, and projectiles from untrusted pl
 
 Every button says what it does and ends with "» Click to …".
 
-- **Show borders** draws claim edges for 10 seconds as glowing block outlines: **green** for yours, **red** for other players', **gold** for buffers, **aqua** for town zones. They fade by themselves. (`borderStyle particles` switches back to particles.)
+- **Show borders** shows nearby claims for 10 seconds as boxes of tinted glass (walls, floor and ceiling) with glowing edges you can see through terrain: **green** for yours, **red** for other players'. Buffers are a **yellow** line and town zones an **aqua** one. They follow you while you walk and fade by themselves. (`borderStyle particles` switches to particles.)
 - **Claim land** gives you the **claim tool** (a golden shovel), like a Litematica selection:
-  - **Right-click** a block for **corner 1** (red). Then just look around: the box follows your crosshair, and the action bar shows its size, cost and the cells you'd have left.
-  - **Sneak + right-click** for **corner 2** (blue). You can re-pick either corner as often as you like, up to 64 blocks away.
+  - **Left-click** a block for **corner 1** (red). Then just look around: the box follows your crosshair, and the action bar shows its size, cost and the claim blocks you'd have left.
+  - **Right-click** for **corner 2** (blue). You can re-pick either corner as often as you like, up to 64 blocks away. The tool never digs, hits anything or wears out.
   - Corners are **real coordinates**. `/land pos1 [x y z]` and `/land pos2 [x y z]` set them exactly (where you stand if you leave the coordinates out).
-  - The box snaps sideways to the 8x8 cells; the top and bottom are exact. If you pick corners on the ground, a few blocks below and 24 above are added for you.
+  - The claim is exactly the blocks between the corners. If you pick corners on the ground, a few blocks below and 24 above are added for you.
   - A message with **[Confirm] [Edit corners] [Cancel]** appears. The outline is **white** when it can be confirmed and **red** when it can't (over budget, overlapping someone, in a buffer, someone else's blocks), with the reason.
   - Drawing a box that touches your own claim adds to that claim instead of making a new one.
-- **Edit corners** (`/land claim edit`) opens the coordinate editor: corner 1 and corner 2 each have an **X**, **Y** and **Z** button showing the value. Left-click **+1**, right-click **-1**, shift for a whole cell (or 10 for Y). There's also "corner where I stand", "type corner" (fills in `/land posN` in chat), which way you're facing, and **Confirm**.
+- **Edit corners** (`/land claim edit`) opens the coordinate editor: corner 1 and corner 2 each have an **X**, **Y** and **Z** button showing the value. Left-click **+1**, right-click **-1**, shift for 10. There's also "corner where I stand", "type corner" (fills in `/land posN` in chat), which way you're facing, and **Confirm**.
 - **Resize** opens the same editor with the corners on the claim's current bounding box. Move them out to grow it, in to shrink it.
 - **Friends**: left-click a head to change their level, right-click to remove them, or add someone who's online.
 - An action bar message shows when you walk into or out of a claim.
@@ -97,7 +97,7 @@ Every button says what it does and ends with "» Click to …".
 | `/land borders` | Show borders |
 | `/land rename <name>` | Rename the claim you're in |
 | `/land flags`, `/land flag <flag> on\|off\|default` | See or change the protection flags you're allowed to change |
-| `/land donate <cells>`, `/land withdraw <cells>` | Put cells into the claim you're standing in, or take them back |
+| `/land donate <blocks>`, `/land withdraw <blocks>` | Put claim blocks into the claim you're standing in, or take them back |
 
 ### Admin (`estate:admin`)
 
@@ -109,7 +109,7 @@ Everything that doesn't need a position or a menu works in the server console (w
 | `/land admin settings`, `/land admin menu` | List all settings, or change them in a menu (left +1, right -1, shift for 10) |
 | `/land admin set <setting> <value>`, `/land admin get <setting>` | Change any setting live; it's saved straight away. Lists are comma-separated; single flag defaults and trust levels use a dot, e.g. `flagDefaults.pvp true`, `trustTiers.access interact,containers` |
 | `/land admin bypass [on\|off]` | Build and open everything everywhere |
-| `/land admin budget <player> [grant <cells>\|add <cells>]` | See a player's budget, or give them extra cells (up to `maxGrantedBudget`) |
+| `/land admin budget <player> [grant <blocks>\|add <blocks>]` | See a player's budget, or give them extra blocks (up to `maxGrantedBudget`) |
 | `/land admin claims [player]` | List all claims, or one player's |
 | `/land admin info\|delete <id>`, `/land admin transfer <id> <player>` | See, remove or give away any claim |
 | `/land admin exempt <id> [on\|off]` | Keep a claim from expiring |
@@ -134,16 +134,16 @@ Give it with a permissions mod that supports the Fabric Permission API, like Luc
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `cellSize` | `8` | Blocks per cell side. Can only change while there are no claims |
-| `baseBudget` | `64` | Cells everyone can claim |
-| `maxTotalBudget` | `64` | Most cells one player can hold across all claims without an admin grant |
-| `maxGrantedBudget` | `256` | Most cells a player with an admin grant can hold |
+| `baseBudget` | `4096` | Blocks of land everyone can claim (counted from above; 4096 = 64x64) |
+| `maxTotalBudget` | `4096` | Most blocks one player can hold across all claims without an admin grant |
+| `maxGrantedBudget` | `16384` | Most blocks a player with an admin grant can hold |
 | `maxClaimsPerPlayer` | `5` | Stops many tiny claims |
 | `verticalPadding` | `10` | Blocks above the highest and below the lowest block of a claim |
 | `bufferDistance` | `8` | Free space around claims, in blocks. `0` turns buffers off |
 | `bufferHeightCap` | `0` (off) | If set (try `12`), blocks next to someone's claim can't go more than this many blocks above its ground level |
 | `autoClaimThreshold` | `50` | Blocks in one spot before auto-claim claims them (or the build tip shows) |
 | `autoClaimClusterRadius` | `16` | Blocks within this distance count as one build |
+| `autoClaimMargin` | `4` | Blocks of land auto-claim adds around a build on every side |
 | `autoClaimDefault` | `false` | Auto-claim for new players |
 | `buildPrompt` | `true` | Show the build tip to players with auto-claim off |
 | `autoExtendVertical` | `true` | Move a claim's top or bottom when the owner builds above or below it |
@@ -151,7 +151,7 @@ Give it with a permissions mod that supports the Fabric Permission API, like Luc
 | `inactivityDays` | `30` | Remove claims of players away this long. `0` = never |
 | `unclaimOnPermanentBan` | `true` | Remove the claims of permanently banned players |
 | `borderParticleSeconds` | `10` | How long borders stay visible |
-| `borderStyle` | `blocks` | `blocks` (glowing outlines) or `particles` |
+| `borderStyle` | `blocks` | `blocks` (glass boxes with glowing edges) or `particles` |
 | `placedBlockRetentionDays` | `90` | How long placed-block records are kept. `0` = forever |
 | `enterLeaveMessages` | `true` | Action bar message when walking into or out of a claim |
 | `claimableWorlds` | `minecraft:overworld` | Dimensions where claims can be made |
@@ -162,7 +162,7 @@ Give it with a permissions mod that supports the Fabric Permission API, like Luc
 | `containerBlocks` | none | Extra blocks to treat as containers |
 | `autoClaimIgnoredBlocks` | torches, ladders, scaffolding, rails, TNT, fire | Blocks that don't count towards auto-claim |
 
-All text is in `config/estate-messages.json` ([MiniMessage](https://docs.advntr.dev/minimessage/format.html)-style colours like `<gray>`).
+All text is in `config/estate-messages.json` ([MiniMessage](https://docs.advntr.dev/minimessage/format.html)-style colours like `<gray>`). Messages you haven't changed follow the new wording when Estate is updated; the ones you changed are kept.
 
 ## Data
 
