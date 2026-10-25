@@ -31,7 +31,14 @@ Land claims for survival servers, for **Fabric 26.3**. Built for a small group o
 3. **Build**: placing and breaking, using tools and buckets, animals, building in the buffer.
 4. **Manage**: changing the trust list (except Manage itself) and resizing.
 
-What each level allows is in the config, so it can be changed later.
+What each level allows is in the config, so it can be changed later. The trust list is reached from the claim's own menu (`/land list`, click a claim, **Friends**). Each claim also has an **Everyone else** setting (`/land defaulttier <access|containers|build|none>`): the level players who aren't on the list get, nobody by default. Manage can't be given to everyone.
+
+**Communities.** A group of players that share claims. `/land community create <name>` (one word), invite people with `/land community invite <player>` (they get Join / Decline buttons), and share a claim with it from the claim's menu (**Community** button, or `/land community assign <name>`). Then:
+- **Everyone in the community counts as an owner of that claim**: build, containers, trust list, flags, resizing. Only the player who made the claim can unclaim it or change who it's shared with.
+- **The community pays, not the creator.** Sharing a claim moves its cost to the community's budget and gives the creator their blocks back. A community gets `baseBudget` blocks per member, up to `maxCommunityBudget`. Stop sharing and the cost goes back to the owner (only possible if they can afford it).
+- **No buffers between members.** Members' claims can sit right next to each other, and one member's blocks never stop another from claiming.
+- A claim stays while any member of its community is active. People can be in several communities. Leaving (or being removed) stops sharing that person's claims; disbanding stops sharing all of them. Claims always stay with whoever made them.
+- Communities are made and managed from the menu (**Communities** button) or with `/land community create|invite|accept|decline|leave|kick|rename|disband|info`.
 
 **Pooled claims.** Players the owner trusts to build can put blocks from their own budget into a claim with `/land donate <blocks>` (and take them back with `/land withdraw`). That lets a group build one claim bigger than any one budget.
 
@@ -61,7 +68,7 @@ Estate doesn't touch **PvP** (use Gatekeeper's `/pvp`) or **mobs**: endermen, zo
 ┌───────────────────────────────────────┐
 │ ▪  ▪  ▪  ▪  ★  ▪  ▪  ▪  ▪ │  ★ = your land: budget bar, claims, where you are
 │ ▪  👁  ▪  ✚  ▪  ⇳  ▪  ✖  ▪ │  show borders, claim land, resize, remove claim
-│ ▪  👤  ▪  🛡  ▪  ⚡  ▪  ▣  ▪ │  friends, protection, auto-claim, your claims
+│ ▪  ⛺  ▪  🛡  ▪  ⚡  ▪  ▣  ▪ │  communities, protection, auto-claim, your claims
 │ ?  ▪  ▪  ▪  ▪  ▪  ▪  ▪  ⚙ │  help, server settings (admins)
 └───────────────────────────────────────┘
 ```
@@ -79,7 +86,8 @@ Every button says what it does and ends with "» Click to …".
 - **Edit corners** (`/land claim edit`) opens the coordinate editor: corner 1 and corner 2 each have an **X**, **Y** and **Z** button showing the value. Left-click **+1**, right-click **-1**, shift for 10. There's also "corner where I stand", "type corner" (fills in `/land posN` in chat), which way you're facing, and **Confirm**.
 - **Resize** opens the same editor with the corners on the claim's current bounding box. Move them out to grow it, in to shrink it.
 - **Claim list and manage menu**: `/land list` shows your claims. Left-click one to open its menu (rename, borders, resize, friends, protection, unclaim), right-click to show its borders. The menu works wherever you are, and opening a claim selects it, so commands like `/land trust` and `/land flag` act on it when you're not standing in one of your own claims. Stand in a claim to use that one instead; `/land select none` clears the selection.
-- **Friends**: left-click a head to change their level, right-click to remove them, or add someone who's online.
+- **Communities**: the groups you're in and invitations. Click one to see its members, invite, rename, leave or disband.
+- **Friends** (in a claim's menu): left-click a head to change their level, right-click to remove them, or add someone who's online.
 - An action bar message shows when you walk into or out of a claim.
 
 ## Commands
@@ -105,6 +113,8 @@ Every button says what it does and ends with "» Click to …".
 | `/land info [claim]` | Also works for any of your claims by name or id |
 | `/land partner [add\|remove\|list] [player]` | Players whose blocks never stop you from claiming (they helped build) |
 | `/land flags`, `/land flag <flag> on\|off\|default` | See or change the protection flags you're allowed to change |
+| `/land community [create\|invite\|accept\|decline\|leave\|kick\|rename\|disband\|info\|assign]` | Communities: groups that share claims. `assign <name\|none>` shares the claim you're in (or the selected one) |
+| `/land defaulttier <access\|containers\|build\|none>` | What everyone not on the trust list may do in that claim |
 | `/land donate <blocks>`, `/land withdraw <blocks>` | Put claim blocks into the claim you're standing in, or take them back |
 
 ### Admin (`estate:admin`)
@@ -145,6 +155,7 @@ Give it with a permissions mod that supports the Fabric Permission API, like Luc
 | `baseBudget` | `4096` | Blocks of land everyone can claim (counted from above; 4096 = 64x64) |
 | `maxTotalBudget` | `4096` | Most blocks one player can hold across all claims without an admin grant |
 | `maxGrantedBudget` | `16384` | Most blocks a player with an admin grant can hold |
+| `maxCommunityBudget` | `16384` | Most blocks one community can claim in total (`baseBudget` per member, up to this) |
 | `maxClaimsPerPlayer` | `5` | Stops many tiny claims |
 | `verticalPadding` | `10` | Blocks above the highest and below the lowest block of a claim |
 | `bufferDistance` | `8` | Free space around claims, in blocks. `0` turns buffers off |

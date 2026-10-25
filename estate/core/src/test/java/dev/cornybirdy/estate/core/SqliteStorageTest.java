@@ -12,6 +12,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,6 +41,13 @@ class SqliteStorageTest {
             manager.donate(claim, bob, 100);
             manager.setAutoClaimed(claim, true);
             manager.addBuildPartner(alice, bob);
+            Community town = manager.createCommunity(alice, "Town");
+            manager.invite(town, bob, alice);
+            manager.acceptInvite(town, bob);
+            Claim shared = manager.create(WORLD, alice, "Shared", ClaimManagerTest.square(10, 10, 1), 50, 90, alice,
+                    PlacementOracle.NONE, false).claim();
+            manager.assignCommunity(shared, town, alice);
+            manager.setDefaultTier(shared, TrustTier.ACCESS, alice);
             manager.createTown(WORLD, "Spawn", -10, -10, 10, 10, alice);
             assertFalse(storage.actionsForClaim(claimId, 10).get().isEmpty());
         }
@@ -58,6 +66,16 @@ class SqliteStorageTest {
             assertEquals(9 * 64 - 100, claim.ownerShare());
             assertTrue(manager.autoClaim(alice));
             assertEquals(java.util.Set.of(bob), manager.buildPartners(alice));
+            Community town = manager.communityByName("town");
+            assertNotNull(town);
+            assertEquals(java.util.Set.of(alice, bob), town.members());
+            assertEquals(alice, town.owner());
+            Claim shared = manager.claimsOf(alice).stream().filter(c -> c.name().equals("Shared")).findFirst().orElseThrow();
+            assertEquals(town.id(), shared.communityId());
+            assertEquals(TrustTier.ACCESS, shared.defaultTier());
+            assertTrue(manager.has(shared, bob, Permission.BUILD));
+            assertEquals(0, claim.communityId());
+            assertNull(claim.defaultTier());
             assertTrue(manager.buildPartners(bob).isEmpty());
             assertEquals(10, manager.player(bob).bonusBudget);
             assertEquals("Alice", manager.player(alice).name);
@@ -113,6 +131,10 @@ class SqliteStorageTest {
             st.execute("DROP TABLE claim_boxes");
             st.execute("ALTER TABLE claims DROP COLUMN auto_claimed");
             st.execute("ALTER TABLE players DROP COLUMN build_partners");
+            st.execute("ALTER TABLE claims DROP COLUMN default_tier");
+            st.execute("ALTER TABLE claims DROP COLUMN community_id");
+            st.execute("DROP TABLE communities");
+            st.execute("DROP TABLE community_members");
             st.execute("CREATE TABLE claim_cells (claim_id INTEGER NOT NULL, cx INTEGER NOT NULL, cz INTEGER NOT NULL,"
                     + " PRIMARY KEY (claim_id, cx, cz)) WITHOUT ROWID");
             st.execute("ALTER TABLE claim_shares RENAME COLUMN blocks TO cells");

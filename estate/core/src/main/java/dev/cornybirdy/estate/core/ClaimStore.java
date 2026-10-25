@@ -6,7 +6,10 @@ import java.util.List;
 /** Where claims, players and town zones are saved. Every call must be finished and durable when it returns. */
 public interface ClaimStore {
 
-    record Snapshot(List<Claim> claims, List<PlayerRecord> players, List<TownZone> towns) {
+    record Snapshot(List<Claim> claims, List<PlayerRecord> players, List<TownZone> towns, List<Community> communities) {
+        public Snapshot(List<Claim> claims, List<PlayerRecord> players, List<TownZone> towns) {
+            this(claims, players, towns, List.of());
+        }
     }
 
     Snapshot loadAll();
@@ -16,6 +19,10 @@ public interface ClaimStore {
     void deleteClaim(int claimId);
 
     void savePlayer(PlayerRecord player);
+
+    void saveCommunity(Community community);
+
+    void deleteCommunity(int communityId);
 
     void saveTown(TownZone town);
 
@@ -40,6 +47,14 @@ public interface ClaimStore {
 
         @Override
         public void savePlayer(PlayerRecord player) {
+        }
+
+        @Override
+        public void saveCommunity(Community community) {
+        }
+
+        @Override
+        public void deleteCommunity(int communityId) {
         }
 
         @Override

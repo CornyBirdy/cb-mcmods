@@ -25,6 +25,10 @@ public final class Claim {
     private boolean expiryExempt;
     /** Made by auto-claim and not changed by hand since: it shrinks with the build and goes when the build is gone. */
     private boolean autoClaimed;
+    /** The community this claim is shared with (every member counts as an owner), or 0. */
+    private int communityId;
+    /** What everyone not on the trust list may do here, or null for nothing. */
+    private TrustTier defaultTier;
     private Region region = Region.EMPTY;
     private final Map<UUID, TrustTier> trust = new HashMap<>();
     private final Map<Flag, Boolean> flags = new EnumMap<>(Flag.class);
@@ -75,6 +79,16 @@ public final class Claim {
 
     public boolean autoClaimed() {
         return autoClaimed;
+    }
+
+    /** The community this claim is assigned to, or 0 for none. */
+    public int communityId() {
+        return communityId;
+    }
+
+    /** The trust level everyone gets without being on the list, or null. */
+    public TrustTier defaultTier() {
+        return defaultTier;
     }
 
     public Region region() {
@@ -167,6 +181,14 @@ public final class Claim {
         this.autoClaimed = autoClaimed;
     }
 
+    void setCommunity(int communityId) {
+        this.communityId = communityId;
+    }
+
+    void setDefaultTier(TrustTier tier) {
+        this.defaultTier = tier;
+    }
+
     void setRegion(Region region) {
         this.region = region;
         trimShares();
@@ -210,6 +232,16 @@ public final class Claim {
             setShare(biggest, shares.get(biggest) - take);
             excess -= take;
         }
+    }
+
+    /** Used by storage when loading. */
+    public static Claim load(int id, String world, UUID owner, String name, int minY, int maxY, long created,
+                             boolean expiryExempt, boolean autoClaimed, int communityId, TrustTier defaultTier, Region region,
+                             Map<UUID, TrustTier> trust, Map<Flag, Boolean> flags, Map<UUID, Integer> shares) {
+        Claim claim = load(id, world, owner, name, minY, maxY, created, expiryExempt, autoClaimed, region, trust, flags, shares);
+        claim.communityId = communityId;
+        claim.defaultTier = defaultTier;
+        return claim;
     }
 
     /** Used by storage when loading. */

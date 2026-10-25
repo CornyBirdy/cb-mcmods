@@ -3,6 +3,7 @@ package dev.cornybirdy.estate.core.storage;
 import dev.cornybirdy.estate.core.Action;
 import dev.cornybirdy.estate.core.Claim;
 import dev.cornybirdy.estate.core.ClaimStore;
+import dev.cornybirdy.estate.core.Community;
 import dev.cornybirdy.estate.core.Flag;
 import dev.cornybirdy.estate.core.PlacementIndex;
 import dev.cornybirdy.estate.core.PlacementStore;
@@ -23,9 +24,11 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -108,6 +111,14 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
             // Version 4: players can name build partners whose blocks never stop them from claiming.
             new String[]{
                     "ALTER TABLE players ADD COLUMN build_partners TEXT NOT NULL DEFAULT ''"
+            },
+            // Version 5: communities (claims shared by a group), and a default trust level per claim.
+            new String[]{
+                    "ALTER TABLE claims ADD COLUMN default_tier TEXT",
+                    "ALTER TABLE claims ADD COLUMN community_id INTEGER NOT NULL DEFAULT 0",
+                    "CREATE TABLE communities (id INTEGER PRIMARY KEY, name TEXT NOT NULL, owner TEXT NOT NULL)",
+                    "CREATE TABLE community_members (community_id INTEGER NOT NULL, player TEXT NOT NULL,"
+                            + " PRIMARY KEY (community_id, player)) WITHOUT ROWID"
             });
 
     public static final int SCHEMA_VERSION = MIGRATIONS.size();
@@ -265,11 +276,12 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
             }
             List<Claim> claims = new ArrayList<>();
             try (Statement st = connection.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT id, world, owner, name, min_y, max_y, created, expiry_exempt, auto_claimed FROM claims")) {
+                 ResultSet rs = st.executeQuery("SELECT id, world, owner, name, min_y, max_y, created, expiry_exempt, auto_claimed, community_id, default_tier FROM claims")) {
                 while (rs.next()) {
                     int id = rs.getInt(1);
                     claims.add(Claim.load(id, rs.getString(2), UUID.fromString(rs.getString(3)), rs.getString(4),
                             rs.getInt(5), rs.getInt(6), rs.getLong(7), rs.getInt(8) != 0, rs.getInt(9) != 0,
+                            rs.getInt(10), rs.getString(11) == null ? null : TrustTier.byKey(rs.getString(11)),
                             Region.of(boxes.getOrDefault(id, List.of())), trust.getOrDefault(id, Map.of()),
                             flags.getOrDefault(id, Map.of()), shares.getOrDefault(id, Map.of())));
                 }
@@ -301,7 +313,21 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
                             rs.getInt(6), rs.getInt(7)));
                 }
             }
-            return new Snapshot(claims, players, towns);
+            Map<Integer, Set<UUID>> memberRows = new HashMap<>();
+            try (Statement st = connection.createStatement();
+                 ResultSet rs = st.executeQuery("SELECT community_id, player FROM community_members")) {
+                while (rs.next()) {
+                    memberRows.computeIfAbsent(rs.getInt(1), id -> new LinkedHashSet<>()).add(UUID.fromString(rs.getString(2)));
+                }
+            }
+            List<Community> communities = new ArrayList<>();
+            try (Statement st = connection.createStatement(); ResultSet rs = st.executeQuery("SELECT id, name, owner FROM communities")) {
+                while (rs.next()) {
+                    communities.add(Community.load(rs.getInt(1), rs.getString(2), UUID.fromString(rs.getString(3)),
+                            memberRows.getOrDefault(rs.getInt(1), Set.of())));
+                }
+            }
+            return new Snapshot(claims, players, towns, communities);
         });
     }
 
@@ -317,17 +343,20 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
         long created = claim.created();
         boolean exempt = claim.expiryExempt();
         boolean auto = claim.autoClaimed();
+        int communityId = claim.communityId();
+        String defaultTier = claim.defaultTier() == null ? null : claim.defaultTier().key();
         List<Region.Box> boxes = claim.region().boxes();
         Map<UUID, TrustTier> trust = Map.copyOf(claim.trust());
         Map<Flag, Boolean> flags = Map.copyOf(claim.flagOverrides());
         Map<UUID, Integer> shares = Map.copyOf(claim.shares());
         transaction(() -> {
             try (PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO claims (id, world, owner, name, min_y, max_y, created, expiry_exempt, auto_claimed)"
-                            + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                    "INSERT INTO claims (id, world, owner, name, min_y, max_y, created, expiry_exempt, auto_claimed,"
+                            + " community_id, default_tier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                             + " ON CONFLICT(id) DO UPDATE SET world = excluded.world, owner = excluded.owner, name = excluded.name,"
                             + " min_y = excluded.min_y, max_y = excluded.max_y, expiry_exempt = excluded.expiry_exempt,"
-                            + " auto_claimed = excluded.auto_claimed")) {
+                            + " auto_claimed = excluded.auto_claimed, community_id = excluded.community_id,"
+                            + " default_tier = excluded.default_tier")) {
                 ps.setInt(1, id);
                 ps.setString(2, world);
                 ps.setString(3, owner);
@@ -337,6 +366,8 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
                 ps.setLong(7, created);
                 ps.setInt(8, exempt ? 1 : 0);
                 ps.setInt(9, auto ? 1 : 0);
+                ps.setInt(10, communityId);
+                ps.setString(11, defaultTier);
                 ps.executeUpdate();
             }
             deleteChildren(id);
@@ -429,6 +460,47 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
                 ps.setString(7, partners);
                 ps.setString(8, uuid.toString());
                 ps.executeUpdate();
+            }
+        });
+    }
+
+    @Override
+    public void saveCommunity(Community community) {
+        int id = community.id();
+        String name = community.name();
+        String owner = community.owner().toString();
+        List<String> members = community.members().stream().map(UUID::toString).toList();
+        transaction(() -> {
+            try (PreparedStatement ps = connection.prepareStatement("INSERT INTO communities (id, name, owner) VALUES (?, ?, ?)"
+                    + " ON CONFLICT(id) DO UPDATE SET name = excluded.name, owner = excluded.owner")) {
+                ps.setInt(1, id);
+                ps.setString(2, name);
+                ps.setString(3, owner);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = connection.prepareStatement("DELETE FROM community_members WHERE community_id = ?")) {
+                ps.setInt(1, id);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = connection.prepareStatement("INSERT INTO community_members (community_id, player) VALUES (?, ?)")) {
+                for (String member : members) {
+                    ps.setInt(1, id);
+                    ps.setString(2, member);
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+        });
+    }
+
+    @Override
+    public void deleteCommunity(int communityId) {
+        transaction(() -> {
+            for (String sql : List.of("DELETE FROM community_members WHERE community_id = ?", "DELETE FROM communities WHERE id = ?")) {
+                try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                    ps.setInt(1, communityId);
+                    ps.executeUpdate();
+                }
             }
         });
     }

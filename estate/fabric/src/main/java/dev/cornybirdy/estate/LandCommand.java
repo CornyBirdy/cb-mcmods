@@ -10,6 +10,7 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import dev.cornybirdy.estate.core.Action;
 import dev.cornybirdy.estate.core.Claim;
 import dev.cornybirdy.estate.core.ClaimManager;
+import dev.cornybirdy.estate.core.Community;
 import dev.cornybirdy.estate.core.Denial;
 import dev.cornybirdy.estate.core.EstateConfig;
 import dev.cornybirdy.estate.core.Flag;
@@ -75,8 +76,22 @@ final class LandCommand {
         EstateRuntime rt = Estate.runtime();
         net.minecraft.server.level.ServerPlayer player = context.getSource().getPlayer();
         return SharedSuggestionProvider.suggest(rt == null || player == null ? List.of()
-                : rt.manager.claimsOf(player.getUUID()).stream().map(Claim::name).toList(), builder);
+                : rt.manager.claimsAccessibleBy(player.getUUID()).stream().map(Claim::name).toList(), builder);
     };
+    private static final SuggestionProvider<CommandSourceStack> MY_COMMUNITIES = (context, builder) -> {
+        EstateRuntime rt = Estate.runtime();
+        net.minecraft.server.level.ServerPlayer player = context.getSource().getPlayer();
+        return SharedSuggestionProvider.suggest(rt == null || player == null ? List.of()
+                : rt.manager.communitiesOf(player.getUUID()).stream().map(Community::name).toList(), builder);
+    };
+    private static final SuggestionProvider<CommandSourceStack> INVITED_COMMUNITIES = (context, builder) -> {
+        EstateRuntime rt = Estate.runtime();
+        net.minecraft.server.level.ServerPlayer player = context.getSource().getPlayer();
+        return SharedSuggestionProvider.suggest(rt == null || player == null ? List.of()
+                : rt.manager.invitesFor(player.getUUID()).stream().map(Community::name).toList(), builder);
+    };
+    private static final SuggestionProvider<CommandSourceStack> DEFAULT_TIERS = (context, builder) ->
+            SharedSuggestionProvider.suggest(List.of("access", "containers", "build", "none"), builder);
     private static final SuggestionProvider<CommandSourceStack> PARTNERS = (context, builder) -> {
         EstateRuntime rt = Estate.runtime();
         net.minecraft.server.level.ServerPlayer player = context.getSource().getPlayer();
@@ -168,6 +183,10 @@ final class LandCommand {
                                     }
                                     return claim == null ? 0 : 1;
                                 }))))
+                .then(Commands.literal("defaulttier")
+                        .then(Commands.argument("tier", StringArgumentType.word()).suggests(DEFAULT_TIERS)
+                                .executes(c -> player(c, (rt, p) -> defaultTier(rt, p, StringArgumentType.getString(c, "tier"))))))
+                .then(community())
                 .then(Commands.literal("partner")
                         .executes(c -> player(c, (rt, p) -> partnerList(rt, p)))
                         .then(Commands.literal("list").executes(c -> player(c, (rt, p) -> partnerList(rt, p))))
@@ -318,6 +337,10 @@ final class LandCommand {
             return;
         }
         boolean admin = !claim.owner().equals(player.getUUID());
+        if (admin && !rt.bypassing(player)) {
+            rt.send(player, "unclaim-owner-only");
+            return;
+        }
         rt.manager.delete(claim, player.getUUID(), admin ? "admin-delete" : "unclaim");
         rt.session(player).noBudgetShown = false;
         rt.send(player, "unclaimed", "claim", claim.name(), "left", rt.manager.budgetLeft(player.getUUID()));
@@ -344,7 +367,7 @@ final class LandCommand {
         if (claim == null) {
             return 0;
         }
-        if (tier == TrustTier.MANAGE && !claim.owner().equals(player.getUUID()) && !rt.bypassing(player)) {
+        if (tier == TrustTier.MANAGE && !rt.manager.isOwnerLike(claim, player.getUUID()) && !rt.bypassing(player)) {
             rt.send(player, "trust-owner-only");
             return 0;
         }
@@ -375,7 +398,7 @@ final class LandCommand {
             rt.send(player, "not-trusted", "player", name);
             return 0;
         }
-        if (claim.trust().get(target.id()) == TrustTier.MANAGE && !claim.owner().equals(player.getUUID()) && !rt.bypassing(player)) {
+        if (claim.trust().get(target.id()) == TrustTier.MANAGE && !rt.manager.isOwnerLike(claim, player.getUUID()) && !rt.bypassing(player)) {
             rt.send(player, "trust-owner-only");
             return 0;
         }
@@ -477,6 +500,128 @@ final class LandCommand {
         return 1;
     }
 
+    private static int defaultTier(EstateRuntime rt, ServerPlayer player, String tierName) {
+        TrustTier tier = tierName.equalsIgnoreCase("none") ? null : TrustTier.byKey(tierName);
+        if (tier == null && !tierName.equalsIgnoreCase("none")) {
+            rt.send(player, "unknown-tier", "tier", tierName);
+            return 0;
+        }
+        Claim claim = Menus.target(rt, player, Permission.TRUST);
+        return claim == null ? 0 : Communities.defaultTier(rt, player, claim, tier);
+    }
+
+    /** {@code /land community ...}: groups that share claims. Community names are one word. */
+    private static LiteralArgumentBuilder<CommandSourceStack> community() {
+        return Commands.literal("community")
+                .executes(c -> player(c, (rt, p) -> {
+                    Menus.communities(rt, p);
+                    return 1;
+                }))
+                .then(Commands.literal("list").executes(c -> player(c, (rt, p) -> {
+                    Menus.communities(rt, p);
+                    return 1;
+                })))
+                .then(Commands.literal("create")
+                        .then(Commands.argument("name", StringArgumentType.word())
+                                .executes(c -> player(c, (rt, p) -> Communities.create(rt, p, StringArgumentType.getString(c, "name"))))))
+                .then(Commands.literal("invite")
+                        .then(Commands.argument("player", StringArgumentType.word()).suggests(PLAYERS)
+                                .executes(c -> player(c, (rt, p) -> {
+                                    var owned = rt.manager.communitiesOf(p.getUUID()).stream()
+                                            .filter(x -> x.owner().equals(p.getUUID())).toList();
+                                    if (owned.size() != 1) {
+                                        rt.send(p, "community-which");
+                                        return 0;
+                                    }
+                                    return Communities.invite(rt, p, owned.get(0), StringArgumentType.getString(c, "player"));
+                                }))
+                                .then(Commands.argument("community", StringArgumentType.word()).suggests(MY_COMMUNITIES)
+                                        .executes(c -> player(c, (rt, p) -> {
+                                            Community community = Communities.lookup(rt, p, StringArgumentType.getString(c, "community"));
+                                            return community == null ? 0 : Communities.invite(rt, p, community, StringArgumentType.getString(c, "player"));
+                                        })))))
+                .then(Commands.literal("accept")
+                        .then(Commands.argument("community", StringArgumentType.word()).suggests(INVITED_COMMUNITIES)
+                                .executes(c -> player(c, (rt, p) -> {
+                                    Community community = rt.manager.findCommunity(StringArgumentType.getString(c, "community"));
+                                    if (community == null) {
+                                        rt.send(p, "unknown-community", "community", StringArgumentType.getString(c, "community"));
+                                        return 0;
+                                    }
+                                    return Communities.accept(rt, p, community);
+                                }))))
+                .then(Commands.literal("decline")
+                        .then(Commands.argument("community", StringArgumentType.word()).suggests(INVITED_COMMUNITIES)
+                                .executes(c -> player(c, (rt, p) -> {
+                                    Community community = rt.manager.findCommunity(StringArgumentType.getString(c, "community"));
+                                    if (community == null) {
+                                        rt.send(p, "unknown-community", "community", StringArgumentType.getString(c, "community"));
+                                        return 0;
+                                    }
+                                    return Communities.decline(rt, p, community);
+                                }))))
+                .then(Commands.literal("leave")
+                        .then(Commands.argument("community", StringArgumentType.word()).suggests(MY_COMMUNITIES)
+                                .executes(c -> player(c, (rt, p) -> {
+                                    Community community = Communities.lookup(rt, p, StringArgumentType.getString(c, "community"));
+                                    return community == null ? 0 : Communities.leave(rt, p, community);
+                                }))))
+                .then(Commands.literal("kick")
+                        .then(Commands.argument("player", StringArgumentType.word()).suggests(PLAYERS)
+                                .then(Commands.argument("community", StringArgumentType.word()).suggests(MY_COMMUNITIES)
+                                        .executes(c -> player(c, (rt, p) -> {
+                                            Community community = Communities.lookup(rt, p, StringArgumentType.getString(c, "community"));
+                                            if (community == null) {
+                                                return 0;
+                                            }
+                                            String name = StringArgumentType.getString(c, "player");
+                                            NameAndId target = rt.findPlayer(name);
+                                            if (target == null) {
+                                                rt.send(p, "unknown-player", "player", name);
+                                                return 0;
+                                            }
+                                            return Communities.kick(rt, p, community, target.id(), target.name());
+                                        })))))
+                .then(Commands.literal("rename")
+                        .then(Commands.argument("community", StringArgumentType.word()).suggests(MY_COMMUNITIES)
+                                .then(Commands.argument("name", StringArgumentType.word())
+                                        .executes(c -> player(c, (rt, p) -> {
+                                            Community community = Communities.lookup(rt, p, StringArgumentType.getString(c, "community"));
+                                            return community == null ? 0 : Communities.rename(rt, p, community, StringArgumentType.getString(c, "name"));
+                                        })))))
+                .then(Commands.literal("disband")
+                        .then(Commands.argument("community", StringArgumentType.word()).suggests(MY_COMMUNITIES)
+                                .executes(c -> player(c, (rt, p) -> {
+                                    Community community = Communities.lookup(rt, p, StringArgumentType.getString(c, "community"));
+                                    if (community == null) {
+                                        return 0;
+                                    }
+                                    rt.send(p, "community-disband-confirm", "community", community.name());
+                                    return 1;
+                                }))
+                                .then(Commands.literal("confirm").executes(c -> player(c, (rt, p) -> {
+                                    Community community = Communities.lookup(rt, p, StringArgumentType.getString(c, "community"));
+                                    return community == null ? 0 : Communities.disband(rt, p, community);
+                                })))))
+                .then(Commands.literal("info")
+                        .then(Commands.argument("community", StringArgumentType.word()).suggests(MY_COMMUNITIES)
+                                .executes(c -> player(c, (rt, p) -> {
+                                    Community community = Communities.lookup(rt, p, StringArgumentType.getString(c, "community"));
+                                    return community == null ? 0 : Communities.info(rt, p, community);
+                                }))))
+                .then(Commands.literal("assign")
+                        .then(Commands.argument("community", StringArgumentType.word()).suggests(MY_COMMUNITIES)
+                                .executes(c -> player(c, (rt, p) -> {
+                                    String ref = StringArgumentType.getString(c, "community");
+                                    Community community = ref.equalsIgnoreCase("none") ? null : Communities.lookup(rt, p, ref);
+                                    if (community == null && !ref.equalsIgnoreCase("none")) {
+                                        return 0;
+                                    }
+                                    Claim claim = Menus.target(rt, p, null);
+                                    return claim == null ? 0 : Communities.assign(rt, p, claim, community);
+                                }))));
+    }
+
     private static int partner(EstateRuntime rt, ServerPlayer player, String name, boolean add) {
         NameAndId target = rt.findPlayer(name);
         if (target == null) {
@@ -541,6 +686,10 @@ final class LandCommand {
         Claim claim = rt.claimAt(player.level(), player.blockPosition());
         if (claim == null) {
             rt.send(player, "stand-in-claim");
+            return 0;
+        }
+        if (claim.communityId() != 0) {
+            rt.send(player, "donate-shared");
             return 0;
         }
         if (give && !rt.manager.has(claim, player.getUUID(), Permission.BUILD)) {

@@ -430,7 +430,8 @@ public final class Protection {
 
     /** True if the source spot is in a claim of the target claim's owner. */
     private static boolean sameOwner(Claim source, Claim target) {
-        return source != null && source.owner().equals(target.owner());
+        return source != null && (source.owner().equals(target.owner())
+                || (source.communityId() != 0 && source.communityId() == target.communityId()));
     }
 
     /** The client already shows the change; send it the real blocks and inventory back. */

@@ -51,6 +51,9 @@ public final class EstateConfig {
     /** Most blocks a player with an admin grant can claim in total. */
     @Range(min = 0, max = 100_000_000)
     public int maxGrantedBudget = 16384;
+    /** Most blocks a community can claim in total. A community gets {@code baseBudget} blocks per member, up to this. */
+    @Range(min = 0, max = 100_000_000)
+    public int maxCommunityBudget = 16384;
     @Range(min = 1, max = 1000)
     public int maxClaimsPerPlayer = 5;
     /** Blocks added above the highest and below the lowest block of a claim. */

@@ -282,10 +282,10 @@ final class EstateRuntime {
             String owner = manager.name(here.owner());
             // A claim still called "<owner>'s claim" would just repeat the owner's name.
             boolean named = !here.name().equalsIgnoreCase(msg.raw("default-claim-name").replace("<player>", owner));
-            String key = here.owner().equals(player.getUUID()) ? "enter-own" : "enter-other";
+            String key = manager.isOwnerLike(here, player.getUUID()) ? "enter-own" : "enter-other";
             actionBar(player, named ? key + "-named" : key, "owner", owner, "claim", here.name());
         } else if (previous != null) {
-            if (previous.owner().equals(player.getUUID())) {
+            if (manager.isOwnerLike(previous, player.getUUID())) {
                 actionBar(player, "leave-own", "claim", previous.name());
             } else {
                 actionBar(player, "leave-other", "owner", manager.name(previous.owner()), "claim", previous.name());

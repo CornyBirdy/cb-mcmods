@@ -4,6 +4,7 @@ import dev.cornybirdy.estate.core.Check;
 import dev.cornybirdy.estate.core.Claim;
 import dev.cornybirdy.estate.core.ClaimDraft;
 import dev.cornybirdy.estate.core.ClaimManager;
+import dev.cornybirdy.estate.core.Community;
 import dev.cornybirdy.estate.core.EstateConfig;
 import dev.cornybirdy.estate.core.Flag;
 import dev.cornybirdy.estate.core.Permission;
@@ -50,7 +51,7 @@ final class Menus {
     static final int SLOT_CLAIM = 12;
     static final int SLOT_RESIZE = 14;
     static final int SLOT_UNCLAIM = 16;
-    static final int SLOT_TRUST = 19;
+    static final int SLOT_COMMUNITY = 19;
     static final int SLOT_FLAGS = 21;
     static final int SLOT_AUTOCLAIM = 23;
     static final int SLOT_LIST = 25;
@@ -96,8 +97,9 @@ final class Menus {
                     (pl, c) -> withClaim(rt, pl, Permission.RESIZE, claim -> resize(rt, pl, claim)));
             gui.set(SLOT_UNCLAIM, Gui.item(Items.BARRIER, msg.item("menu-unclaim"), msg.lore("menu-unclaim-lore")),
                     (pl, c) -> withClaim(rt, pl, null, claim -> unclaim(rt, pl, claim)));
-            gui.set(SLOT_TRUST, Gui.item(Items.PLAYER_HEAD, msg.item("menu-trust"), msg.lore("menu-trust-lore")),
-                    (pl, c) -> withClaim(rt, pl, Permission.TRUST, claim -> trust(rt, pl, claim, 0)));
+            gui.set(SLOT_COMMUNITY, Gui.item(Items.CAMPFIRE, msg.item("menu-community"), msg.lore("menu-community-lore",
+                    "communities", manager.communitiesOf(id).size(), "invites", manager.invitesFor(id).size())),
+                    (pl, c) -> communities(rt, pl));
             gui.set(SLOT_FLAGS, Gui.item(Items.SHIELD, msg.item("menu-flags"), msg.lore("menu-flags-lore")),
                     (pl, c) -> withClaim(rt, pl, null, claim -> flags(rt, pl, claim)));
             ItemStack autoItem = Gui.item(auto ? Items.STAINED_GLASS_PANE.lime() : Items.STAINED_GLASS_PANE.red(),
@@ -150,7 +152,7 @@ final class Menus {
                 return picked;
             }
         }
-        List<Claim> own = rt.manager.claimsOf(player.getUUID());
+        List<Claim> own = rt.manager.claimsAccessibleBy(player.getUUID());
         return here == null && own.size() == 1 ? own.get(0) : null;
     }
 
@@ -162,7 +164,7 @@ final class Menus {
         }
         Claim here = rt.claimAt(player.level(), player.blockPosition());
         player.closeContainer();
-        if (rt.manager.claimsOf(player.getUUID()).isEmpty() && here == null) {
+        if (rt.manager.claimsAccessibleBy(player.getUUID()).isEmpty() && here == null) {
             rt.send(player, "no-claims");
         } else if (here != null) {
             rt.send(player, "not-yours", "owner", rt.name(here.owner()));
@@ -177,7 +179,7 @@ final class Menus {
         Claim claim = resolve(rt, player, permission);
         if (claim != null) {
             action.accept(claim);
-        } else if (rt.manager.claimsOf(player.getUUID()).size() > 1) {
+        } else if (rt.manager.claimsAccessibleBy(player.getUUID()).size() > 1) {
             claimList(rt, player, player.getUUID(), picked -> {
                 if (mayManage(rt, player, picked, permission)) {
                     rt.session(player).selectedClaim = picked.id();
@@ -191,7 +193,7 @@ final class Menus {
 
     /** A claim of the player's own by id or name, or null (with a message). Admins in bypass mode may use any id. */
     static Claim lookup(EstateRuntime rt, ServerPlayer player, String reference) {
-        Claim claim = rt.manager.findClaim(player.getUUID(), reference);
+        Claim claim = rt.manager.findAccessibleClaim(player.getUUID(), reference);
         if (claim == null && rt.bypassing(player)) {
             try {
                 claim = rt.manager.claim(Integer.parseInt(reference.trim().replaceFirst("^#", "")));
@@ -206,7 +208,7 @@ final class Menus {
     }
 
     static boolean mayManage(EstateRuntime rt, ServerPlayer player, Claim claim, Permission permission) {
-        if (claim.owner().equals(player.getUUID()) || rt.bypassing(player)) {
+        if (rt.manager.isOwnerLike(claim, player.getUUID()) || rt.bypassing(player)) {
             return true;
         }
         return permission != null && rt.manager.has(claim, player.getUUID(), permission);
@@ -362,7 +364,7 @@ final class Menus {
                 p.closeContainer();
                 return;
             }
-            boolean owner = claim.owner().equals(p.getUUID()) || rt.bypassing(p);
+            boolean owner = rt.manager.isOwnerLike(claim, p.getUUID()) || rt.bypassing(p);
             List<Map.Entry<UUID, TrustTier>> entries = new ArrayList<>(claim.trust().entrySet());
             entries.sort(Comparator.comparing(e -> rt.name(e.getKey()).toLowerCase(Locale.ROOT)));
             int start = page * 45;
@@ -406,6 +408,17 @@ final class Menus {
                 gui.set(51, Gui.item(Items.ARROW, msg.item("next-page"), List.of()), (pl, c) -> trust(rt, pl, claim, page + 1));
             }
             gui.set(53, Gui.item(Items.BOOK, msg.item("trust-help"), msg.lore("trust-help-lore")));
+            TrustTier everyone = claim.defaultTier();
+            gui.set(50, Gui.item(Items.PAPER, msg.item("trust-default"), msg.lore("trust-default-lore",
+                    "tier", everyone == null ? msg.raw("tier-none") : tierName(rt, everyone),
+                    "allows", everyone == null ? "-" : allows(rt, everyone))), (pl, c) -> {
+                if (!mayManage(rt, pl, claim, Permission.TRUST)) {
+                    return;
+                }
+                TrustTier next = c.right() ? null : everyone == null ? TrustTier.ACCESS : everyone == TrustTier.BUILD ? null : everyone.next();
+                Communities.defaultTier(rt, pl, claim, next);
+                gui.redraw();
+            });
         });
     }
 
@@ -465,7 +478,7 @@ final class Menus {
             int slot = FLAGS_FIRST_SLOT;
             for (Flag flag : Flag.values()) {
                 boolean value = rt.manager.flag(claim, flag);
-                boolean editable = admin || (rt.config.ownerMayEdit(flag) && claim.owner().equals(p.getUUID()));
+                boolean editable = admin || (rt.config.ownerMayEdit(flag) && rt.manager.isOwnerLike(claim, p.getUUID()));
                 String state = msg.raw(value ? "protected" : "unprotected");
                 ItemStack icon = Gui.item(FLAG_ICONS.get(flag), msg.item("flag-" + flag.key, "state", state),
                         msg.lore(editable ? "flag-lore-editable" : "flag-lore-locked", "state", state,
@@ -493,7 +506,7 @@ final class Menus {
     static void claimList(EstateRuntime rt, ServerPlayer player, UUID owner, java.util.function.Consumer<Claim> pick) {
         Gui.open(player, rt.msg.get(pick == null ? "list-title" : "pick-title", "player", rt.name(owner)), 6, (gui, p) -> {
             Msg msg = rt.msg;
-            List<Claim> claims = rt.manager.claimsOf(owner);
+            List<Claim> claims = rt.manager.claimsAccessibleBy(owner);
             for (int i = 0; i < Math.min(45, claims.size()); i++) {
                 Claim claim = claims.get(i);
                 int[] center = claim.region().middle();
@@ -565,12 +578,19 @@ final class Menus {
                 }
             });
             gui.set(14, Gui.item(Items.SHIELD, msg.item("menu-flags"), msg.lore("cm-flags-lore")), (pl, c) -> flags(rt, pl, claim));
+            Community shared = claim.communityId() == 0 ? null : rt.manager.community(claim.communityId());
+            gui.set(15, Gui.item(Items.CAMPFIRE, msg.item("cm-community"), msg.lore("cm-community-lore",
+                    "community", shared == null ? msg.raw("community-nothing") : shared.name(),
+                    "cost", shared == null ? msg.raw("cm-community-cost-own") : msg.raw("cm-community-cost-shared"))),
+                    (pl, c) -> communityPicker(rt, pl, claim));
             gui.set(16, Gui.item(Items.BARRIER, msg.item("menu-unclaim"), msg.lore("cm-unclaim-lore")), (pl, c) -> {
-                if (mayManage(rt, pl, claim, null)) {
+                if (claim.owner().equals(pl.getUUID()) || rt.bypassing(pl)) {
                     unclaim(rt, pl, claim);
+                } else {
+                    rt.send(pl, "unclaim-owner-only");
                 }
             });
-            gui.set(22, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> claimList(rt, pl, claim.owner()));
+            gui.set(22, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> claimList(rt, pl, pl.getUUID()));
         });
     }
 
@@ -584,6 +604,164 @@ final class Menus {
             });
             gui.set(15, Gui.item(Items.STAINED_GLASS_PANE.red(), msg.item("unclaim-no"), List.of()), (pl, c) -> claimMenu(rt, pl, claim));
         });
+    }
+
+    // ------------------------------------------------------------------ communities
+
+    /** The player's communities (top) and invitations (bottom). */
+    static void communities(EstateRuntime rt, ServerPlayer player) {
+        Gui.open(player, rt.msg.get("communities-title"), 6, (gui, p) -> {
+            Msg msg = rt.msg;
+            UUID id = p.getUUID();
+            List<Community> mine = rt.manager.communitiesOf(id);
+            for (int i = 0; i < Math.min(27, mine.size()); i++) {
+                Community community = mine.get(i);
+                gui.set(i, Gui.item(Items.CAMPFIRE, msg.item("community-entry", "community", community.name()),
+                        msg.lore("community-entry-lore", "owner", rt.name(community.owner()), "members", community.members().size(),
+                                "claims", rt.manager.communityClaimCount(community),
+                                "used", rt.manager.communityBudgetUsed(community), "limit", rt.manager.communityBudgetLimit(community),
+                                "role", msg.raw(community.owner().equals(id) ? "community-role-owner" : "community-role-member"))),
+                        (pl, c) -> community(rt, pl, community));
+            }
+            if (mine.isEmpty()) {
+                gui.set(13, Gui.item(Items.PAPER, msg.item("community-none"), msg.lore("community-none-lore")));
+            }
+            List<Community> invites = rt.manager.invitesFor(id);
+            for (int i = 0; i < Math.min(9, invites.size()); i++) {
+                Community invite = invites.get(i);
+                gui.set(36 + i, Gui.item(Items.PAPER, msg.item("community-invite-entry", "community", invite.name()),
+                        msg.lore("community-invite-entry-lore", "owner", rt.name(invite.owner()), "members", invite.members().size())),
+                        (pl, c) -> {
+                            if (c.right()) {
+                                Communities.decline(rt, pl, invite);
+                            } else {
+                                Communities.accept(rt, pl, invite);
+                            }
+                            communities(rt, pl);
+                        });
+            }
+            gui.set(45, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> main(rt, pl));
+            gui.set(49, Gui.item(Items.NAME_TAG, msg.item("community-create"), msg.lore("community-create-lore")), (pl, c) -> {
+                pl.closeContainer();
+                suggest(rt, pl, "community-create-chat", "/land community create ");
+            });
+        });
+    }
+
+    /** One community: its members, and for the owner inviting, renaming and disbanding. */
+    static void community(EstateRuntime rt, ServerPlayer player, Community community) {
+        Gui.open(player, rt.msg.get("community-title", "community", community.name()), 6, (gui, p) -> {
+            Msg msg = rt.msg;
+            if (rt.manager.community(community.id()) == null) {
+                communities(rt, p);
+                return;
+            }
+            boolean admin = Communities.mayAdmin(rt, p, community);
+            List<UUID> members = new ArrayList<>(community.members());
+            for (int i = 0; i < Math.min(36, members.size()); i++) {
+                UUID member = members.get(i);
+                boolean isOwner = member.equals(community.owner());
+                boolean removable = admin && !isOwner;
+                String role = msg.raw(isOwner ? "community-role-owner" : "community-role-member");
+                gui.set(i, head(member, msg.item("community-member", "player", rt.name(member)),
+                        msg.lore(removable ? "community-member-lore-owner" : "community-member-lore", "role", role)), removable ? (pl, c) -> {
+                            Communities.kick(rt, pl, community, member, rt.name(member));
+                            community(rt, pl, community);
+                        } : null);
+            }
+            gui.set(40, Gui.item(Items.PAPER, msg.item("community-info-item"), msg.lore("community-info-lore",
+                    "owner", rt.name(community.owner()), "members", community.members().size(),
+                    "claims", rt.manager.communityClaimCount(community),
+                    "used", rt.manager.communityBudgetUsed(community), "limit", rt.manager.communityBudgetLimit(community))));
+            gui.set(45, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> communities(rt, pl));
+            if (admin) {
+                gui.set(47, Gui.item(Items.EMERALD, msg.item("community-invite"), msg.lore("community-invite-lore")),
+                        (pl, c) -> invitePicker(rt, pl, community));
+                gui.set(49, Gui.item(Items.NAME_TAG, msg.item("community-rename"), msg.lore("community-rename-lore")), (pl, c) -> {
+                    pl.closeContainer();
+                    suggest(rt, pl, "community-rename-chat", "/land community rename " + community.name() + " ");
+                });
+                gui.set(53, Gui.item(Items.TNT, msg.item("community-disband"), msg.lore("community-disband-lore")),
+                        (pl, c) -> disbandConfirm(rt, pl, community));
+            }
+            if (!community.owner().equals(p.getUUID())) {
+                gui.set(51, Gui.item(Items.BARRIER, msg.item("community-leave"), msg.lore("community-leave-lore")), (pl, c) -> {
+                    if (Communities.leave(rt, pl, community) == 1) {
+                        communities(rt, pl);
+                    }
+                });
+            }
+        });
+    }
+
+    private static void invitePicker(EstateRuntime rt, ServerPlayer player, Community community) {
+        Gui.open(player, rt.msg.get("community-invite-title", "community", community.name()), 6, (gui, p) -> {
+            Msg msg = rt.msg;
+            int slot = 0;
+            for (ServerPlayer online : rt.server.getPlayerList().getPlayers()) {
+                UUID target = online.getUUID();
+                if (slot >= 45 || community.isMember(target) || rt.manager.invited(community, target)) {
+                    continue;
+                }
+                gui.set(slot++, head(target, msg.item("community-invite-entry-player", "player", online.getGameProfile().name()),
+                        msg.lore("community-invite-entry-player-lore")), (pl, c) -> {
+                            Communities.invite(rt, pl, community, online.nameAndId());
+                            community(rt, pl, community);
+                        });
+            }
+            if (slot == 0) {
+                gui.set(22, Gui.item(Items.PAPER, msg.item("trust-add-nobody"), msg.lore("community-invite-nobody-lore")));
+            }
+            gui.set(45, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> community(rt, pl, community));
+        });
+    }
+
+    private static void disbandConfirm(EstateRuntime rt, ServerPlayer player, Community community) {
+        Gui.open(player, rt.msg.get("community-disband-title", "community", community.name()), 3, (gui, p) -> {
+            Msg msg = rt.msg;
+            gui.set(11, Gui.item(Items.STAINED_GLASS_PANE.red(), msg.item("community-disband-yes", "community", community.name()),
+                    msg.lore("community-disband-yes-lore")), (pl, c) -> {
+                pl.closeContainer();
+                Communities.disband(rt, pl, community);
+            });
+            gui.set(15, Gui.item(Items.STAINED_GLASS_PANE.lime(), msg.item("community-disband-no"), List.of()),
+                    (pl, c) -> community(rt, pl, community));
+        });
+    }
+
+    /** Pick which community a claim is shared with (or none). */
+    static void communityPicker(EstateRuntime rt, ServerPlayer player, Claim claim) {
+        Gui.open(player, rt.msg.get("community-pick-title", "claim", claim.name()), 4, (gui, p) -> {
+            Msg msg = rt.msg;
+            List<Community> mine = rt.manager.communitiesOf(claim.owner());
+            for (int i = 0; i < Math.min(18, mine.size()); i++) {
+                Community community = mine.get(i);
+                boolean current = claim.communityId() == community.id();
+                ItemStack icon = Gui.item(Items.CAMPFIRE, msg.item("community-entry", "community", community.name()),
+                        msg.lore("community-pick-lore", "members", community.members().size(),
+                                "left", rt.manager.communityBudgetLeft(community), "blocks", claim.size()));
+                gui.set(i, current ? Gui.glow(icon) : icon, (pl, c) -> {
+                    Communities.assign(rt, pl, claim, community);
+                    claimMenu(rt, pl, claim);
+                });
+            }
+            if (mine.isEmpty()) {
+                gui.set(13, Gui.item(Items.PAPER, msg.item("community-none"), msg.lore("community-none-lore")));
+            }
+            gui.set(31, Gui.item(Items.BARRIER, msg.item("community-pick-none"), msg.lore("community-pick-none-lore",
+                    "blocks", claim.size(), "left", Math.max(0, rt.manager.budgetLeft(claim.owner())))), (pl, c) -> {
+                Communities.assign(rt, pl, claim, null);
+                claimMenu(rt, pl, claim);
+            });
+            gui.set(27, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> claimMenu(rt, pl, claim));
+        });
+    }
+
+    /** Sends a clickable line that puts a command in the player's chat box. */
+    private static void suggest(EstateRuntime rt, ServerPlayer player, String key, String command) {
+        player.sendSystemMessage(rt.msg.get(key).withStyle(style -> style
+                .withClickEvent(new ClickEvent.SuggestCommand(command))
+                .withHoverEvent(new HoverEvent.ShowText(Component.literal(command)))));
     }
 
     // ------------------------------------------------------------------ admin settings

@@ -31,9 +31,13 @@ public final class ClaimManager {
     private final Map<String, Map<Long, List<Claim>>> index = new HashMap<>();
     private final Map<UUID, PlayerRecord> players = new HashMap<>();
     private final Map<Integer, TownZone> towns = new LinkedHashMap<>();
+    private final Map<Integer, Community> communities = new LinkedHashMap<>();
+    /** Invitations that haven't been answered yet, per invited player. Not saved: they're gone after a restart. */
+    private final Map<UUID, Set<Integer>> invites = new HashMap<>();
     private final Set<UUID> banned = new HashSet<>();
     private int nextClaimId = 1;
     private int nextTownId = 1;
+    private int nextCommunityId = 1;
 
     /** @param clock current time in epoch seconds */
     public ClaimManager(ClaimStore store, EstateConfig config, LongSupplier clock) {
@@ -47,6 +51,10 @@ public final class ClaimManager {
             claims.put(claim.id(), claim);
             addToIndex(claim);
             nextClaimId = Math.max(nextClaimId, claim.id() + 1);
+        }
+        for (Community community : snapshot.communities()) {
+            communities.put(community.id(), community);
+            nextCommunityId = Math.max(nextCommunityId, community.id() + 1);
         }
         for (TownZone town : snapshot.towns()) {
             towns.put(town.id(), town);
@@ -90,6 +98,32 @@ public final class ClaimManager {
             }
         }
         return list;
+    }
+
+    /** The claims the player owns plus the ones shared with a community they're in. */
+    public List<Claim> claimsAccessibleBy(UUID player) {
+        List<Claim> list = new ArrayList<>();
+        for (Claim claim : claims.values()) {
+            if (isOwnerLike(claim, player)) {
+                list.add(claim);
+            }
+        }
+        return list;
+    }
+
+    /** One of {@link #claimsAccessibleBy}'s claims by id or name (any case): the player's own first. Null if none. */
+    public Claim findAccessibleClaim(UUID player, String reference) {
+        Claim own = findClaim(player, reference);
+        if (own != null) {
+            return own;
+        }
+        String ref = reference.trim().replaceFirst("^#", "");
+        for (Claim claim : claimsAccessibleBy(player)) {
+            if (claim.name().equalsIgnoreCase(ref) || String.valueOf(claim.id()).equals(ref)) {
+                return claim;
+            }
+        }
+        return null;
     }
 
     /** Claims the player owns or put budget into. */
@@ -243,13 +277,47 @@ public final class ClaimManager {
         return Math.max(0, Math.min(config.baseBudget + bonus, cap));
     }
 
-    /** Blocks the player pays for across all claims, including what they donated to pooled claims. */
+    /** Blocks the player pays for across all claims, including what they donated to pooled claims. Shared claims are paid by their community. */
     public int budgetUsed(UUID id) {
         int used = 0;
         for (Claim claim : claims.values()) {
-            used += claim.share(id);
+            if (claim.communityId() == 0) {
+                used += claim.share(id);
+            }
         }
         return used;
+    }
+
+    /** Blocks a community can claim in total: {@code baseBudget} per member, up to {@code maxCommunityBudget}. */
+    public int communityBudgetLimit(Community community) {
+        long perMembers = (long) config.baseBudget * community.members().size();
+        return (int) Math.max(0, Math.min(perMembers, config.maxCommunityBudget));
+    }
+
+    /** Blocks the claims shared with a community take up. */
+    public int communityBudgetUsed(Community community) {
+        int used = 0;
+        for (Claim claim : claims.values()) {
+            if (claim.communityId() == community.id()) {
+                used += claim.size();
+            }
+        }
+        return used;
+    }
+
+    public int communityBudgetLeft(Community community) {
+        return communityBudgetLimit(community) - communityBudgetUsed(community);
+    }
+
+    /** How many claims are shared with a community. */
+    public int communityClaimCount(Community community) {
+        int count = 0;
+        for (Claim claim : claims.values()) {
+            if (claim.communityId() == community.id()) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public int budgetLeft(UUID id) {
@@ -262,15 +330,28 @@ public final class ClaimManager {
         if (player == null) {
             return false;
         }
-        if (claim.owner().equals(player)) {
+        if (isOwnerLike(claim, player)) {
             return true;
         }
         TrustTier tier = claim.trust().get(player);
         if (tier != null && config.tierAllows(tier, permission)) {
             return true;
         }
+        TrustTier everyone = claim.defaultTier();
+        if (everyone != null && config.tierAllows(everyone, permission)) {
+            return true;
+        }
         // Everyone who paid into a pooled claim may build right next to it.
         return permission == Permission.BUFFER && claim.isMember(player);
+    }
+
+    /** The claim's owner, or a member of the community it's assigned to: they can do everything except unclaim it. */
+    public boolean isOwnerLike(Claim claim, UUID player) {
+        if (claim.owner().equals(player)) {
+            return true;
+        }
+        Community community = claim.communityId() == 0 ? null : communities.get(claim.communityId());
+        return community != null && community.isMember(player);
     }
 
     /** A flag's value for a claim: its own setting if it has one, otherwise the config default. */
@@ -399,9 +480,11 @@ public final class ClaimManager {
         if (existing != null) {
             payer = existing.owner();
         }
-        int budgetLeft = budgetLeft(payer);
-        int donated = existing == null ? 0 : existing.donated();
-        int oldShare = existing == null ? 0 : existing.ownerShare();
+        // A claim shared with a community is paid for out of the community's budget, not the owner's.
+        Community shared = existing == null || existing.communityId() == 0 ? null : communities.get(existing.communityId());
+        int budgetLeft = shared != null ? communityBudgetLeft(shared) : budgetLeft(payer);
+        int donated = existing == null || shared != null ? 0 : existing.donated();
+        int oldShare = existing == null ? 0 : shared != null ? existing.size() : existing.ownerShare();
         int size = (int) Math.min(Integer.MAX_VALUE / 2, region.area());
         int cost = Math.max(0, size - donated) - oldShare;
 
@@ -414,7 +497,7 @@ public final class ClaimManager {
         if (minY > maxY) {
             return Check.fail(Problem.BAD_HEIGHT, cost, budgetLeft);
         }
-        if (existing == null && !bypass && claimsOf(payer).size() >= config.maxClaimsPerPlayer) {
+        if (existing == null && !bypass && claimsOf(payer).stream().filter(c -> c.communityId() == 0).count() >= config.maxClaimsPerPlayer) {
             return Check.fail(Problem.TOO_MANY_CLAIMS, cost, budgetLeft);
         }
 
@@ -472,6 +555,9 @@ public final class ClaimManager {
         }
         PlayerRecord record = players.get(owner);
         if (record != null && record.buildPartners.contains(builder)) {
+            return false;
+        }
+        if (sharesCommunity(builder, owner)) {
             return false;
         }
         if (existing != null && has(existing, builder, Permission.BUILD)) {
@@ -541,6 +627,10 @@ public final class ClaimManager {
     public void transfer(Claim claim, UUID newOwner, UUID actor) {
         UUID old = claim.owner();
         claim.setOwner(newOwner);
+        Community shared = claim.communityId() == 0 ? null : communities.get(claim.communityId());
+        if (shared == null || !shared.isMember(newOwner)) {
+            claim.setCommunity(0);
+        }
         store.saveClaim(claim);
         store.log(Action.of(now(), actor, "transfer", claim, name(old) + " -> " + name(newOwner)));
     }
@@ -624,6 +714,207 @@ public final class ClaimManager {
         return name;
     }
 
+    /** What everyone not on the trust list may do in the claim. Null for nothing; Manage isn't allowed. */
+    public boolean setDefaultTier(Claim claim, TrustTier tier, UUID actor) {
+        if (tier == TrustTier.MANAGE) {
+            return false;
+        }
+        claim.setDefaultTier(tier);
+        store.saveClaim(claim);
+        store.log(Action.of(now(), actor, "default-tier", claim, tier == null ? "none" : tier.key()));
+        return true;
+    }
+
+    // ------------------------------------------------------------------ communities
+
+    public Collection<Community> communities() {
+        return Collections.unmodifiableCollection(communities.values());
+    }
+
+    public Community community(int id) {
+        return communities.get(id);
+    }
+
+    public Community communityByName(String name) {
+        for (Community community : communities.values()) {
+            if (community.name().equalsIgnoreCase(name.trim())) {
+                return community;
+            }
+        }
+        return null;
+    }
+
+    /** A community by id (a number) or name, or null. */
+    public Community findCommunity(String reference) {
+        Community byName = communityByName(reference);
+        if (byName != null) {
+            return byName;
+        }
+        try {
+            return communities.get(Integer.parseInt(reference.trim().replaceFirst("^#", "")));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    public List<Community> communitiesOf(UUID player) {
+        List<Community> list = new ArrayList<>();
+        for (Community community : communities.values()) {
+            if (community.isMember(player)) {
+                list.add(community);
+            }
+        }
+        return list;
+    }
+
+    /** True if the two players are in at least one community together. */
+    public boolean sharesCommunity(UUID a, UUID b) {
+        for (Community community : communities.values()) {
+            if (community.isMember(a) && community.isMember(b)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean communityNameTaken(String name) {
+        return communityByName(name) != null;
+    }
+
+    /** Makes a community with the player as its owner and only member. Null if the name is taken. */
+    public Community createCommunity(UUID owner, String name) {
+        if (communityNameTaken(name)) {
+            return null;
+        }
+        Community community = new Community(nextCommunityId++, name, owner);
+        communities.put(community.id(), community);
+        store.saveCommunity(community);
+        store.log(new Action(now(), owner, "community-create", null, null, null, null, null, name));
+        return community;
+    }
+
+    /** False if another community already has that name. */
+    public boolean renameCommunity(Community community, String name, UUID actor) {
+        if (!community.name().equalsIgnoreCase(name) && communityNameTaken(name)) {
+            return false;
+        }
+        String old = community.name();
+        community.setName(name);
+        store.saveCommunity(community);
+        store.log(new Action(now(), actor, "community-rename", null, null, null, null, null, old + " -> " + name));
+        return true;
+    }
+
+    /** Invites a player. False if they're already in it or already invited. */
+    public boolean invite(Community community, UUID player, UUID actor) {
+        if (community.isMember(player) || !invites.computeIfAbsent(player, id -> new LinkedHashSet<>()).add(community.id())) {
+            return false;
+        }
+        store.log(new Action(now(), actor, "community-invite", null, null, null, null, null,
+                community.name() + ": " + name(player)));
+        return true;
+    }
+
+    public List<Community> invitesFor(UUID player) {
+        List<Community> list = new ArrayList<>();
+        for (int id : invites.getOrDefault(player, Set.of())) {
+            Community community = communities.get(id);
+            if (community != null && !community.isMember(player)) {
+                list.add(community);
+            }
+        }
+        return list;
+    }
+
+    public boolean invited(Community community, UUID player) {
+        return invites.getOrDefault(player, Set.of()).contains(community.id());
+    }
+
+    /** Accepts an invitation. False if there wasn't one. */
+    public boolean acceptInvite(Community community, UUID player) {
+        Set<Integer> pending = invites.get(player);
+        if (pending == null || !pending.remove(community.id())) {
+            return false;
+        }
+        community.add(player);
+        store.saveCommunity(community);
+        store.log(new Action(now(), player, "community-join", null, null, null, null, null, community.name()));
+        return true;
+    }
+
+    public boolean declineInvite(Community community, UUID player) {
+        Set<Integer> pending = invites.get(player);
+        return pending != null && pending.remove(community.id());
+    }
+
+    /**
+     * Takes a player out of a community (they left or were removed). Their claims assigned to it stop being shared.
+     * The owner can't be removed; they disband it instead.
+     */
+    public boolean removeMember(Community community, UUID player, UUID actor) {
+        if (community.owner().equals(player) || !community.isMember(player)) {
+            return false;
+        }
+        community.remove(player);
+        for (Claim claim : claimsOf(player)) {
+            if (claim.communityId() == community.id()) {
+                claim.setCommunity(0);
+                store.saveClaim(claim);
+            }
+        }
+        store.saveCommunity(community);
+        store.log(new Action(now(), actor, player.equals(actor) ? "community-leave" : "community-kick", null, null, null,
+                null, null, community.name() + ": " + name(player)));
+        return true;
+    }
+
+    /** Deletes a community. Claims assigned to it stay with their owners, no longer shared. */
+    public void disband(Community community, UUID actor) {
+        if (communities.remove(community.id()) == null) {
+            return;
+        }
+        for (Claim claim : claims.values()) {
+            if (claim.communityId() == community.id()) {
+                claim.setCommunity(0);
+                store.saveClaim(claim);
+            }
+        }
+        invites.values().forEach(pending -> pending.remove(community.id()));
+        store.deleteCommunity(community.id());
+        store.log(new Action(now(), actor, "community-disband", null, null, null, null, null, community.name()));
+    }
+
+    /**
+     * Shares a claim with a community, or stops sharing it (null). Only a community the claim's owner is in works.
+     * The claim's cost moves to the community's budget, so the owner gets their blocks back; stopping sharing moves
+     * it back onto the owner, who has to be able to afford it. Blocks other players donated to the claim go back to them.
+     *
+     * @return null on success, otherwise why not ({@code NOT_ALLOWED}: the owner isn't in the community;
+     *         {@code NO_BUDGET}: not enough room in the budget that would pay for it now)
+     */
+    public Problem assignCommunity(Claim claim, Community community, UUID actor) {
+        if (community != null && !community.isMember(claim.owner())) {
+            return Problem.NOT_ALLOWED;
+        }
+        if ((community == null ? 0 : community.id()) == claim.communityId()) {
+            return null;
+        }
+        if (community != null) {
+            if (claim.size() > communityBudgetLeft(community)) {
+                return Problem.NO_BUDGET;
+            }
+        } else if (claim.size() > budgetLeft(claim.owner())) {
+            return Problem.NO_BUDGET;
+        }
+        for (UUID donor : List.copyOf(claim.shares().keySet())) {
+            claim.setShare(donor, 0);
+        }
+        claim.setCommunity(community == null ? 0 : community.id());
+        store.saveClaim(claim);
+        store.log(Action.of(now(), actor, "community-assign", claim, community == null ? "none" : community.name()));
+        return null;
+    }
+
     public void rename(Claim claim, String name, UUID actor) {
         String old = claim.name();
         claim.setName(name);
@@ -651,7 +942,7 @@ public final class ClaimManager {
      * @return null on success, otherwise why not
      */
     public Problem donate(Claim claim, UUID donor, int blocks) {
-        if (blocks <= 0 || donor.equals(claim.owner())) {
+        if (blocks <= 0 || donor.equals(claim.owner()) || claim.communityId() != 0) {
             return Problem.NOT_ALLOWED;
         }
         if (blocks > budgetLeft(donor)) {
@@ -672,7 +963,7 @@ public final class ClaimManager {
     /** Takes donated blocks back. The owner has to be able to pay for them. Null on success. */
     public Problem withdraw(Claim claim, UUID donor, int blocks) {
         int share = claim.share(donor);
-        if (donor.equals(claim.owner()) || share <= 0 || blocks <= 0) {
+        if (donor.equals(claim.owner()) || share <= 0 || blocks <= 0 || claim.communityId() != 0) {
             return Problem.NOT_ALLOWED;
         }
         int amount = Math.min(blocks, share);
@@ -741,12 +1032,27 @@ public final class ClaimManager {
     public List<Claim> expireInactive(Predicate<UUID> online) {
         List<Claim> removed = new ArrayList<>();
         for (Claim claim : List.copyOf(claims.values())) {
-            if (!claim.expiryExempt() && !online.test(claim.owner()) && isInactive(claim.owner())) {
+            if (!claim.expiryExempt() && !online.test(claim.owner()) && isInactive(claim.owner())
+                    && !communityActive(claim, online)) {
                 delete(claim, null, "expire");
                 removed.add(claim);
             }
         }
         return removed;
+    }
+
+    /** A claim shared with a community stays while any member is around. */
+    private boolean communityActive(Claim claim, Predicate<UUID> online) {
+        Community community = claim.communityId() == 0 ? null : communities.get(claim.communityId());
+        if (community == null) {
+            return false;
+        }
+        for (UUID member : community.members()) {
+            if (online.test(member) || !isInactive(member)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Players who are banned for good. Their blocks no longer block others, and their claims can be removed. */

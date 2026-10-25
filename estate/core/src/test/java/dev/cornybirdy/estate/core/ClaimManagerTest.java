@@ -194,6 +194,87 @@ class ClaimManagerTest {
     }
 
     @Test
+    void sharedClaimsAreOwnedByEveryMemberAndPaidByTheCommunity() {
+        Community town = manager.createCommunity(alice, "Town");
+        assertNull(manager.createCommunity(bob, "TOWN"));
+        assertTrue(manager.invite(town, bob, alice));
+        assertFalse(manager.invite(town, bob, alice));
+        assertFalse(manager.has(claim(alice, square(0, 0, 8), 60, 80), bob, Permission.BUILD));
+        assertTrue(manager.acceptInvite(town, bob));
+        assertEquals(2 * 4096, manager.communityBudgetLimit(town));
+
+        Claim big = manager.claimAt(WORLD, 1, 70, 1);
+        assertEquals(0, manager.budgetLeft(alice));
+        assertNull(manager.assignCommunity(big, town, alice));
+        // The creator's blocks are back, and the community pays now.
+        assertEquals(4096, manager.budgetLeft(alice));
+        assertEquals(4096, manager.communityBudgetLeft(town));
+        assertTrue(manager.has(big, bob, Permission.BUILD));
+        assertTrue(manager.has(big, bob, Permission.TRUST));
+        assertTrue(manager.isOwnerLike(big, bob));
+
+        // Members' claims go right next to it without a buffer; outsiders still get one.
+        assertTrue(manager.check(WORLD, bob, cell(8, 0), 60, 80, null, PlacementOracle.NONE, false).allowed());
+        UUID cy = UUID.randomUUID();
+        manager.seen(cy, "Cy");
+        assertEquals(Problem.BUFFER, manager.check(WORLD, cy, cell(8, 0), 60, 80, null, PlacementOracle.NONE, false).problem());
+        // Members' blocks don't stop each other from claiming.
+        PlacementOracle bobBuiltHere = (world, region, minY, maxY, counts) -> counts.test(bob) ? bob : null;
+        assertTrue(manager.check(WORLD, alice, cell(20, 20), 60, 80, null, bobBuiltHere, false).allowed());
+
+        // Growing is limited by the community's budget, not the owner's.
+        assertTrue(manager.resize(big, square(0, 0, 11), 60, 80, bob, PlacementOracle.NONE, false).allowed());
+        assertEquals(Problem.NO_BUDGET, manager.resize(big, square(0, 0, 12), 60, 80, bob, PlacementOracle.NONE, false).problem());
+
+        // Stopping sharing puts the cost back on the owner, who has to be able to pay it.
+        assertEquals(Problem.NO_BUDGET, manager.assignCommunity(big, null, alice));
+        assertTrue(manager.resize(big, square(0, 0, 8), 60, 80, bob, PlacementOracle.NONE, false).allowed());
+        assertNull(manager.assignCommunity(big, null, alice));
+        assertEquals(0, manager.budgetLeft(alice));
+        assertFalse(manager.has(big, bob, Permission.BUILD));
+    }
+
+    @Test
+    void leavingOrDisbandingStopsSharing() {
+        Community town = manager.createCommunity(alice, "Town");
+        manager.invite(town, bob, alice);
+        manager.acceptInvite(town, bob);
+        Claim bobs = claim(bob, square(0, 0, 2), 60, 80);
+        assertNull(manager.assignCommunity(bobs, town, bob));
+        assertTrue(manager.has(bobs, alice, Permission.BUILD));
+        assertEquals(Problem.NOT_ALLOWED, manager.assignCommunity(bobs, manager.createCommunity(alice, "Other"), bob));
+
+        assertFalse(manager.removeMember(town, alice, alice));
+        assertTrue(manager.removeMember(town, bob, bob));
+        assertEquals(0, bobs.communityId());
+        assertFalse(manager.has(bobs, alice, Permission.BUILD));
+
+        manager.invite(town, bob, alice);
+        manager.acceptInvite(town, bob);
+        assertNull(manager.assignCommunity(bobs, town, bob));
+        manager.disband(town, alice);
+        assertEquals(0, bobs.communityId());
+        assertNull(manager.community(town.id()));
+        assertTrue(manager.communitiesOf(bob).isEmpty());
+    }
+
+    @Test
+    void everyoneElseGetsTheDefaultTierButNeverManage() {
+        Claim home = claim(alice, square(0, 0, 2), 60, 80);
+        UUID cy = UUID.randomUUID();
+        assertFalse(manager.has(home, cy, Permission.INTERACT));
+        assertTrue(manager.setDefaultTier(home, TrustTier.CONTAINERS, alice));
+        assertTrue(manager.has(home, cy, Permission.INTERACT));
+        assertTrue(manager.has(home, cy, Permission.CONTAINERS));
+        assertFalse(manager.has(home, cy, Permission.BUILD));
+        assertFalse(manager.setDefaultTier(home, TrustTier.MANAGE, alice));
+        manager.trust(home, cy, TrustTier.BUILD, alice);
+        assertTrue(manager.has(home, cy, Permission.BUILD));
+        assertTrue(manager.setDefaultTier(home, null, alice));
+        assertFalse(manager.has(home, bob, Permission.INTERACT));
+    }
+
+    @Test
     void resizeChargesAndRefundsTheOwner() {
         Claim home = claim(alice, square(0, 0, 2), 60, 80);
         assertTrue(manager.resize(home, square(0, 0, 3), 60, 80, alice, PlacementOracle.NONE, false).allowed());

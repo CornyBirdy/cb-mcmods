@@ -241,10 +241,16 @@ public class EstateGameTest {
                 throw helper.assertionException("Moving corner 2 ten blocks east should add ten columns, got " + claim.size());
             }
 
-            main.press(Menus.SLOT_TRUST, Gui.Click.LEFT);
+            Menus.claimMenu(rt, player, claim);
+            Gui claimMenu = Gui.lastOffscreen;
+            claimMenu.press(13, Gui.Click.LEFT);
             Gui trust = Gui.lastOffscreen;
-            if (trust == resize || !trust.press(49, Gui.Click.LEFT)) {
+            if (trust == claimMenu || !trust.press(49, Gui.Click.LEFT)) {
                 throw helper.assertionException("The trust screen should have an add button");
+            }
+            main.press(Menus.SLOT_COMMUNITY, Gui.Click.LEFT);
+            if (Gui.lastOffscreen == trust) {
+                throw helper.assertionException("The communities screen should open from the main menu");
             }
             main.press(Menus.SLOT_FLAGS, Gui.Click.LEFT);
             Gui.lastOffscreen.press(Menus.FLAGS_FIRST_SLOT + dev.cornybirdy.estate.core.Flag.EXPLOSIONS.ordinal(), Gui.Click.LEFT);

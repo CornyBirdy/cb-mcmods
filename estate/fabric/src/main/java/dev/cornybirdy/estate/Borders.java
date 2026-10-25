@@ -214,7 +214,7 @@ final class Borders {
             if (session.draft != null && session.draft.claimId != null && session.draft.claimId == claim.id()) {
                 continue;
             }
-            boolean own = claim.owner().equals(player.getUUID());
+            boolean own = rt.manager.isOwnerLike(claim, player.getUUID());
             boolean close = claim.region().distance(player.getBlockX(), player.getBlockZ()) <= GLASS_DISTANCE;
             shapes.add(new Shape(claim.region(), 0, claim.minY(), claim.maxY(), own ? Colour.OWN : Colour.OTHER,
                     own || close ? Kind.BOX : Kind.FRAME, 0));
