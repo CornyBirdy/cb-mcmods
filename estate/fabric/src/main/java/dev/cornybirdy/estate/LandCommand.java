@@ -71,6 +71,18 @@ final class LandCommand {
         return SharedSuggestionProvider.suggest(rt == null ? List.of()
                 : rt.manager.claims().stream().map(c -> String.valueOf(c.id())).toList(), builder);
     };
+    private static final SuggestionProvider<CommandSourceStack> OWN_CLAIMS = (context, builder) -> {
+        EstateRuntime rt = Estate.runtime();
+        net.minecraft.server.level.ServerPlayer player = context.getSource().getPlayer();
+        return SharedSuggestionProvider.suggest(rt == null || player == null ? List.of()
+                : rt.manager.claimsOf(player.getUUID()).stream().map(Claim::name).toList(), builder);
+    };
+    private static final SuggestionProvider<CommandSourceStack> PARTNERS = (context, builder) -> {
+        EstateRuntime rt = Estate.runtime();
+        net.minecraft.server.level.ServerPlayer player = context.getSource().getPlayer();
+        return SharedSuggestionProvider.suggest(rt == null || player == null ? List.of()
+                : rt.manager.buildPartners(player.getUUID()).stream().map(rt::name).toList(), builder);
+    };
     private static final SuggestionProvider<CommandSourceStack> TOWNS = (context, builder) -> {
         EstateRuntime rt = Estate.runtime();
         return SharedSuggestionProvider.suggest(rt == null ? List.of() : rt.manager.towns().stream().map(TownZone::name).toList(), builder);
@@ -98,7 +110,10 @@ final class LandCommand {
                         .then(Commands.literal("edit").executes(c -> player(c, (rt, p) -> {
                             Menus.editor(rt, p);
                             return 1;
-                        }))))
+                        })))
+                        .then(Commands.literal("name")
+                                .then(Commands.argument("name", StringArgumentType.greedyString())
+                                        .executes(c -> player(c, (rt, p) -> draftName(rt, p, StringArgumentType.getString(c, "name")))))))
                 .then(corner("pos1", 1))
                 .then(corner("pos2", 2))
                 .then(Commands.literal("unclaim")
@@ -116,7 +131,52 @@ final class LandCommand {
                         .then(Commands.argument("player", StringArgumentType.word()).suggests(PLAYERS)
                                 .executes(c -> player(c, (rt, p) -> untrust(rt, p, StringArgumentType.getString(c, "player"))))))
                 .then(Commands.literal("trustlist").executes(c -> player(c, (rt, p) -> trustMenu(rt, p))))
-                .then(Commands.literal("info").executes(c -> player(c, LandCommand::info)))
+                .then(Commands.literal("info").executes(c -> player(c, LandCommand::info))
+                        .then(Commands.argument("claim", StringArgumentType.greedyString()).suggests(OWN_CLAIMS)
+                                .executes(c -> player(c, (rt, p) -> {
+                                    Claim claim = Menus.lookup(rt, p, StringArgumentType.getString(c, "claim"));
+                                    if (claim != null) {
+                                        sendClaimInfo(rt, p.createCommandSourceStack(), claim);
+                                    }
+                                    return claim == null ? 0 : 1;
+                                }))))
+                .then(Commands.literal("manage")
+                        .executes(c -> player(c, (rt, p) -> {
+                            Menus.withClaim(rt, p, null, claim -> Menus.claimMenu(rt, p, claim));
+                            return 1;
+                        }))
+                        .then(Commands.argument("claim", StringArgumentType.greedyString()).suggests(OWN_CLAIMS)
+                                .executes(c -> player(c, (rt, p) -> {
+                                    Claim claim = Menus.lookup(rt, p, StringArgumentType.getString(c, "claim"));
+                                    if (claim != null) {
+                                        Menus.claimMenu(rt, p, claim);
+                                    }
+                                    return claim == null ? 0 : 1;
+                                }))))
+                .then(Commands.literal("select")
+                        .then(Commands.literal("none").executes(c -> player(c, (rt, p) -> {
+                            rt.session(p).selectedClaim = 0;
+                            rt.send(p, "selected-none");
+                            return 1;
+                        })))
+                        .then(Commands.argument("claim", StringArgumentType.greedyString()).suggests(OWN_CLAIMS)
+                                .executes(c -> player(c, (rt, p) -> {
+                                    Claim claim = Menus.lookup(rt, p, StringArgumentType.getString(c, "claim"));
+                                    if (claim != null) {
+                                        rt.session(p).selectedClaim = claim.id();
+                                        rt.send(p, "selected", "claim", claim.name());
+                                    }
+                                    return claim == null ? 0 : 1;
+                                }))))
+                .then(Commands.literal("partner")
+                        .executes(c -> player(c, (rt, p) -> partnerList(rt, p)))
+                        .then(Commands.literal("list").executes(c -> player(c, (rt, p) -> partnerList(rt, p))))
+                        .then(Commands.literal("add")
+                                .then(Commands.argument("player", StringArgumentType.word()).suggests(PLAYERS)
+                                        .executes(c -> player(c, (rt, p) -> partner(rt, p, StringArgumentType.getString(c, "player"), true)))))
+                        .then(Commands.literal("remove")
+                                .then(Commands.argument("player", StringArgumentType.word()).suggests(PARTNERS)
+                                        .executes(c -> player(c, (rt, p) -> partner(rt, p, StringArgumentType.getString(c, "player"), false))))))
                 .then(Commands.literal("list").executes(c -> player(c, (rt, p) -> {
                     Menus.claimList(rt, p, p.getUUID());
                     return 1;
@@ -379,13 +439,69 @@ final class LandCommand {
         if (claim == null) {
             return 0;
         }
-        String clean = name.replaceAll("[<>]", "").trim();
-        if (clean.isEmpty() || clean.length() > 32) {
-            rt.send(player, "rename-invalid");
+        String clean = cleanName(rt, player, name, claim);
+        if (clean == null) {
             return 0;
         }
         rt.manager.rename(claim, clean, player.getUUID());
         rt.send(player, "renamed", "claim", clean);
+        return 1;
+    }
+
+    /** A claim name with the formatting characters taken out, or null (with a message) if it's empty, long or in use. */
+    private static String cleanName(EstateRuntime rt, ServerPlayer player, String name, Claim except) {
+        String clean = name.replaceAll("[<>]", "").trim();
+        if (clean.isEmpty() || clean.length() > 32) {
+            rt.send(player, "rename-invalid");
+            return null;
+        }
+        if (rt.manager.nameTaken(except == null ? player.getUUID() : except.owner(), clean, except)) {
+            rt.send(player, "name-taken", "claim", clean);
+            return null;
+        }
+        return clean;
+    }
+
+    /** {@code /land claim name <name>}: what the claim being drawn will be called. */
+    private static int draftName(EstateRuntime rt, ServerPlayer player, String name) {
+        if (rt.session(player).draft == null && rt.session(player).selection == null) {
+            rt.send(player, "draft-name-none");
+            return 0;
+        }
+        String clean = cleanName(rt, player, name, null);
+        if (clean == null) {
+            return 0;
+        }
+        rt.session(player).draftName = clean;
+        rt.send(player, "draft-named", "claim", clean);
+        return 1;
+    }
+
+    private static int partner(EstateRuntime rt, ServerPlayer player, String name, boolean add) {
+        NameAndId target = rt.findPlayer(name);
+        if (target == null) {
+            rt.send(player, "unknown-player", "player", name);
+            return 0;
+        }
+        if (target.id().equals(player.getUUID())) {
+            rt.send(player, "partner-self");
+            return 0;
+        }
+        rt.manager.ensurePlayer(target.id(), target.name());
+        boolean changed = add ? rt.manager.addBuildPartner(player.getUUID(), target.id())
+                : rt.manager.removeBuildPartner(player.getUUID(), target.id());
+        rt.send(player, changed ? (add ? "partner-added" : "partner-removed") : (add ? "partner-already" : "partner-not"),
+                "player", target.name());
+        return changed ? 1 : 0;
+    }
+
+    private static int partnerList(EstateRuntime rt, ServerPlayer player) {
+        var partners = rt.manager.buildPartners(player.getUUID());
+        if (partners.isEmpty()) {
+            rt.send(player, "partner-none");
+        } else {
+            rt.send(player, "partner-list", "players", String.join(", ", partners.stream().map(rt::name).toList()));
+        }
         return 1;
     }
 

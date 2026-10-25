@@ -61,7 +61,8 @@ final class AutoClaimer {
     private void create(ServerPlayer player, ServerLevel level, String world, AutoClaimPlanner.Create create) {
         int minY = Math.max(level.getMinY(), create.minY());
         int maxY = Math.min(level.getMaxY(), create.maxY());
-        String name = rt.msg.raw("default-claim-name").replace("<player>", player.getGameProfile().name());
+        String name = rt.manager.uniqueName(player.getUUID(),
+                rt.msg.raw("default-claim-name").replace("<player>", player.getGameProfile().name()));
         ClaimManager.Change change = rt.manager.create(world, player.getUUID(), name, create.region(), minY, maxY,
                 player.getUUID(), rt.oracle(), false);
         if (!change.ok()) {
@@ -134,6 +135,6 @@ final class AutoClaimer {
             }
             session.lastAutoProblem.put(problem, now);
         }
-        rt.send(player, "auto-" + problem.messageKey, Messages.problemPlaceholders(rt, check));
+        Messages.sendProblem(rt, player, "auto-", check);
     }
 }

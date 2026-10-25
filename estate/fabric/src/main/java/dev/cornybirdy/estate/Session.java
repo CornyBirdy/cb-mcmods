@@ -22,12 +22,16 @@ final class Session {
     boolean noBudgetShown;
     /** Server tick until which claim borders are drawn for this player. */
     long bordersUntil;
+    /** The claim picked in the manage menu or with /land select; commands act on it when you aren't standing in your own claim. 0 = none. */
+    int selectedClaim;
     /** Only draw this claim (from the claim list); 0 = everything nearby. */
     int bordersClaim;
     /** Only draw claims this close (while holding the claim tool); 0 = the full view distance. */
     int bordersRadius;
     /** A new claim or resize being edited in the menu. */
     ClaimDraft draft;
+    /** What the claim being drawn will be called (/land claim name), or null for the default. */
+    String draftName;
     /** Whether the draft can be confirmed right now; it's drawn red otherwise. */
     boolean draftOk;
     /** The border displays this player's client is showing, with their entity ids. */

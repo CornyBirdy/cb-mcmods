@@ -152,6 +152,48 @@ class ClaimManagerTest {
     }
 
     @Test
+    void buildPartnersCanHelpBuildWithoutBlockingTheClaim() {
+        PlacementOracle bobBuiltHere = (world, region, minY, maxY, counts) -> counts.test(bob) ? bob : null;
+        assertEquals(Problem.OTHERS_BLOCKS,
+                manager.check(WORLD, alice, square(0, 0, 2), 60, 80, null, bobBuiltHere, false).problem());
+
+        assertTrue(manager.addBuildPartner(alice, bob));
+        assertFalse(manager.addBuildPartner(alice, bob));
+        assertFalse(manager.addBuildPartner(alice, alice));
+        assertTrue(manager.check(WORLD, alice, square(0, 0, 2), 60, 80, null, bobBuiltHere, false).allowed());
+        // It's one-way: Bob still can't claim over Alice's blocks.
+        PlacementOracle aliceBuiltHere = (world, region, minY, maxY, counts) -> counts.test(alice) ? alice : null;
+        assertEquals(Problem.OTHERS_BLOCKS,
+                manager.check(WORLD, bob, square(0, 0, 2), 60, 80, null, aliceBuiltHere, false).problem());
+
+        assertTrue(manager.removeBuildPartner(alice, bob));
+        assertFalse(manager.removeBuildPartner(alice, bob));
+        assertEquals(Problem.OTHERS_BLOCKS,
+                manager.check(WORLD, alice, square(0, 0, 2), 60, 80, null, bobBuiltHere, false).problem());
+    }
+
+    @Test
+    void claimsAreFoundByNameOrIdAndNamesStayUnique() {
+        Claim farm = manager.create(WORLD, alice, "Farm", cell(0, 0), 60, 80, alice, PlacementOracle.NONE, false).claim();
+        Claim home = manager.create(WORLD, alice, "Home Base", cell(5, 5), 60, 80, alice, PlacementOracle.NONE, false).claim();
+        Claim bobs = manager.create(WORLD, bob, "Farm", cell(10, 10), 60, 80, bob, PlacementOracle.NONE, false).claim();
+
+        assertSame(farm, manager.findClaim(alice, "farm"));
+        assertSame(home, manager.findClaim(alice, "  HOME base "));
+        assertSame(home, manager.findClaim(alice, String.valueOf(home.id())));
+        assertSame(home, manager.findClaim(alice, "#" + home.id()));
+        assertSame(bobs, manager.findClaim(bob, "Farm"));
+        assertNull(manager.findClaim(alice, String.valueOf(bobs.id())));
+        assertNull(manager.findClaim(alice, "Castle"));
+
+        assertTrue(manager.nameTaken(alice, "FARM", null));
+        assertFalse(manager.nameTaken(alice, "Farm", farm));
+        assertFalse(manager.nameTaken(alice, "Castle", null));
+        assertEquals("Castle", manager.uniqueName(alice, "Castle"));
+        assertEquals("Farm 2", manager.uniqueName(alice, "Farm"));
+    }
+
+    @Test
     void resizeChargesAndRefundsTheOwner() {
         Claim home = claim(alice, square(0, 0, 2), 60, 80);
         assertTrue(manager.resize(home, square(0, 0, 3), 60, 80, alice, PlacementOracle.NONE, false).allowed());

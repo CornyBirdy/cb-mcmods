@@ -77,6 +77,7 @@ final class ClaimTool {
         }
         Session session = rt.session(player);
         session.draft = null;
+        session.draftName = null;
         Selection selection = new Selection();
         selection.lastActive = System.currentTimeMillis();
         session.selection = selection;
@@ -115,6 +116,7 @@ final class ClaimTool {
         Session session = rt.session(player);
         session.selection = null;
         session.draft = null;
+        session.draftName = null;
         removeTools(player);
         rt.borders.refresh(player);
     }
@@ -417,7 +419,7 @@ final class ClaimTool {
                     "blocks", draft.region().area(), "miny", draft.minY(), "maxy", draft.maxY(),
                     "cost", check == null ? "?" : signed(check.cost()), "left", check == null ? "?" : check.budgetLeft() - check.cost()));
             if (check != null && !check.allowed()) {
-                player.sendSystemMessage(rt.msg.get(check.problem().messageKey, Messages.problemPlaceholders(rt, check)));
+                Messages.sendProblem(rt, player, "", check);
             }
         }
         MutableComponent buttons = Component.empty();
@@ -454,17 +456,25 @@ final class ClaimTool {
             return false;
         }
         if (!check.allowed()) {
-            rt.send(player, check.problem().messageKey, Messages.problemPlaceholders(rt, check));
+            Messages.sendProblem(rt, player, "", check);
             return false;
         }
         ClaimManager manager = rt.manager;
         boolean bypass = rt.bypassing(player);
         if (draft.claimId == null) {
-            String name = rt.msg.raw("default-claim-name").replace("<player>", player.getGameProfile().name());
+            String name = session.draftName;
+            if (name != null && manager.nameTaken(player.getUUID(), name, null)) {
+                rt.send(player, "name-taken", "claim", name);
+                return false;
+            }
+            if (name == null) {
+                name = manager.uniqueName(player.getUUID(),
+                        rt.msg.raw("default-claim-name").replace("<player>", player.getGameProfile().name()));
+            }
             ClaimManager.Change change = manager.create(draft.world, player.getUUID(), name, draft.region(), draft.minY(),
                     draft.maxY(), player.getUUID(), rt.oracle(), bypass);
             if (!change.ok()) {
-                rt.send(player, change.check().problem().messageKey, Messages.problemPlaceholders(rt, change.check()));
+                Messages.sendProblem(rt, player, "", change.check());
                 return false;
             }
             rt.send(player, "claim-created", "claim", change.claim().name(), "blocks", change.claim().size(),
@@ -477,7 +487,7 @@ final class ClaimTool {
             }
             Check result = manager.resize(claim, draft.region(), draft.minY(), draft.maxY(), player.getUUID(), rt.oracle(), bypass);
             if (!result.allowed()) {
-                rt.send(player, result.problem().messageKey, Messages.problemPlaceholders(rt, result));
+                Messages.sendProblem(rt, player, "", result);
                 return false;
             }
             // Changed by hand: it no longer shrinks with the build.
@@ -487,6 +497,7 @@ final class ClaimTool {
         }
         session.noBudgetShown = false;
         session.draft = null;
+        session.draftName = null;
         session.selection = null;
         removeTools(player);
         rt.borders.show(player, 0);

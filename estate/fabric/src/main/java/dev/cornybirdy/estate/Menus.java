@@ -92,30 +92,14 @@ final class Menus {
                 pl.closeContainer();
                 rt.claimTool.start(pl);
             });
-            gui.set(SLOT_RESIZE, Gui.item(Items.PISTON, msg.item("menu-resize"), msg.lore("menu-resize-lore")), (pl, c) -> {
-                Claim claim = target(rt, pl, Permission.RESIZE);
-                if (claim != null) {
-                    resize(rt, pl, claim);
-                }
-            });
-            gui.set(SLOT_UNCLAIM, Gui.item(Items.BARRIER, msg.item("menu-unclaim"), msg.lore("menu-unclaim-lore")), (pl, c) -> {
-                Claim claim = target(rt, pl, null);
-                if (claim != null) {
-                    unclaim(rt, pl, claim);
-                }
-            });
-            gui.set(SLOT_TRUST, Gui.item(Items.PLAYER_HEAD, msg.item("menu-trust"), msg.lore("menu-trust-lore")), (pl, c) -> {
-                Claim claim = target(rt, pl, Permission.TRUST);
-                if (claim != null) {
-                    trust(rt, pl, claim, 0);
-                }
-            });
-            gui.set(SLOT_FLAGS, Gui.item(Items.SHIELD, msg.item("menu-flags"), msg.lore("menu-flags-lore")), (pl, c) -> {
-                Claim claim = target(rt, pl, null);
-                if (claim != null) {
-                    flags(rt, pl, claim);
-                }
-            });
+            gui.set(SLOT_RESIZE, Gui.item(Items.PISTON, msg.item("menu-resize"), msg.lore("menu-resize-lore")),
+                    (pl, c) -> withClaim(rt, pl, Permission.RESIZE, claim -> resize(rt, pl, claim)));
+            gui.set(SLOT_UNCLAIM, Gui.item(Items.BARRIER, msg.item("menu-unclaim"), msg.lore("menu-unclaim-lore")),
+                    (pl, c) -> withClaim(rt, pl, null, claim -> unclaim(rt, pl, claim)));
+            gui.set(SLOT_TRUST, Gui.item(Items.PLAYER_HEAD, msg.item("menu-trust"), msg.lore("menu-trust-lore")),
+                    (pl, c) -> withClaim(rt, pl, Permission.TRUST, claim -> trust(rt, pl, claim, 0)));
+            gui.set(SLOT_FLAGS, Gui.item(Items.SHIELD, msg.item("menu-flags"), msg.lore("menu-flags-lore")),
+                    (pl, c) -> withClaim(rt, pl, null, claim -> flags(rt, pl, claim)));
             ItemStack autoItem = Gui.item(auto ? Items.STAINED_GLASS_PANE.lime() : Items.STAINED_GLASS_PANE.red(),
                     msg.item(auto ? "menu-autoclaim-on" : "menu-autoclaim-off"),
                     msg.lore(auto ? "menu-autoclaim-on-lore" : "menu-autoclaim-off-lore", "threshold", rt.config.autoClaimThreshold));
@@ -146,22 +130,39 @@ final class Menus {
     }
 
     /**
-     * The claim a menu button acts on: the one the player stands in if they may change it, otherwise their only
-     * claim. Tells them what to do if that doesn't pick exactly one.
+     * The claim a command or button acts on, with no messages: the one the player stands in if they may change it,
+     * else the one they picked with /land select or the manage menu, else their only claim. Null if that doesn't
+     * pick exactly one.
      *
      * @param permission what a trusted player needs to change it, or null for owner only
      */
-    static Claim target(EstateRuntime rt, ServerPlayer player, Permission permission) {
+    static Claim resolve(EstateRuntime rt, ServerPlayer player, Permission permission) {
         Claim here = rt.claimAt(player.level(), player.blockPosition());
         if (here != null && mayManage(rt, player, here, permission)) {
             return here;
         }
-        List<Claim> own = rt.manager.claimsOf(player.getUUID());
-        if (here == null && own.size() == 1) {
-            return own.get(0);
+        Session session = rt.session(player);
+        if (session.selectedClaim != 0) {
+            Claim picked = rt.manager.claim(session.selectedClaim);
+            if (picked == null) {
+                session.selectedClaim = 0;
+            } else if (mayManage(rt, player, picked, permission)) {
+                return picked;
+            }
         }
+        List<Claim> own = rt.manager.claimsOf(player.getUUID());
+        return here == null && own.size() == 1 ? own.get(0) : null;
+    }
+
+    /** Like {@link #resolve}, but tells the player what to do if it doesn't pick a claim. */
+    static Claim target(EstateRuntime rt, ServerPlayer player, Permission permission) {
+        Claim claim = resolve(rt, player, permission);
+        if (claim != null) {
+            return claim;
+        }
+        Claim here = rt.claimAt(player.level(), player.blockPosition());
         player.closeContainer();
-        if (own.isEmpty() && here == null) {
+        if (rt.manager.claimsOf(player.getUUID()).isEmpty() && here == null) {
             rt.send(player, "no-claims");
         } else if (here != null) {
             rt.send(player, "not-yours", "owner", rt.name(here.owner()));
@@ -169,6 +170,39 @@ final class Menus {
             rt.send(player, "stand-in-claim");
         }
         return null;
+    }
+
+    /** For buttons: acts on {@link #resolve}'s claim, or lets the player pick one of their claims from a list. */
+    static void withClaim(EstateRuntime rt, ServerPlayer player, Permission permission, java.util.function.Consumer<Claim> action) {
+        Claim claim = resolve(rt, player, permission);
+        if (claim != null) {
+            action.accept(claim);
+        } else if (rt.manager.claimsOf(player.getUUID()).size() > 1) {
+            claimList(rt, player, player.getUUID(), picked -> {
+                if (mayManage(rt, player, picked, permission)) {
+                    rt.session(player).selectedClaim = picked.id();
+                    action.accept(picked);
+                }
+            });
+        } else {
+            target(rt, player, permission);
+        }
+    }
+
+    /** A claim of the player's own by id or name, or null (with a message). Admins in bypass mode may use any id. */
+    static Claim lookup(EstateRuntime rt, ServerPlayer player, String reference) {
+        Claim claim = rt.manager.findClaim(player.getUUID(), reference);
+        if (claim == null && rt.bypassing(player)) {
+            try {
+                claim = rt.manager.claim(Integer.parseInt(reference.trim().replaceFirst("^#", "")));
+            } catch (NumberFormatException ignored) {
+                // not an id
+            }
+        }
+        if (claim == null) {
+            rt.send(player, "unknown-claim", "claim", reference);
+        }
+        return claim;
     }
 
     static boolean mayManage(EstateRuntime rt, ServerPlayer player, Claim claim, Permission permission) {
@@ -256,6 +290,17 @@ final class Menus {
                     int[] now = d == null ? pos : d.corner(corner);
                     String command = "/land pos" + corner + " " + now[0] + " " + now[1] + " " + now[2];
                     pl.sendSystemMessage(msg.get("editor-type-chat", "corner", corner).withStyle(style -> style
+                            .withClickEvent(new ClickEvent.SuggestCommand(command))
+                            .withHoverEvent(new HoverEvent.ShowText(Component.literal(command)))));
+                });
+            }
+            if (existing == null) {
+                String named = rt.session(p).draftName;
+                gui.set(13, Gui.item(Items.NAME_TAG, msg.item("editor-name"),
+                        msg.lore("editor-name-lore", "name", named == null ? msg.raw("editor-name-default") : named)), (pl, c) -> {
+                    pl.closeContainer();
+                    String command = "/land claim name ";
+                    pl.sendSystemMessage(msg.get("editor-name-chat").withStyle(style -> style
                             .withClickEvent(new ClickEvent.SuggestCommand(command))
                             .withHoverEvent(new HoverEvent.ShowText(Component.literal(command)))));
                 });
@@ -351,7 +396,7 @@ final class Menus {
             if (entries.isEmpty()) {
                 gui.set(22, Gui.item(Items.PAPER, msg.item("trust-empty"), msg.lore("trust-empty-lore")));
             }
-            gui.set(45, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> main(rt, pl));
+            gui.set(45, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> claimMenu(rt, pl, claim));
             if (page > 0) {
                 gui.set(47, Gui.item(Items.ARROW, msg.item("previous-page"), List.of()), (pl, c) -> trust(rt, pl, claim, page - 1));
             }
@@ -431,14 +476,22 @@ final class Menus {
                     gui.redraw();
                 } : null);
             }
-            gui.set(22, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> main(rt, pl));
+            gui.set(22, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> claimMenu(rt, pl, claim));
         });
     }
 
-    // ------------------------------------------------------------------ claim list and unclaim
+    // ------------------------------------------------------------------ claim list, claim menu and unclaim
 
     static void claimList(EstateRuntime rt, ServerPlayer player, UUID owner) {
-        Gui.open(player, rt.msg.get("list-title", "player", rt.name(owner)), 6, (gui, p) -> {
+        claimList(rt, player, owner, null);
+    }
+
+    /**
+     * The claims of a player, as a list. Left-click opens a claim's menu and right-click shows its borders; with a
+     * {@code pick} action, a click picks the claim instead (selecting it) and calls the action.
+     */
+    static void claimList(EstateRuntime rt, ServerPlayer player, UUID owner, java.util.function.Consumer<Claim> pick) {
+        Gui.open(player, rt.msg.get(pick == null ? "list-title" : "pick-title", "player", rt.name(owner)), 6, (gui, p) -> {
             Msg msg = rt.msg;
             List<Claim> claims = rt.manager.claimsOf(owner);
             for (int i = 0; i < Math.min(45, claims.size()); i++) {
@@ -448,16 +501,76 @@ final class Menus {
                         msg.lore("list-entry-lore", "id", claim.id(), "blocks", claim.size(), "x", center[0], "z", center[1],
                                 "miny", claim.minY(), "maxy", claim.maxY(), "trusted", claim.trust().size(),
                                 "world", claim.world().replace("minecraft:", ""),
-                                "exempt", msg.raw(claim.expiryExempt() ? "yes" : "no"))), (pl, c) -> {
-                    pl.closeContainer();
-                    rt.borders.show(pl, claim.id());
-                    rt.send(pl, "list-shown", "claim", claim.name(), "x", center[0], "z", center[1]);
+                                "exempt", msg.raw(claim.expiryExempt() ? "yes" : "no"), "click", msg.raw(pick == null ? "list-click" : "pick-click"),
+                                "click2", pick == null ? msg.raw("list-click2") : "")), (pl, c) -> {
+                    if (rt.manager.claim(claim.id()) == null) {
+                        claimList(rt, pl, owner, pick);
+                    } else if (pick != null) {
+                        pl.closeContainer();
+                        pick.accept(claim);
+                    } else if (c.right()) {
+                        pl.closeContainer();
+                        rt.borders.show(pl, claim.id());
+                        rt.send(pl, "list-shown", "claim", claim.name(), "x", center[0], "z", center[1]);
+                    } else {
+                        claimMenu(rt, pl, claim);
+                    }
                 });
             }
             if (claims.isEmpty()) {
                 gui.set(22, Gui.item(Items.PAPER, msg.item("list-empty"), msg.lore("list-empty-lore")));
             }
             gui.set(45, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> main(rt, pl));
+        });
+    }
+
+    /** Everything about one claim in one place, wherever the player is standing. Also picks the claim for commands. */
+    static void claimMenu(EstateRuntime rt, ServerPlayer player, Claim claim) {
+        rt.session(player).selectedClaim = claim.id();
+        Gui.open(player, rt.msg.get("claim-menu-title", "claim", claim.name()), 3, (gui, p) -> {
+            Msg msg = rt.msg;
+            if (rt.manager.claim(claim.id()) == null) {
+                p.closeContainer();
+                return;
+            }
+            int[] center = claim.region().middle();
+            gui.set(4, Gui.item(Items.GRASS_BLOCK, msg.item("list-entry", "claim", claim.name()),
+                    msg.lore("list-entry-lore", "id", claim.id(), "blocks", claim.size(), "x", center[0], "z", center[1],
+                            "miny", claim.minY(), "maxy", claim.maxY(), "trusted", claim.trust().size(),
+                            "world", claim.world().replace("minecraft:", ""),
+                            "exempt", msg.raw(claim.expiryExempt() ? "yes" : "no"), "click", "", "click2", "")));
+            gui.set(10, Gui.item(Items.NAME_TAG, msg.item("cm-rename"), msg.lore("cm-rename-lore", "claim", claim.name())), (pl, c) -> {
+                if (!mayManage(rt, pl, claim, Permission.RESIZE)) {
+                    return;
+                }
+                pl.closeContainer();
+                String command = "/land rename " + claim.name();
+                pl.sendSystemMessage(msg.get("rename-chat", "claim", claim.name()).withStyle(style -> style
+                        .withClickEvent(new ClickEvent.SuggestCommand(command))
+                        .withHoverEvent(new HoverEvent.ShowText(Component.literal(command)))));
+            });
+            gui.set(11, Gui.item(Items.ENDER_EYE, msg.item("cm-borders"), msg.lore("cm-borders-lore")), (pl, c) -> {
+                pl.closeContainer();
+                rt.borders.show(pl, claim.id());
+                rt.send(pl, "list-shown", "claim", claim.name(), "x", center[0], "z", center[1]);
+            });
+            gui.set(12, Gui.item(Items.PISTON, msg.item("menu-resize"), msg.lore("cm-resize-lore")), (pl, c) -> {
+                if (mayManage(rt, pl, claim, Permission.RESIZE)) {
+                    resize(rt, pl, claim);
+                }
+            });
+            gui.set(13, Gui.item(Items.PLAYER_HEAD, msg.item("menu-trust"), msg.lore("cm-trust-lore")), (pl, c) -> {
+                if (mayManage(rt, pl, claim, Permission.TRUST)) {
+                    trust(rt, pl, claim, 0);
+                }
+            });
+            gui.set(14, Gui.item(Items.SHIELD, msg.item("menu-flags"), msg.lore("cm-flags-lore")), (pl, c) -> flags(rt, pl, claim));
+            gui.set(16, Gui.item(Items.BARRIER, msg.item("menu-unclaim"), msg.lore("cm-unclaim-lore")), (pl, c) -> {
+                if (mayManage(rt, pl, claim, null)) {
+                    unclaim(rt, pl, claim);
+                }
+            });
+            gui.set(22, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> claimList(rt, pl, claim.owner()));
         });
     }
 
@@ -469,7 +582,7 @@ final class Menus {
                 pl.closeContainer();
                 LandCommand.doUnclaim(rt, pl, claim);
             });
-            gui.set(15, Gui.item(Items.STAINED_GLASS_PANE.red(), msg.item("unclaim-no"), List.of()), (pl, c) -> main(rt, pl));
+            gui.set(15, Gui.item(Items.STAINED_GLASS_PANE.red(), msg.item("unclaim-no"), List.of()), (pl, c) -> claimMenu(rt, pl, claim));
         });
     }
 

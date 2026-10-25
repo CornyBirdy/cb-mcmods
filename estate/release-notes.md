@@ -1,3 +1,9 @@
+### New in 1.4.0
+- **Claim over a build you made together.** If someone helped build your base you got "X built something there, you can't claim over another player's build", even though no claim existed to trust them in. The message now has a **[Let X build with me]** button (or `/land partner add <player>`): their blocks stop counting against your claims. `/land partner remove <player>` undoes it, `/land partner` lists them. It only works one way, and you can still trust them in the claim afterwards.
+- **Manage any claim from anywhere.** `/land list` now opens a claim's own menu with left-click (right-click still shows its borders): rename, show borders, resize, friends, protection and unclaim, without standing in it. `/land manage <name>` opens it directly. Opening a claim, or `/land select <name>`, also makes `/land trust`, `/land flag`, `/land rename` and the other commands act on it when you're not standing in one of your own claims. Menu buttons that used to say "stand in the claim" now let you pick one from a list.
+- **Nameable claims.** Name a claim while you draw it (`/land claim name <name>`, or the name tag in the corner editor) and rename it any time (`/land rename`, or the Rename button). Names are unique per player, new claims no longer all share "Steve's claim" (they become "Steve's claim 2", ...), and anywhere a claim is asked for you can use its name or id: `/land manage Farm`, `/land info Farm`.
+- The database is upgraded to schema 4 on first start, with a backup (`estate.db.v3.bak`) next to it.
+
 ### New in 1.3.2
 - **Outlines follow the ground.** Particle lines now run along the top of the blocks, up and down hills and steps, instead of floating at one height.
 - **Much lighter on FPS.** Far fewer particles: dense right next to you, thinner further away, and each one lasts a shorter time.

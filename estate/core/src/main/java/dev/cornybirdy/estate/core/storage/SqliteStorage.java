@@ -104,6 +104,10 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
             // Version 3: claims remember whether auto-claim made them, so they can shrink with the build.
             new String[]{
                     "ALTER TABLE claims ADD COLUMN auto_claimed INTEGER NOT NULL DEFAULT 0"
+            },
+            // Version 4: players can name build partners whose blocks never stop them from claiming.
+            new String[]{
+                    "ALTER TABLE players ADD COLUMN build_partners TEXT NOT NULL DEFAULT ''"
             });
 
     public static final int SCHEMA_VERSION = MIGRATIONS.size();
@@ -272,7 +276,7 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
             }
             List<PlayerRecord> players = new ArrayList<>();
             try (Statement st = connection.createStatement(); ResultSet rs = st.executeQuery(
-                    "SELECT uuid, name, first_seen, last_seen, auto_claim, prompt_done, bonus_budget FROM players")) {
+                    "SELECT uuid, name, first_seen, last_seen, auto_claim, prompt_done, bonus_budget, build_partners FROM players")) {
                 while (rs.next()) {
                     PlayerRecord player = new PlayerRecord(UUID.fromString(rs.getString(1)), rs.getString(2));
                     player.firstSeen = rs.getLong(3);
@@ -281,6 +285,11 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
                     player.autoClaim = rs.wasNull() ? null : autoClaim != 0;
                     player.promptDone = rs.getInt(6) != 0;
                     player.bonusBudget = rs.getInt(7);
+                    for (String partner : rs.getString(8).split(",")) {
+                        if (!partner.isBlank()) {
+                            player.buildPartners.add(UUID.fromString(partner.trim()));
+                        }
+                    }
                     players.add(player);
                 }
             }
@@ -402,10 +411,11 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
         Boolean autoClaim = player.autoClaim;
         boolean promptDone = player.promptDone;
         int bonus = player.bonusBudget;
+        String partners = String.join(",", player.buildPartners.stream().map(UUID::toString).toList());
         transaction(() -> {
             playerId(uuid);
             try (PreparedStatement ps = connection.prepareStatement("UPDATE players SET name = ?, first_seen = ?,"
-                    + " last_seen = ?, auto_claim = ?, prompt_done = ?, bonus_budget = ? WHERE uuid = ?")) {
+                    + " last_seen = ?, auto_claim = ?, prompt_done = ?, bonus_budget = ?, build_partners = ? WHERE uuid = ?")) {
                 ps.setString(1, name);
                 ps.setLong(2, firstSeen);
                 ps.setLong(3, lastSeen);
@@ -416,7 +426,8 @@ public final class SqliteStorage implements ClaimStore, PlacementStore, AutoClos
                 }
                 ps.setInt(5, promptDone ? 1 : 0);
                 ps.setInt(6, bonus);
-                ps.setString(7, uuid.toString());
+                ps.setString(7, partners);
+                ps.setString(8, uuid.toString());
                 ps.executeUpdate();
             }
         });

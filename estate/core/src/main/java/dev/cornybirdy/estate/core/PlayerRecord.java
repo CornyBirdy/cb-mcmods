@@ -1,5 +1,7 @@
 package dev.cornybirdy.estate.core;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 /** What Estate remembers about a player. */
@@ -17,6 +19,8 @@ public final class PlayerRecord {
     public boolean promptDone;
     /** Extra cells granted by an admin. */
     public int bonusBudget;
+    /** Players whose placed blocks never stop this player from claiming (they helped build). */
+    public final Set<UUID> buildPartners = new LinkedHashSet<>();
 
     public PlayerRecord(UUID id, String name) {
         this.id = id;

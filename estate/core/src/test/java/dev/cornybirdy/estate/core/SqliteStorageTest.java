@@ -39,6 +39,7 @@ class SqliteStorageTest {
             manager.setFlag(claim, Flag.FIRE_SPREAD, false, alice);
             manager.donate(claim, bob, 100);
             manager.setAutoClaimed(claim, true);
+            manager.addBuildPartner(alice, bob);
             manager.createTown(WORLD, "Spawn", -10, -10, 10, 10, alice);
             assertFalse(storage.actionsForClaim(claimId, 10).get().isEmpty());
         }
@@ -56,6 +57,8 @@ class SqliteStorageTest {
             assertTrue(claim.autoClaimed());
             assertEquals(9 * 64 - 100, claim.ownerShare());
             assertTrue(manager.autoClaim(alice));
+            assertEquals(java.util.Set.of(bob), manager.buildPartners(alice));
+            assertTrue(manager.buildPartners(bob).isEmpty());
             assertEquals(10, manager.player(bob).bonusBudget);
             assertEquals("Alice", manager.player(alice).name);
             assertNotNull(manager.town("spawn"));
@@ -109,6 +112,7 @@ class SqliteStorageTest {
              java.sql.Statement st = c.createStatement()) {
             st.execute("DROP TABLE claim_boxes");
             st.execute("ALTER TABLE claims DROP COLUMN auto_claimed");
+            st.execute("ALTER TABLE players DROP COLUMN build_partners");
             st.execute("CREATE TABLE claim_cells (claim_id INTEGER NOT NULL, cx INTEGER NOT NULL, cz INTEGER NOT NULL,"
                     + " PRIMARY KEY (claim_id, cx, cz)) WITHOUT ROWID");
             st.execute("ALTER TABLE claim_shares RENAME COLUMN blocks TO cells");

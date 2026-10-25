@@ -21,6 +21,8 @@ Land claims for survival servers, for **Fabric 26.3**. Built for a small group o
 
 **Nobody can claim over your build.** Every placed block is recorded (who, where, when). Nobody can claim land that holds another player's blocks, so a half-built house can't be sniped. Blocks of friends you trust, of players who've been away longer than the inactivity limit and of banned players don't count.
 
+**Building together.** The rule above only lets a build's helpers through once the owner has trusted them in a claim, which can't happen before the claim exists. If someone helped build your base, the claim message has a **[Let X build with me]** button (or `/land partner add <player>`): from then on their blocks never stop you from claiming. It works one way (it doesn't let them claim over your blocks), and `/land partner remove <player>` takes it back. After claiming, trust them in the claim if they should keep building.
+
 **Buffer.** Around every claim is an 8 block buffer (configurable) where other players can't build, break or claim. No walling in someone's house, no spite builds right against it, no sniping the next part of a build. Players see "This is in someone's buffer." The owner can let people in by trusting them (Build level or higher), members of a pooled claim get in automatically, and **town zones** set by admins have no buffers at all, so people can build right next to each other there. An optional height cap stops towers right next to someone's claim.
 
 **Trust levels**, per claim, each including the one before:
@@ -76,6 +78,7 @@ Every button says what it does and ends with "» Click to …".
   - Drawing a box that touches your own claim adds to that claim instead of making a new one.
 - **Edit corners** (`/land claim edit`) opens the coordinate editor: corner 1 and corner 2 each have an **X**, **Y** and **Z** button showing the value. Left-click **+1**, right-click **-1**, shift for 10. There's also "corner where I stand", "type corner" (fills in `/land posN` in chat), which way you're facing, and **Confirm**.
 - **Resize** opens the same editor with the corners on the claim's current bounding box. Move them out to grow it, in to shrink it.
+- **Claim list and manage menu**: `/land list` shows your claims. Left-click one to open its menu (rename, borders, resize, friends, protection, unclaim), right-click to show its borders. The menu works wherever you are, and opening a claim selects it, so commands like `/land trust` and `/land flag` act on it when you're not standing in one of your own claims. Stand in a claim to use that one instead; `/land select none` clears the selection.
 - **Friends**: left-click a head to change their level, right-click to remove them, or add someone who's online.
 - An action bar message shows when you walk into or out of a claim.
 
@@ -95,7 +98,12 @@ Every button says what it does and ends with "» Click to …".
 | `/land info` | What's here: whose claim, its size, trust list, flags, expiry |
 | `/land list` | Your claims |
 | `/land borders` | Show borders |
-| `/land rename <name>` | Rename the claim you're in |
+| `/land rename <name>` | Rename the claim you're in (or the selected one). Names are unique per player, up to 32 characters |
+| `/land claim name <name>` | Name the claim you're drawing (the corner editor has a name tag button too) |
+| `/land manage [claim]` | Open a claim's menu from anywhere. `claim` is its name or id |
+| `/land select <claim>`, `/land select none` | Make commands act on that claim when you're not standing in one of your own |
+| `/land info [claim]` | Also works for any of your claims by name or id |
+| `/land partner [add\|remove\|list] [player]` | Players whose blocks never stop you from claiming (they helped build) |
 | `/land flags`, `/land flag <flag> on\|off\|default` | See or change the protection flags you're allowed to change |
 | `/land donate <blocks>`, `/land withdraw <blocks>` | Put claim blocks into the claim you're standing in, or take them back |
 

@@ -462,11 +462,16 @@ public final class ClaimManager {
 
     /**
      * Whether a player's placed blocks stop the owner from claiming over them. They don't if it's the owner, a
-     * friend the owner trusts to build, or someone who's inactive or banned (their claims expire, so their loose
+     * build partner of the owner (who may not have a claim to trust them in yet), a friend the owner trusts to build,
+     * or someone who's inactive or banned (their claims expire, so their loose
      * blocks shouldn't keep land locked either).
      */
     public boolean blocksCount(UUID builder, UUID owner, Claim existing) {
         if (builder.equals(owner) || banned.contains(builder) || isInactive(builder)) {
+            return false;
+        }
+        PlayerRecord record = players.get(owner);
+        if (record != null && record.buildPartners.contains(builder)) {
             return false;
         }
         if (existing != null && has(existing, builder, Permission.BUILD)) {
@@ -553,6 +558,70 @@ public final class ClaimManager {
         claim.setFlag(flag, value);
         store.saveClaim(claim);
         store.log(Action.of(now(), actor, "flag", claim, flag.key + " = " + (value == null ? "default" : value)));
+    }
+
+    /** Lets {@code partner}'s blocks stand inside the owner's future claims. Returns false if nothing changed. */
+    public boolean addBuildPartner(UUID owner, UUID partner) {
+        PlayerRecord record = ensurePlayer(owner, null);
+        if (owner.equals(partner) || !record.buildPartners.add(partner)) {
+            return false;
+        }
+        store.savePlayer(record);
+        store.log(new Action(now(), owner, "partner-add", null, null, null, null, null, name(partner)));
+        return true;
+    }
+
+    public boolean removeBuildPartner(UUID owner, UUID partner) {
+        PlayerRecord record = players.get(owner);
+        if (record == null || !record.buildPartners.remove(partner)) {
+            return false;
+        }
+        store.savePlayer(record);
+        store.log(new Action(now(), owner, "partner-remove", null, null, null, null, null, name(partner)));
+        return true;
+    }
+
+    public Set<UUID> buildPartners(UUID owner) {
+        PlayerRecord record = players.get(owner);
+        return record == null ? Set.of() : Collections.unmodifiableSet(record.buildPartners);
+    }
+
+    /** An owner's claim by id (a number) or by name (any case), or null. Names are unique per owner. */
+    public Claim findClaim(UUID owner, String reference) {
+        String ref = reference.trim();
+        if (ref.startsWith("#")) {
+            ref = ref.substring(1);
+        }
+        for (Claim claim : claimsOf(owner)) {
+            if (claim.name().equalsIgnoreCase(ref)) {
+                return claim;
+            }
+        }
+        try {
+            Claim claim = claims.get(Integer.parseInt(ref));
+            return claim != null && claim.owner().equals(owner) ? claim : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** Whether the owner already has another claim with this name. */
+    public boolean nameTaken(UUID owner, String name, Claim except) {
+        for (Claim claim : claimsOf(owner)) {
+            if (claim != except && claim.name().equalsIgnoreCase(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** {@code base}, or {@code base 2}, {@code base 3}... the first one the owner doesn't have yet. */
+    public String uniqueName(UUID owner, String base) {
+        String name = base;
+        for (int i = 2; nameTaken(owner, name, null); i++) {
+            name = base + " " + i;
+        }
+        return name;
     }
 
     public void rename(Claim claim, String name, UUID actor) {
