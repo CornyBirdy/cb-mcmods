@@ -511,6 +511,7 @@ final class Menus {
                 gui.set(i, Gui.item(Items.GRASS_BLOCK, msg.item("list-entry", "claim", claim.name()),
                         msg.lore("list-entry-lore", "id", claim.id(), "blocks", claim.size(), "x", center[0], "z", center[1],
                                 "miny", claim.minY(), "maxy", claim.maxY(), "trusted", claim.trust().size(),
+                                "community", communityLabel(rt, claim),
                                 "world", claim.world().replace("minecraft:", ""),
                                 "exempt", msg.raw(claim.expiryExempt() ? "yes" : "no"), "click", msg.raw(pick == null ? "list-click" : "pick-click"),
                                 "click2", pick == null ? msg.raw("list-click2") : "")), (pl, c) -> {
@@ -534,6 +535,12 @@ final class Menus {
         });
     }
 
+    /** The name of the community a claim is shared with, or "none". */
+    private static String communityLabel(EstateRuntime rt, Claim claim) {
+        Community community = claim.communityId() == 0 ? null : rt.manager.community(claim.communityId());
+        return community == null ? rt.msg.raw("list-no-community") : community.name();
+    }
+
     /** Everything about one claim in one place, wherever the player is standing. Also picks the claim for commands. */
     static void claimMenu(EstateRuntime rt, ServerPlayer player, Claim claim) {
         rt.session(player).selectedClaim = claim.id();
@@ -547,6 +554,7 @@ final class Menus {
             gui.set(4, Gui.item(Items.GRASS_BLOCK, msg.item("list-entry", "claim", claim.name()),
                     msg.lore("list-entry-lore", "id", claim.id(), "blocks", claim.size(), "x", center[0], "z", center[1],
                             "miny", claim.minY(), "maxy", claim.maxY(), "trusted", claim.trust().size(),
+                                "community", communityLabel(rt, claim),
                             "world", claim.world().replace("minecraft:", ""),
                             "exempt", msg.raw(claim.expiryExempt() ? "yes" : "no"), "click", "", "click2", "")));
             gui.set(10, Gui.item(Items.NAME_TAG, msg.item("cm-rename"), msg.lore("cm-rename-lore", "claim", claim.name())), (pl, c) -> {
