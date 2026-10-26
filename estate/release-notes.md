@@ -1,3 +1,6 @@
+### New in 1.6.0
+- **Unstuck.** Stuck inside someone else's claim, or its buffer, with no permission to mine out? Use the new **Unstuck** button in the main menu, or `/land unstuck`. It moves you to the nearest safe spot where you can build. It does nothing if you can already build where you stand, and has a 10 second cooldown.
+
 ### New in 1.5.0
 - **Stop sharing a claim with a community.** Right-click the **Community** button in a claim's menu to take it out of its community straight away (or use **Stop sharing** in the community picker, or `/land community assign none`). It was possible before, but hidden in the picker. The button now says so.
 - **Hover a claim to see its community.** The claim list and a claim's menu show a **Community** line.

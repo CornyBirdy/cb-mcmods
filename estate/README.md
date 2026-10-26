@@ -106,6 +106,7 @@ Every button says what it does and ends with "» Click to …".
 | `/land info` | What's here: whose claim, its size, trust list, flags, expiry |
 | `/land list` | Your claims |
 | `/land borders` | Show borders |
+| `/land unstuck` | Get out of a claim (or buffer) where you can't build: moves you to the nearest spot where you can. Also a button in the menu. 10 second cooldown |
 | `/land rename <name>` | Rename the claim you're in (or the selected one). Names are unique per player, up to 32 characters |
 | `/land claim name <name>` | Name the claim you're drawing (the corner editor has a name tag button too) |
 | `/land manage [claim]` | Open a claim's menu from anywhere. `claim` is its name or id |

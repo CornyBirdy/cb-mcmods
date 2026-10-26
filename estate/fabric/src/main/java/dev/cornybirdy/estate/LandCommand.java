@@ -111,6 +111,7 @@ final class LandCommand {
                 .executes(c -> run(c, LandCommand::open))
                 .then(Commands.literal("help").executes(c -> run(c, (rt, src) -> help(rt, src))))
                 .then(Commands.literal("menu").executes(c -> run(c, LandCommand::open)))
+                .then(Commands.literal("unstuck").executes(c -> player(c, Unstuck::run)))
                 .then(Commands.literal("claim")
                         .executes(c -> player(c, (rt, p) -> {
                             rt.claimTool.start(p);

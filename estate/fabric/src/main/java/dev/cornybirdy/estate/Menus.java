@@ -56,6 +56,7 @@ final class Menus {
     static final int SLOT_AUTOCLAIM = 23;
     static final int SLOT_LIST = 25;
     static final int SLOT_HELP = 27;
+    static final int SLOT_UNSTUCK = 31;
     static final int SLOT_ADMIN = 35;
 
     /** Editor slots: corner 1 x/y/z, corner 2 x/y/z. */
@@ -115,6 +116,10 @@ final class Menus {
             gui.set(SLOT_HELP, Gui.item(Items.BOOK, msg.item("menu-help"), msg.lore("menu-help-lore")), (pl, c) -> {
                 pl.closeContainer();
                 LandCommand.help(rt, pl.createCommandSourceStack());
+            });
+            gui.set(SLOT_UNSTUCK, Gui.item(Items.ENDER_PEARL, msg.item("menu-unstuck"), msg.lore("menu-unstuck-lore")), (pl, c) -> {
+                pl.closeContainer();
+                Unstuck.run(rt, pl);
             });
             if (rt.isAdmin(p)) {
                 gui.set(SLOT_ADMIN, Gui.item(Items.COMMAND_BLOCK, msg.item("menu-admin"), msg.lore("menu-admin-lore")),
