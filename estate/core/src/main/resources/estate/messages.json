@@ -164,7 +164,7 @@
   "unclaim-no": "<red>No, keep it",
   "unclaimed": "<yellow>Removed <white><claim></white>. You have <white><left></white> claim blocks.",
   "admin-deleted-your-claim": "<red>An admin removed your claim <white><claim></white>.",
-  "borders-shown": "<gray>Showing borders for <white><seconds></white> seconds: <green>yours</green>, <red>others</red>, <yellow>buffer</yellow>.",
+  "borders-shown": "<gray>Showing borders for <white><seconds></white> seconds: <green>yours</green>, <gold>shared with you</gold>, <red>others</red>, <yellow>buffer</yellow>.",
   "info-claim": "<gold><claim> <gray>(#<id>) by <white><owner>\n<gray>Size: <white><blocks></white> blocks around <white><x>, <z></white>, y <white><miny></white> to <white><maxy>\n<gray>Trusted: <white><trusted>\n<gray>Unprotected: <white><flags>\n<gray>Expiry: <white><expiry> <pool>",
   "info-pool": "<gray>(<blocks> blocks paid for by others)",
   "info-buffer": "<yellow>Unclaimed, but in the free space around <owner>'s claim.",

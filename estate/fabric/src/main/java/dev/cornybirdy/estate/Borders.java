@@ -80,6 +80,7 @@ final class Borders {
 
     enum Colour {
         OWN(0x55FF55, Blocks.STAINED_GLASS.lime(), Blocks.EMERALD_BLOCK),
+        SHARED(0xFFA500, Blocks.STAINED_GLASS.orange(), Blocks.COPPER_BLOCK),
         OTHER(0xFF5555, Blocks.STAINED_GLASS.red(), Blocks.REDSTONE_BLOCK),
         BUFFER(0xFFDD33, Blocks.STAINED_GLASS.yellow(), Blocks.GOLD_BLOCK),
         TOWN(0x55FFFF, Blocks.STAINED_GLASS.lightBlue(), Blocks.DIAMOND_BLOCK),
@@ -215,8 +216,10 @@ final class Borders {
                 continue;
             }
             boolean own = rt.manager.isOwnerLike(claim, player.getUUID());
+            // Someone else's claim that's shared with a community you're in: yours to use, but not yours.
+            Colour colour = !own ? Colour.OTHER : claim.owner().equals(player.getUUID()) ? Colour.OWN : Colour.SHARED;
             boolean close = claim.region().distance(player.getBlockX(), player.getBlockZ()) <= GLASS_DISTANCE;
-            shapes.add(new Shape(claim.region(), 0, claim.minY(), claim.maxY(), own ? Colour.OWN : Colour.OTHER,
+            shapes.add(new Shape(claim.region(), 0, claim.minY(), claim.maxY(), colour,
                     own || close ? Kind.BOX : Kind.FRAME, 0));
             if (buffer > 0) {
                 int bottom = claim.minY() - buffer;
