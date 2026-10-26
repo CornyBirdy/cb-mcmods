@@ -85,7 +85,6 @@ final class Menus {
                     "claims", manager.claimsOf(id).size(), "max", rt.config.maxClaimsPerPlayer,
                     "autoclaim", msg.raw(auto ? "on" : "off"), "here", standing)));
             gui.set(SLOT_BORDERS, Gui.item(Items.ENDER_EYE, msg.item("menu-borders"), msg.lore("menu-borders-lore")), (pl, c) -> {
-                pl.closeContainer();
                 rt.borders.show(pl, 0);
                 rt.send(pl, "borders-shown", "seconds", rt.config.borderParticleSeconds);
             });
@@ -318,7 +317,6 @@ final class Menus {
                 }
             });
             gui.set(49, Gui.item(Items.ENDER_EYE, msg.item("editor-preview"), msg.lore("editor-preview-lore")), (pl, c) -> {
-                pl.closeContainer();
                 rt.borders.show(pl, 0);
                 rt.send(pl, "editor-preview-hint");
             });
@@ -522,7 +520,6 @@ final class Menus {
                         pl.closeContainer();
                         pick.accept(claim);
                     } else if (c.right()) {
-                        pl.closeContainer();
                         rt.borders.show(pl, claim.id());
                         rt.send(pl, "list-shown", "claim", claim.name(), "x", center[0], "z", center[1]);
                     } else {
@@ -563,7 +560,6 @@ final class Menus {
                         .withHoverEvent(new HoverEvent.ShowText(Component.literal(command)))));
             });
             gui.set(11, Gui.item(Items.ENDER_EYE, msg.item("cm-borders"), msg.lore("cm-borders-lore")), (pl, c) -> {
-                pl.closeContainer();
                 rt.borders.show(pl, claim.id());
                 rt.send(pl, "list-shown", "claim", claim.name(), "x", center[0], "z", center[1]);
             });
