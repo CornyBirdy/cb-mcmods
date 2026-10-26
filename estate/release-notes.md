@@ -1,3 +1,8 @@
+### New in 1.5.0
+- **Stop sharing a claim with a community.** Right-click the **Community** button in a claim's menu to take it out of its community straight away (or use **Stop sharing** in the community picker, or `/land community assign none`). It was possible before, but hidden in the picker. The button now says so.
+- **Hover a claim to see its community.** The claim list and a claim's menu show a **Community** line.
+- **Borders keep the menu open.** The borders and preview buttons no longer close the menu.
+
 ### New in 1.4.0
 - **Claim over a build you made together.** If someone helped build your base you got "X built something there, you can't claim over another player's build", even though no claim existed to trust them in. The message now has a **[Let X build with me]** button (or `/land partner add <player>`): their blocks stop counting against your claims. `/land partner remove <player>` undoes it, `/land partner` lists them. It only works one way, and you can still trust them in the claim afterwards.
 - **Manage any claim from anywhere.** `/land list` now opens a claim's own menu with left-click (right-click still shows its borders): rename, show borders, resize, friends, protection and unclaim, without standing in it. `/land manage <name>` opens it directly. Opening a claim, or `/land select <name>`, also makes `/land trust`, `/land flag`, `/land rename` and the other commands act on it when you're not standing in one of your own claims. Menu buttons that used to say "stand in the claim" now let you pick one from a list.

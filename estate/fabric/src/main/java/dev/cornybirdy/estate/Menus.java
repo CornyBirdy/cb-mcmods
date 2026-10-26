@@ -585,8 +585,16 @@ final class Menus {
             Community shared = claim.communityId() == 0 ? null : rt.manager.community(claim.communityId());
             gui.set(15, Gui.item(Items.CAMPFIRE, msg.item("cm-community"), msg.lore("cm-community-lore",
                     "community", shared == null ? msg.raw("community-nothing") : shared.name(),
-                    "cost", shared == null ? msg.raw("cm-community-cost-own") : msg.raw("cm-community-cost-shared"))),
-                    (pl, c) -> communityPicker(rt, pl, claim));
+                    "cost", shared == null ? msg.raw("cm-community-cost-own") : msg.raw("cm-community-cost-shared"),
+                    "remove", shared == null ? "" : msg.raw("cm-community-remove"))),
+                    (pl, c) -> {
+                        if (c.right() && shared != null) {
+                            Communities.assign(rt, pl, claim, null);
+                            gui.redraw();
+                        } else {
+                            communityPicker(rt, pl, claim);
+                        }
+                    });
             gui.set(16, Gui.item(Items.BARRIER, msg.item("menu-unclaim"), msg.lore("cm-unclaim-lore")), (pl, c) -> {
                 if (claim.owner().equals(pl.getUUID()) || rt.bypassing(pl)) {
                     unclaim(rt, pl, claim);
