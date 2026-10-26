@@ -1,4 +1,6 @@
 ### New in 1.6.0
+- **Your claim list is only your claims.** Claims other members shared with a community no longer show up in `/land list`. They're on the community's page instead.
+- **Claims on the community page.** A community's page has a new **Claims** button listing every claim shared with it, with who made each. Left-click opens its menu, right-click shows its borders.
 - **Unstuck.** Stuck inside someone else's claim, or its buffer, with no permission to mine out? Use the new **Unstuck** button in the main menu, or `/land unstuck`. It moves you to the nearest safe spot where you can build. It does nothing if you can already build where you stand, and has a 10 second cooldown.
 
 ### New in 1.5.0

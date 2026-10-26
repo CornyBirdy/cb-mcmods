@@ -509,7 +509,8 @@ final class Menus {
     static void claimList(EstateRuntime rt, ServerPlayer player, UUID owner, java.util.function.Consumer<Claim> pick) {
         Gui.open(player, rt.msg.get(pick == null ? "list-title" : "pick-title", "player", rt.name(owner)), 6, (gui, p) -> {
             Msg msg = rt.msg;
-            List<Claim> claims = rt.manager.claimsAccessibleBy(owner);
+            // The list is your own claims. Claims other members shared with a community are on that community's page.
+            List<Claim> claims = pick == null ? rt.manager.claimsOf(owner) : rt.manager.claimsAccessibleBy(owner);
             for (int i = 0; i < Math.min(45, claims.size()); i++) {
                 Claim claim = claims.get(i);
                 int[] center = claim.region().middle();
@@ -690,6 +691,8 @@ final class Menus {
                     "owner", rt.name(community.owner()), "members", community.members().size(),
                     "claims", rt.manager.communityClaimCount(community),
                     "used", rt.manager.communityBudgetUsed(community), "limit", rt.manager.communityBudgetLimit(community))));
+            gui.set(42, Gui.item(Items.CHEST, msg.item("community-claims"), msg.lore("community-claims-lore",
+                    "claims", rt.manager.communityClaimCount(community))), (pl, c) -> communityClaims(rt, pl, community));
             gui.set(45, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> communities(rt, pl));
             if (admin) {
                 gui.set(47, Gui.item(Items.EMERALD, msg.item("community-invite"), msg.lore("community-invite-lore")),
@@ -708,6 +711,42 @@ final class Menus {
                     }
                 });
             }
+        });
+    }
+
+    /** The claims shared with a community, whoever made them. Left-click opens one's menu, right-click shows its borders. */
+    private static void communityClaims(EstateRuntime rt, ServerPlayer player, Community community) {
+        Gui.open(player, rt.msg.get("community-claims-title", "community", community.name()), 6, (gui, p) -> {
+            Msg msg = rt.msg;
+            if (rt.manager.community(community.id()) == null) {
+                communities(rt, p);
+                return;
+            }
+            List<Claim> claims = rt.manager.claimsOfCommunity(community);
+            for (int i = 0; i < Math.min(45, claims.size()); i++) {
+                Claim claim = claims.get(i);
+                int[] center = claim.region().middle();
+                List<Component> lore = new ArrayList<>(msg.lore("list-entry-lore", "id", claim.id(), "blocks", claim.size(),
+                        "x", center[0], "z", center[1], "miny", claim.minY(), "maxy", claim.maxY(), "trusted", claim.trust().size(),
+                        "community", community.name(), "world", claim.world().replace("minecraft:", ""),
+                        "exempt", msg.raw(claim.expiryExempt() ? "yes" : "no"), "click", msg.raw("list-click"),
+                        "click2", msg.raw("list-click2")));
+                lore.add(0, msg.get("community-claim-owner", "owner", rt.name(claim.owner())));
+                gui.set(i, Gui.item(Items.GRASS_BLOCK, msg.item("list-entry", "claim", claim.name()), lore), (pl, c) -> {
+                    if (rt.manager.claim(claim.id()) == null || claim.communityId() != community.id()) {
+                        communityClaims(rt, pl, community);
+                    } else if (c.right()) {
+                        rt.borders.show(pl, claim.id());
+                        rt.send(pl, "list-shown", "claim", claim.name(), "x", center[0], "z", center[1]);
+                    } else {
+                        claimMenu(rt, pl, claim);
+                    }
+                });
+            }
+            if (claims.isEmpty()) {
+                gui.set(22, Gui.item(Items.PAPER, msg.item("community-claims-empty"), msg.lore("community-claims-empty-lore")));
+            }
+            gui.set(45, Gui.item(Items.SPECTRAL_ARROW, msg.item("back"), List.of()), (pl, c) -> community(rt, pl, community));
         });
     }
 

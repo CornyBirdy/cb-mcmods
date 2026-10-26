@@ -309,6 +309,17 @@ public final class ClaimManager {
         return communityBudgetLimit(community) - communityBudgetUsed(community);
     }
 
+    /** The claims shared with a community. */
+    public List<Claim> claimsOfCommunity(Community community) {
+        List<Claim> list = new ArrayList<>();
+        for (Claim claim : claims.values()) {
+            if (claim.communityId() == community.id()) {
+                list.add(claim);
+            }
+        }
+        return list;
+    }
+
     /** How many claims are shared with a community. */
     public int communityClaimCount(Community community) {
         int count = 0;
