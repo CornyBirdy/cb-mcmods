@@ -80,7 +80,7 @@ final class Borders {
 
     enum Colour {
         OWN(0x55FF55, Blocks.STAINED_GLASS.lime(), Blocks.EMERALD_BLOCK),
-        SHARED(0xFFA500, Blocks.STAINED_GLASS.orange(), Blocks.COPPER_BLOCK),
+        SHARED(0xFFA500, Blocks.STAINED_GLASS.orange(), Blocks.PUMPKIN),
         OTHER(0xFF5555, Blocks.STAINED_GLASS.red(), Blocks.REDSTONE_BLOCK),
         BUFFER(0xFFDD33, Blocks.STAINED_GLASS.yellow(), Blocks.GOLD_BLOCK),
         TOWN(0x55FFFF, Blocks.STAINED_GLASS.lightBlue(), Blocks.DIAMOND_BLOCK),
