@@ -173,6 +173,22 @@ final class CorpseVisuals {
         return true;
     }
 
+    /** Turns the outline on the corpse's body or bones on or off. Returns false if none of them are loaded. */
+    boolean setGlowing(Corpse corpse, boolean glowing) {
+        ServerLevel level = level(corpse);
+        boolean any = false;
+        if (level != null) {
+            for (UUID id : corpse.entityIds) {
+                Entity entity = level.getEntity(id);
+                if (entity instanceof Mannequin || entity instanceof Display.ItemDisplay) {
+                    entity.setGlowingTag(glowing);
+                    any = true;
+                }
+            }
+        }
+        return any;
+    }
+
     /** Removes the corpse's entities that are currently loaded. Unloaded ones are cleaned up when they load. */
     void removeAll(Corpse corpse) {
         ServerLevel level = level(corpse);

@@ -29,6 +29,17 @@ label-see-through: false
 hitbox-width: 2.0
 hitbox-height: 0.6
 
+# How long /corpse history can make a body glow so it can be found, in seconds. The outline shows through walls.
+# 0 = turn highlighting off.
+highlight-seconds: 30
+
+# Admin options. Admins are players with papercorpes.admin.
+# true = admins can browse every player's deaths and see what was in them (/corpse history).
+admin-see-all-deaths: true
+# true = admins can take items out of a death's inventory. The items are copies, so this duplicates them
+# and the history is not changed. Use it to give back items a player lost.
+admin-restore: false
+
 # Date format used in history and on the corpse (Java DateTimeFormatter pattern).
 date-format: "dd MMM HH:mm"
 
@@ -37,7 +48,6 @@ messages:
   corpse-description: "<dark_gray>died <date>"
   remains-name: "<gray><player>'s remains"
   menu-title: "<player>'s corpse"
-  history-menu-title: "<player>'s death #<index>"
   # The player head in the top right corner of the menu.
   info-name: "<gold><player>'s corpse"
   info-name-remains: "<gold><player>'s remains"
@@ -47,6 +57,48 @@ messages:
     - "<gray>At <white><x>, <y>, <z></white> in <white><world>"
     - ""
     - "<yellow><items></yellow> <gray>stacks left"
+  # The /corpse history screens.
+  history-title: "<player>'s deaths"
+  players-title: "Deaths: all players (<page>/<pages>)"
+  death-name: "<gold>Death #<index>"
+  death-lore:
+    - "<gray>Died <white><date>"
+    - "<gray><cause>"
+    - "<gray>At <white><x>, <y>, <z></white> in <white><world>"
+    - "<yellow><items></yellow> <gray>stacks"
+  # Added below the lines above: what became of the body, then a hint on what clicking does.
+  death-status-body: "<green>The body is still there"
+  death-status-remains: "<yellow>Only bones are left"
+  death-status-gone: "<red>Emptied, nothing left to find"
+  death-hint: "<dark_gray>Click to see what was in it"
+  death-hint-highlight: "<dark_gray>Click: see inventory  Right-click: highlight"
+  player-name: "<gold><player>"
+  player-lore:
+    - "<yellow><deaths></yellow> <gray>deaths on record"
+    - "<gray>Last <white><date>"
+    - ""
+    - "<dark_gray>Click to see their deaths"
+  players-button: "<aqua><bold>All players"
+  players-button-lore:
+    - "<gray>See everyone's deaths."
+  back-players: "<yellow>Back to all players"
+  back-players-lore: "<gray>Back to the list of players."
+  own-deaths: "<yellow>Your deaths"
+  own-deaths-lore: "<gray>Back to your own deaths."
+  page-previous: "<yellow>Previous page"
+  page-next: "<yellow>Next page"
+  page-lore: ""
+  back: "<yellow>Back"
+  back-lore: "<gray>Back to the list of deaths."
+  highlight: "<green><bold>Highlight the body"
+  highlight-lore:
+    - "<gray>Makes the body glow for <white><seconds></white> seconds,"
+    - "<gray>even through walls, so you can find it."
+  highlight-gone: "<red>Nothing to highlight"
+  highlight-gone-lore: "<gray>This body was emptied and is gone."
+  highlighted: "<green>Highlighting <player>'s body for <seconds>s, at <x>, <y>, <z> in <world>."
+  highlight-unloaded: "<yellow>The body is too far away to highlight. It's at <x>, <y>, <z> in <world>."
+  history-menu-title: "<player>'s death #<index>"
   history-info-name: "<gold><player>'s death #<index>"
   history-info-lore:
     - "<gray>Died <white><date>"
@@ -54,8 +106,15 @@ messages:
     - "<gray>At <white><x>, <y>, <z></white> in <white><world>"
     - "<yellow><items></yellow> <gray>stacks"
     - ""
-    - "<aqua>This is a copy. Items you take"
-    - "<aqua>out are created, nothing is lost."
+    - "<aqua>Preview only: nothing can be taken out."
+  history-info-lore-restore:
+    - "<gray>Died <white><date>"
+    - "<gray><cause>"
+    - "<gray>At <white><x>, <y>, <z></white> in <white><world>"
+    - "<yellow><items></yellow> <gray>stacks"
+    - ""
+    - "<aqua>Admin: items you take out are copies,"
+    - "<aqua>so this duplicates them."
   # Labels shown in empty armour and offhand slots.
   slot-helmet: "<gray>Helmet"
   slot-chestplate: "<gray>Chestplate"
@@ -79,9 +138,5 @@ messages:
   no-permission: "<red>You don't have permission to do that."
   unknown-player: "<red>Unknown player: <player>"
   no-history: "<gray>No deaths recorded for <player>."
-  history-header: "<gold>Recent deaths of <player>:"
-  history-entry: "<gray>#<index> <white><date></white> <world> <x>, <y>, <z> <dark_gray>- <cause>"
-  history-view: " <aqua>[View]"
-  history-view-hover: "<gray>Preview this death's inventory"
   invalid-number: "<red>There is no death #<index> for <player>."
   reloaded: "<green>PaperCorpes config reloaded."

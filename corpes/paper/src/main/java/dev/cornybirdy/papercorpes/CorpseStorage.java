@@ -77,6 +77,22 @@ final class CorpseStorage {
         });
     }
 
+    /** Everyone with a history file. */
+    List<UUID> historyOwners() {
+        List<UUID> owners = new ArrayList<>();
+        File[] files = historyDir.listFiles((dir, name) -> name.endsWith(".yml"));
+        if (files != null) {
+            for (File file : files) {
+                try {
+                    owners.add(UUID.fromString(file.getName().substring(0, file.getName().length() - 4)));
+                } catch (IllegalArgumentException ignored) {
+                    // not one of ours
+                }
+            }
+        }
+        return owners;
+    }
+
     /** Deaths of a player, newest first. */
     List<HistoryEntry> history(UUID owner) {
         return historyCache.computeIfAbsent(owner, this::readHistory);

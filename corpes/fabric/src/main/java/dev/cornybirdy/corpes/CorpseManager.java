@@ -36,6 +36,8 @@ final class CorpseManager {
     private final Set<CorpseContainer> dirty = new LinkedHashSet<>();
     private final Set<UUID> pendingSkeletons = new LinkedHashSet<>();
     private final Set<Entity> pendingRemovals = new LinkedHashSet<>();
+    /** Corpse id to the server tick its highlight ends. */
+    private final Map<UUID, Long> highlights = new HashMap<>();
 
     CorpseManager(MinecraftServer server, Supplier<Settings> settings, CorpseStorage storage) {
         this.server = server;
@@ -50,6 +52,19 @@ final class CorpseManager {
 
     CorpseStorage storage() {
         return storage;
+    }
+
+    /**
+     * Outlines the body (or bones) through walls for a while, so it can be found.
+     *
+     * @return false if none of its entities are loaded, which means nobody is near enough to see it
+     */
+    boolean highlight(Corpse corpse, int seconds) {
+        if (!visuals.setGlowing(corpse, true)) {
+            return false;
+        }
+        highlights.put(corpse.id, server.getTickCount() + seconds * 20L);
+        return true;
     }
 
     Corpse get(UUID id) {
@@ -79,7 +94,7 @@ final class CorpseManager {
                 CorpseVisuals.worldId(level), spot.x, spot.y, spot.z, player.getYRot(), System.currentTimeMillis(),
                 cause, contents, new ArrayList<>(), xp, false);
         storage.addHistory(player.getUUID(), new HistoryEntry(corpse.createdAt, corpse.world, corpse.x, corpse.y,
-                corpse.z, cause, CorpseLayout.copy(contents)), settings.get().historySize);
+                corpse.z, cause, CorpseLayout.copy(contents), corpse.id), settings.get().historySize);
         // Registered before spawning, or entityLoaded would see the new body as left over and remove it.
         corpses.put(corpse.id, corpse);
         visuals.spawnBody(corpse, player.getGameProfile(), settings.get());
@@ -122,6 +137,17 @@ final class CorpseManager {
         }
         pendingSkeletons.clear();
 
+        highlights.entrySet().removeIf(highlight -> {
+            Corpse corpse = corpses.get(highlight.getKey());
+            if (corpse != null && server.getTickCount() < highlight.getValue()) {
+                return false;
+            }
+            if (corpse != null) {
+                visuals.setGlowing(corpse, false);
+            }
+            return true;
+        });
+
         // Closes menus nobody is looking at any more, so a reopened corpse starts from fresh items.
         containers.values().removeIf(container -> !container.hasViewers() && !dirty.contains(container));
 
@@ -151,12 +177,25 @@ final class CorpseManager {
         Corpse corpse = corpses.get(id);
         if (corpse == null) {
             pendingRemovals.add(entity);
-        } else if (entity instanceof Mannequin && isSkeletonDue(corpse)) {
+            return;
+        }
+        if (!highlights.containsKey(id)) {
+            // A highlight that a restart cut short.
+            entity.setGlowingTag(false);
+        }
+        if (entity instanceof Mannequin && isSkeletonDue(corpse)) {
             pendingSkeletons.add(id);
         }
     }
 
     void shutdown() {
+        for (UUID id : highlights.keySet()) {
+            Corpse corpse = corpses.get(id);
+            if (corpse != null) {
+                visuals.setGlowing(corpse, false);
+            }
+        }
+        highlights.clear();
         for (CorpseContainer container : new ArrayList<>(containers.values())) {
             changed(container);
         }
@@ -183,6 +222,7 @@ final class CorpseManager {
     }
 
     private void remove(Corpse corpse) {
+        highlights.remove(corpse.id);
         corpses.remove(corpse.id);
         CorpseContainer container = containers.remove(corpse.id);
         if (container != null) {

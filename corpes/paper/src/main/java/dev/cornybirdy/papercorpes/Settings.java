@@ -16,6 +16,9 @@ record Settings(
         float hitboxHeight,
         int labelViewDistance,
         boolean labelSeeThrough,
+        boolean adminSeeAll,
+        boolean adminRestore,
+        int highlightSeconds,
         DateTimeFormatter dateFormat
 ) {
 
@@ -36,6 +39,9 @@ record Settings(
                 (float) Math.max(0.1, config.getDouble("hitbox-height", 0.6)),
                 Math.max(8, config.getInt("label-view-distance", 128)),
                 config.getBoolean("label-see-through", false),
+                config.getBoolean("admin-see-all-deaths", true),
+                config.getBoolean("admin-restore", false),
+                Math.max(0, config.getInt("highlight-seconds", 30)),
                 format.withZone(ZoneId.systemDefault())
         );
     }

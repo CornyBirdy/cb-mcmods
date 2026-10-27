@@ -35,7 +35,7 @@ public final class PaperCorpes extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new CorpseListener(this, manager), this);
         getServer().getPluginManager().registerEvents(new MenuListener(this, manager), this);
-        registerCommand("corpse", new CorpseCommand(this, storage));
+        registerCommand("corpse", new CorpseCommand(this, storage, new HistoryGui(this, storage, manager)));
 
         getServer().getScheduler().runTaskTimer(this, manager::tickSkeletons, SKELETON_CHECK_TICKS, SKELETON_CHECK_TICKS);
     }

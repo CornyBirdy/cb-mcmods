@@ -41,6 +41,9 @@ final class Settings {
     final float hitboxHeight;
     final int labelViewDistance;
     final boolean labelSeeThrough;
+    final boolean adminSeeAll;
+    final boolean adminRestore;
+    final int highlightSeconds;
     private final DateTimeFormatter dateFormat;
 
     private Settings(JsonObject config, JsonObject defaults) {
@@ -55,6 +58,9 @@ final class Settings {
         hitboxHeight = (float) Math.max(0.1, get("hitbox-height").getAsDouble());
         labelViewDistance = Math.max(8, get("label-view-distance").getAsInt());
         labelSeeThrough = bool("label-see-through");
+        adminSeeAll = bool("admin-see-all-deaths");
+        adminRestore = bool("admin-restore");
+        highlightSeconds = Math.max(0, get("highlight-seconds").getAsInt());
         DateTimeFormatter format;
         try {
             format = DateTimeFormatter.ofPattern(get("date-format").getAsString(), Locale.ENGLISH);

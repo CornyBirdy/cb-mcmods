@@ -1,11 +1,14 @@
 package dev.cornybirdy.papercorpes;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.HumanEntity;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Mannequin;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,6 +23,7 @@ final class CorpseManager {
     private final CorpseVisuals visuals;
     private final Map<UUID, Corpse> corpses = new HashMap<>();
     private final Map<UUID, CorpseMenu> menus = new HashMap<>();
+    private final Map<UUID, BukkitTask> highlights = new HashMap<>();
 
     CorpseManager(PaperCorpes plugin, CorpseStorage storage) {
         this.plugin = plugin;
@@ -83,7 +87,42 @@ final class CorpseManager {
         }
     }
 
+    /**
+     * Outlines the body (or bones) through walls for a while, so it can be found.
+     *
+     * @return false if none of its entities are loaded, which means nobody is near enough to see it
+     */
+    boolean highlight(Corpse corpse, int seconds) {
+        if (!setGlowing(corpse, true)) {
+            return false;
+        }
+        BukkitTask previous = highlights.put(corpse.id(), plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            highlights.remove(corpse.id());
+            setGlowing(corpse, false);
+        }, seconds * 20L));
+        if (previous != null) {
+            previous.cancel();
+        }
+        return true;
+    }
+
+    private boolean setGlowing(Corpse corpse, boolean glowing) {
+        boolean any = false;
+        for (UUID id : corpse.entityIds()) {
+            Entity entity = Bukkit.getEntity(id);
+            if (entity instanceof Mannequin || entity instanceof ItemDisplay) {
+                entity.setGlowing(glowing);
+                any = true;
+            }
+        }
+        return any;
+    }
+
     void remove(Corpse corpse) {
+        BukkitTask highlight = highlights.remove(corpse.id());
+        if (highlight != null) {
+            highlight.cancel();
+        }
         corpses.remove(corpse.id());
         CorpseMenu menu = menus.remove(corpse.id());
         if (menu != null) {
@@ -114,7 +153,13 @@ final class CorpseManager {
         Corpse corpse = corpses.get(id);
         if (corpse == null) {
             entity.remove();
-        } else if (entity instanceof Mannequin && isSkeletonDue(corpse)) {
+            return;
+        }
+        if (entity.isGlowing() && !highlights.containsKey(id)) {
+            // A highlight that a restart cut short.
+            entity.setGlowing(false);
+        }
+        if (entity instanceof Mannequin && isSkeletonDue(corpse)) {
             plugin.getServer().getScheduler().runTask(plugin, () -> {
                 if (corpses.containsKey(id) && isSkeletonDue(corpse) && visuals.skeletonize(corpse)) {
                     storage.saveCorpse(corpse);
@@ -124,6 +169,14 @@ final class CorpseManager {
     }
 
     void shutdown() {
+        for (Map.Entry<UUID, BukkitTask> highlight : highlights.entrySet()) {
+            highlight.getValue().cancel();
+            Corpse corpse = corpses.get(highlight.getKey());
+            if (corpse != null) {
+                setGlowing(corpse, false);
+            }
+        }
+        highlights.clear();
         for (CorpseMenu menu : new ArrayList<>(menus.values())) {
             changed(menu);
             new ArrayList<>(menu.getInventory().getViewers()).forEach(HumanEntity::closeInventory);

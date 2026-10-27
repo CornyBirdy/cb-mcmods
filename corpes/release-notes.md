@@ -1,3 +1,5 @@
+**New: a death browser.** `/corpse history` now opens a screen with your recent deaths, newest in the top left. Click one to see what was in it, or right-click to make the body glow for 30 seconds (through walls) so you can find it. Admins get an **All players** button to browse everyone's deaths. Two switches in the config control the admin side: `admin-see-all-deaths` (on) and `admin-restore` (off), which lets admins take copies of items out of a death. Death inventories are read-only for everyone else. Highlighting only works while the body still exists; once it has been emptied there is nothing left to find.
+
 Server-side corpses for **Paper 26.1+** and **Fabric 26.3**. Players don't need to install anything.
 
 When a player dies, their body (with their skin) lies where they died and holds all their items. Right-click it to open a loot menu and take everything back.

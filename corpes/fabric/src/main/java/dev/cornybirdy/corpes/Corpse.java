@@ -55,6 +55,6 @@ final class Corpse {
 
     /** When, where and how this player died, with the items still in the corpse. */
     HistoryEntry death() {
-        return new HistoryEntry(createdAt, world, x, y, z, cause, contents);
+        return new HistoryEntry(createdAt, world, x, y, z, cause, contents, id);
     }
 }

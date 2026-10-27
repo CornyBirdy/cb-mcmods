@@ -96,6 +96,26 @@ final class CorpseStorage {
         });
     }
 
+    /** Everyone with a history file. */
+    List<UUID> historyOwners() {
+        List<UUID> owners = new ArrayList<>();
+        try (Stream<Path> files = Files.list(historyDir)) {
+            for (Path file : files.toList()) {
+                String name = file.getFileName().toString();
+                if (name.endsWith(".dat")) {
+                    try {
+                        owners.add(UUID.fromString(name.substring(0, name.length() - 4)));
+                    } catch (IllegalArgumentException ignored) {
+                        // not one of ours
+                    }
+                }
+            }
+        } catch (IOException e) {
+            LOGGER.error("Could not list {}", historyDir, e);
+        }
+        return owners;
+    }
+
     /** Deaths of a player, newest first. */
     List<HistoryEntry> history(UUID owner) {
         return historyCache.computeIfAbsent(owner, this::readHistory);
@@ -117,6 +137,9 @@ final class CorpseStorage {
             tag.putDouble("y", e.y());
             tag.putDouble("z", e.z());
             tag.putString("cause", e.cause());
+            if (e.corpse() != null) {
+                tag.putString("corpse", e.corpse().toString());
+            }
             tag.put("items", writeItems(e.items()));
             list.add(tag);
         }
@@ -198,7 +221,8 @@ final class CorpseStorage {
                     tag.getDoubleOr("y", 0),
                     tag.getDoubleOr("z", 0),
                     tag.getStringOr("cause", ""),
-                    readItems(tag.getListOrEmpty("items"), version))));
+                    readItems(tag.getListOrEmpty("items"), version),
+                    parseId(tag.getStringOr("corpse", "")))));
         } catch (Exception e) {
             LOGGER.warn("Could not read death history {}", file.getFileName(), e);
         }
@@ -238,6 +262,14 @@ final class CorpseStorage {
                     .orElse(ItemStack.EMPTY);
         });
         return items;
+    }
+
+    private static UUID parseId(String id) {
+        try {
+            return id.isEmpty() ? null : UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private static int currentVersion() {

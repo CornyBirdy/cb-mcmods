@@ -7,16 +7,10 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
-import net.minecraft.network.chat.ClickEvent;
-import net.minecraft.network.chat.HoverEvent;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.PermissionLevel;
 import net.minecraft.server.players.NameAndId;
-import net.minecraft.world.SimpleContainer;
-import net.minecraft.world.SimpleMenuProvider;
-import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 import java.util.Map;
@@ -24,8 +18,8 @@ import java.util.function.Supplier;
 
 /**
  * <pre>
- * /corpse history [player]       list recent deaths (other players need corpes:admin)
- * /corpse view (player) (number) preview an old death inventory (read-only) (corpes:admin)
+ * /corpse history [player]       open your recent deaths (other players need corpes:admin)
+ * /corpse view (player) (number) open one death's inventory (corpes:admin)
  * /corpse reload                 reload config/corpes.json (corpes:admin)
  * </pre>
  */
@@ -36,10 +30,12 @@ final class CorpseCommand {
 
     private final Supplier<Settings> settings;
     private final Supplier<CorpseManager> manager;
+    private final HistoryGui gui;
 
     private CorpseCommand(Supplier<Settings> settings, Supplier<CorpseManager> manager) {
         this.settings = settings;
         this.manager = manager;
+        this.gui = new HistoryGui(settings, manager);
     }
 
     static void register(CommandDispatcher<CommandSourceStack> dispatcher, Supplier<Settings> settings,
@@ -81,12 +77,17 @@ final class CorpseCommand {
     private int history(CommandSourceStack source, String targetName) {
         Settings s = settings.get();
         CorpseManager m = manager.get();
+        ServerPlayer player = source.getPlayer();
         if (m == null) {
             return 0;
         }
-        NameAndId target;
-        if (targetName != null) {
-            if (!isAdmin(source) && !source.getTextName().equalsIgnoreCase(targetName)) {
+        if (player == null) {
+            source.sendSystemMessage(s.message("players-only"));
+            return 0;
+        }
+        NameAndId target = player.nameAndId();
+        if (targetName != null && !player.getGameProfile().name().equalsIgnoreCase(targetName)) {
+            if (!gui.canBrowseAll(player)) {
                 source.sendSystemMessage(s.message("no-permission"));
                 return 0;
             }
@@ -94,41 +95,14 @@ final class CorpseCommand {
             if (target == null) {
                 return 0;
             }
-        } else if (source.getPlayer() != null) {
-            target = source.getPlayer().nameAndId();
-        } else {
-            source.sendSystemMessage(s.message("players-only"));
-            return 0;
         }
-
-        List<HistoryEntry> entries = m.storage().history(target.id());
-        if (entries.isEmpty()) {
+        // Admins who can browse everyone still get the screen, since it leads to the other players.
+        if (m.storage().history(target.id()).isEmpty() && !gui.canBrowseAll(player)) {
             source.sendSystemMessage(s.message("no-history", Map.of("player", target.name())));
             return 0;
         }
-
-        boolean admin = isAdmin(source);
-        source.sendSystemMessage(s.message("history-header", Map.of("player", target.name())));
-        for (int i = 0; i < entries.size(); i++) {
-            HistoryEntry entry = entries.get(i);
-            int index = i + 1;
-            MutableComponent line = s.message("history-entry", Map.of(
-                    "index", String.valueOf(index),
-                    "date", s.formatDate(entry.time()),
-                    "world", MenuItems.worldName(entry.world()),
-                    "x", String.valueOf((int) Math.floor(entry.x())),
-                    "y", String.valueOf((int) Math.floor(entry.y())),
-                    "z", String.valueOf((int) Math.floor(entry.z())),
-                    "cause", entry.cause()));
-            if (admin) {
-                String command = "/corpse view " + target.name() + " " + index;
-                line.append(s.message("history-view").withStyle(style -> style
-                        .withClickEvent(new ClickEvent.RunCommand(command))
-                        .withHoverEvent(new HoverEvent.ShowText(s.message("history-view-hover")))));
-            }
-            source.sendSystemMessage(line);
-        }
-        return entries.size();
+        gui.openDeaths(player, target.id(), target.name());
+        return 1;
     }
 
     private int view(CommandSourceStack source, String targetName, int index) {
@@ -146,24 +120,17 @@ final class CorpseCommand {
         if (target == null) {
             return 0;
         }
+        if (!gui.canOpen(player, target.id())) {
+            source.sendSystemMessage(s.message("no-permission"));
+            return 0;
+        }
         List<HistoryEntry> entries = m.storage().history(target.id());
         if (index > entries.size()) {
             source.sendSystemMessage(s.message("invalid-number",
                     Map.of("index", String.valueOf(index), "player", target.name())));
             return 0;
         }
-        HistoryEntry entry = entries.get(index - 1);
-
-        // A read-only preview: LootMenu with no buttons won't let anything out, so nothing can be duplicated.
-        SimpleContainer copy = new SimpleContainer(CorpseLayout.SIZE);
-        ItemStack[] items = entry.items();
-        for (int slot = 0; slot < CorpseLayout.SIZE; slot++) {
-            copy.setItem(slot, items[slot].isEmpty() ? MenuItems.background(s, slot) : items[slot].copy());
-        }
-        copy.setItem(CorpseLayout.INFO_SLOT, MenuItems.info(s, target.id(), target.name(), "history-info-name",
-                "history-info-lore", entry, CorpseLayout.countStacks(items), Map.of("index", String.valueOf(index))));
-        player.openMenu(new SimpleMenuProvider((id, inventory, p) -> new LootMenu(id, inventory, copy, null),
-                s.message("history-menu-title", Map.of("player", target.name(), "index", String.valueOf(index)))));
+        gui.openView(player, target.id(), target.name(), index, entries.get(index - 1));
         return 1;
     }
 

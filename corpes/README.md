@@ -33,7 +33,7 @@ Right-click the body to open it and take your stuff back.
   - Two players looting at once share the same menu, so items can't be duplicated.
 - **Corpses stay until emptied.** They survive restarts and disappear once the last item is taken.
 - **Skeletons.** After a set time (60 minutes by default) the body becomes a skull and bones.
-- **Death history.** `/corpse history` lists your recent deaths with time, coordinates and cause. Admins can preview any old death inventory (read-only, nothing can be taken out).
+- **Death history.** `/corpse history` opens a screen with your recent deaths, newest in the top left. Click one to see what was in it, or right-click to make the body glow through walls for a while so you can find it. Admins can browse every player's deaths too.
 - **Safe placement.** Deaths in the void, in lava or inside blocks put the corpse somewhere reachable.
 - `keepInventory` is respected: no corpse spawns when you keep your items.
 
@@ -41,12 +41,14 @@ Right-click the body to open it and take your stuff back.
 
 | Command | Paper permission | Fabric permission | What it does |
 |---|---|---|---|
-| `/corpse history` | `papercorpes.use` (everyone) | `corpes:use` (everyone) | List your recent deaths |
-| `/corpse history <player>` | `papercorpes.admin` (op) | `corpes:admin` (op level 2) | List someone else's deaths. Click **[View]** to open one |
-| `/corpse view <player> <number>` | `papercorpes.admin` | `corpes:admin` | Preview that death's inventory. It is read-only: items can't be taken out |
+| `/corpse history` | `papercorpes.use` (everyone) | `corpes:use` (everyone) | Open your recent deaths. Admins also get an **All players** button |
+| `/corpse history <player>` | `papercorpes.admin` (op) | `corpes:admin` (op level 2) | Open someone else's deaths (needs `admin-see-all-deaths`) |
+| `/corpse view <player> <number>` | `papercorpes.admin` | `corpes:admin` | Open one death's inventory directly |
 | `/corpse reload` | `papercorpes.admin` | `corpes:admin` | Reload the config |
 
 The admin permission also lets you loot any corpse when `allow-anyone-loot` is `false`.
+
+A death's inventory is a preview: nothing can be taken out of it. Admins can change that with `admin-restore` (below).
 On Fabric, permission mods that support the Fabric Permission API can grant `corpes:admin` and `corpes:use`; without one, op level 2 counts as admin.
 
 ## Config
@@ -63,6 +65,9 @@ Paper: `plugins/PaperCorpes/config.yml`. Fabric: `config/corpes.json`. Both have
 | `label-view-distance` | `128` | How far away (in blocks) that name can be seen. The body itself is only drawn within about 12 blocks, so the name is what you spot from a distance |
 | `label-see-through` | `false` | `true` = the name shows through walls and terrain, like a waypoint |
 | `hitbox-width` / `hitbox-height` | `2.0` / `0.6` | Size of the right-click box over the body |
+| `highlight-seconds` | `30` | How long the **Highlight** option in `/corpse history` makes a body glow (the outline shows through walls). `0` = no highlighting |
+| `admin-see-all-deaths` | `true` | Admins can browse every player's deaths and what was in them. `false` = admins only see their own, like everyone |
+| `admin-restore` | `false` | Admins can take items out of a death's inventory. The items are copies, so this duplicates them (the history isn't changed). Meant for giving back lost items |
 | `date-format` | `dd MMM HH:mm` | Date format for history and the corpse label |
 | `messages.*` | | All text, in [MiniMessage](https://docs.advntr.dev/minimessage/format.html) format. Lore entries can be a list of lines |
 

@@ -2,9 +2,6 @@ package dev.cornybirdy.papercorpes;
 
 import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -18,21 +15,23 @@ import java.util.Locale;
 
 /**
  * <pre>
- * /corpse history [player]       list recent deaths (other players need papercorpes.admin)
- * /corpse view (player) (number) preview an old death inventory (read-only) (papercorpes.admin)
+ * /corpse history [player]       open your recent deaths (other players need papercorpes.admin)
+ * /corpse view (player) (number) open one death's inventory (papercorpes.admin)
  * /corpse reload                 reload config.yml (papercorpes.admin)
  * </pre>
  */
 final class CorpseCommand implements BasicCommand {
 
-    private static final String ADMIN = "papercorpes.admin";
+    private static final String ADMIN = HistoryGui.ADMIN;
 
     private final PaperCorpes plugin;
     private final CorpseStorage storage;
+    private final HistoryGui gui;
 
-    CorpseCommand(PaperCorpes plugin, CorpseStorage storage) {
+    CorpseCommand(PaperCorpes plugin, CorpseStorage storage, HistoryGui gui) {
         this.plugin = plugin;
         this.storage = storage;
+        this.gui = gui;
     }
 
     @Override
@@ -68,9 +67,13 @@ final class CorpseCommand implements BasicCommand {
     }
 
     private void history(CommandSender sender, String[] args) {
-        OfflinePlayer target;
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.message("players-only"));
+            return;
+        }
+        OfflinePlayer target = player;
         if (args.length >= 2) {
-            if (!sender.hasPermission(ADMIN) && !sender.getName().equalsIgnoreCase(args[1])) {
+            if (!player.getName().equalsIgnoreCase(args[1]) && !gui.canBrowseAll(player)) {
                 sender.sendMessage(plugin.message("no-permission"));
                 return;
             }
@@ -78,40 +81,15 @@ final class CorpseCommand implements BasicCommand {
             if (target == null) {
                 return;
             }
-        } else if (sender instanceof Player player) {
-            target = player;
-        } else {
-            sender.sendMessage(plugin.message("players-only"));
-            return;
         }
 
         String name = nameOf(target, args.length >= 2 ? args[1] : sender.getName());
-        List<HistoryEntry> entries = storage.history(target.getUniqueId());
-        if (entries.isEmpty()) {
+        // Admins who can browse everyone still get the screen, since it leads to the other players.
+        if (storage.history(target.getUniqueId()).isEmpty() && !gui.canBrowseAll(player)) {
             sender.sendMessage(plugin.message("no-history", Placeholder.unparsed("player", name)));
             return;
         }
-
-        boolean admin = sender.hasPermission(ADMIN);
-        sender.sendMessage(plugin.message("history-header", Placeholder.unparsed("player", name)));
-        for (int i = 0; i < entries.size(); i++) {
-            HistoryEntry entry = entries.get(i);
-            int index = i + 1;
-            Component line = plugin.message("history-entry",
-                    Placeholder.unparsed("index", String.valueOf(index)),
-                    Placeholder.unparsed("date", plugin.settings().formatDate(entry.time())),
-                    Placeholder.unparsed("world", entry.world()),
-                    Placeholder.unparsed("x", String.valueOf((int) Math.floor(entry.x()))),
-                    Placeholder.unparsed("y", String.valueOf((int) Math.floor(entry.y()))),
-                    Placeholder.unparsed("z", String.valueOf((int) Math.floor(entry.z()))),
-                    Placeholder.unparsed("cause", entry.cause()));
-            if (admin) {
-                line = line.append(plugin.message("history-view")
-                        .clickEvent(ClickEvent.runCommand("/corpse view " + name + " " + index))
-                        .hoverEvent(HoverEvent.showText(plugin.message("history-view-hover"))));
-            }
-            sender.sendMessage(line);
-        }
+        gui.openDeaths(player, target.getUniqueId(), name);
     }
 
     private void view(CommandSender sender, String[] args) {
@@ -131,6 +109,10 @@ final class CorpseCommand implements BasicCommand {
         if (target == null) {
             return;
         }
+        if (!gui.canOpen(player, target.getUniqueId())) {
+            sender.sendMessage(plugin.message("no-permission"));
+            return;
+        }
         String name = nameOf(target, args[1]);
         List<HistoryEntry> entries = storage.history(target.getUniqueId());
         int index;
@@ -144,7 +126,7 @@ final class CorpseCommand implements BasicCommand {
                     Placeholder.unparsed("index", args[2]), Placeholder.unparsed("player", name)));
             return;
         }
-        player.openInventory(new HistoryMenu(plugin, target.getUniqueId(), name, index, entries.get(index - 1)).getInventory());
+        gui.openView(player, target.getUniqueId(), name, index, entries.get(index - 1));
     }
 
     private void reload(CommandSender sender) {

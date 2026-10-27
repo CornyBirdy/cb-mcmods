@@ -39,9 +39,8 @@ final class MenuListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onClick(InventoryClickEvent event) {
         Inventory top = event.getView().getTopInventory();
-        if (top.getHolder(false) instanceof HistoryMenu) {
-            // History menus are read-only previews: nothing may be taken out of them.
-            event.setCancelled(true);
+        if (top.getHolder(false) instanceof HistoryMenu history) {
+            clickHistory(event, top, history);
             return;
         }
         if (!(top.getHolder(false) instanceof CorpseMenu menu) || !(event.getWhoClicked() instanceof Player player)) {
@@ -96,6 +95,37 @@ final class MenuListener implements Listener {
     public void onClose(InventoryCloseEvent event) {
         if (event.getInventory().getHolder(false) instanceof CorpseMenu menu) {
             manager.menuClosed(menu, event.getPlayer());
+        }
+    }
+
+    /**
+     * History screens are the viewer's own copies. Buttons run their action; everything else stays put, unless an
+     * admin has {@code admin-restore} on, in which case items can be taken out (and so duplicated) but never put in.
+     */
+    private void clickHistory(InventoryClickEvent event, Inventory top, HistoryMenu menu) {
+        int rawSlot = event.getRawSlot();
+        if (rawSlot < 0 || rawSlot >= top.getSize()) {
+            // The player's own inventory is theirs to rearrange, but nothing may move into or out of the menu.
+            if (event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY
+                    || event.getAction() == InventoryAction.COLLECT_TO_CURSOR) {
+                event.setCancelled(true);
+            }
+            return;
+        }
+        event.setCancelled(true);
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        HistoryMenu.Click button = menu.button(rawSlot);
+        if (button != null) {
+            boolean right = event.getClick().isRightClick();
+            plugin.getServer().getScheduler().runTask(plugin, () -> button.on(player, right));
+            return;
+        }
+        if (menu.takeable() && !plugin.menuItems().isUi(event.getCurrentItem())
+                && TAKE_ACTIONS.contains(event.getAction())
+                && (event.getAction() != InventoryAction.HOTBAR_SWAP || swapTargetEmpty(event, player))) {
+            event.setCancelled(false);
         }
     }
 
