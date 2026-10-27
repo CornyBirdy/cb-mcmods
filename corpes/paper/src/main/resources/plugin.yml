@@ -10,5 +10,5 @@ permissions:
     description: Use /corpse and see your own death history.
     default: true
   papercorpes.admin:
-    description: Loot any corpse, view anyone's history and restore old death inventories.
+    description: Loot any corpse, view anyone's history and preview old death inventories.
     default: op

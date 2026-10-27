@@ -12,7 +12,7 @@ When a player dies, their body (with their skin) lies where they died and holds 
 - Items can only be taken out, and two players looting at once can't duplicate items.
 - Corpses survive restarts and disappear once emptied.
 - Bodies turn into a skull and bones after 60 minutes (configurable).
-- `/corpse history` shows recent deaths. Admins can open copies of old death inventories to restore lost items.
+- `/corpse history` shows recent deaths. Admins can preview old death inventories (read-only).
 
 ### Check when you first test it
 - Right-click the body. If clicks miss, raise `hitbox-width` in the config.

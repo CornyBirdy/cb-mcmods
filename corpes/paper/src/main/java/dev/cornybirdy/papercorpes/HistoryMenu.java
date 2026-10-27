@@ -8,8 +8,8 @@ import org.bukkit.inventory.InventoryHolder;
 import java.util.UUID;
 
 /**
- * Admin-only copy of an old death inventory. Taking items out creates them, which is how admins restore
- * items a player lost. Nothing done here changes the history or any corpse.
+ * Admin-only read-only preview of an old death inventory. Items can't be taken out (that would duplicate them),
+ * and nothing done here changes the history or any corpse.
  */
 final class HistoryMenu implements InventoryHolder {
 

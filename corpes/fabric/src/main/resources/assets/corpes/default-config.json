@@ -60,7 +60,7 @@
     "history-header": "<gold>Recent deaths of <player>:",
     "history-entry": "<gray>#<index> <white><date></white> <world> <x>, <y>, <z> <dark_gray>- <cause>",
     "history-view": " <aqua>[View]",
-    "history-view-hover": "<gray>Open a copy of this death's inventory",
+    "history-view-hover": "<gray>Preview this death's inventory",
     "invalid-number": "<red>There is no death #<index> for <player>.",
     "reloaded": "<green>Corpes config reloaded."
   }

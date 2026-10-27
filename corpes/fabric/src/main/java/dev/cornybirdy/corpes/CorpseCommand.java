@@ -25,7 +25,7 @@ import java.util.function.Supplier;
 /**
  * <pre>
  * /corpse history [player]       list recent deaths (other players need corpes:admin)
- * /corpse view (player) (number) open a copy of an old death inventory (corpes:admin)
+ * /corpse view (player) (number) preview an old death inventory (read-only) (corpes:admin)
  * /corpse reload                 reload config/corpes.json (corpes:admin)
  * </pre>
  */
@@ -154,7 +154,7 @@ final class CorpseCommand {
         }
         HistoryEntry entry = entries.get(index - 1);
 
-        // A copy: taking items out creates them, which is how admins restore lost items. The history isn't changed.
+        // A read-only preview: LootMenu with no buttons won't let anything out, so nothing can be duplicated.
         SimpleContainer copy = new SimpleContainer(CorpseLayout.SIZE);
         ItemStack[] items = entry.items();
         for (int slot = 0; slot < CorpseLayout.SIZE; slot++) {

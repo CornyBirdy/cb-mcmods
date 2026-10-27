@@ -19,7 +19,7 @@ import java.util.Locale;
 /**
  * <pre>
  * /corpse history [player]       list recent deaths (other players need papercorpes.admin)
- * /corpse view (player) (number) open a copy of an old death inventory (papercorpes.admin)
+ * /corpse view (player) (number) preview an old death inventory (read-only) (papercorpes.admin)
  * /corpse reload                 reload config.yml (papercorpes.admin)
  * </pre>
  */

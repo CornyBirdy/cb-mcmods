@@ -12,12 +12,12 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * A six-row chest menu that only lets items out. Labels, dividers and buttons can't be picked up, and nothing can be
- * put in, by click, shift-click, drag or hotbar key. Used for corpses (with working buttons) and for the admin
- * history view.
+ * put in, by click, shift-click, drag or hotbar key. Used for corpses (with working buttons) and, with no buttons,
+ * for the admin history view, which is a read-only preview that lets nothing out.
  */
 final class LootMenu extends ChestMenu {
 
-    /** What the equip all / take all buttons do. Null for the history view, which has no buttons. */
+    /** What the equip all / take all buttons do. Null for the history view, which has no buttons and is read-only. */
     interface Buttons {
         void equipAll(ServerPlayer player);
 
@@ -33,7 +33,7 @@ final class LootMenu extends ChestMenu {
         this.buttons = buttons;
         for (int i = 0; i < CorpseLayout.SIZE; i++) {
             Slot original = slots.get(i);
-            Slot takeOnly = new TakeOnlySlot(container, original.getContainerSlot(), original.x, original.y);
+            Slot takeOnly = new TakeOnlySlot(container, original.getContainerSlot(), original.x, original.y, buttons == null);
             takeOnly.index = original.index;
             slots.set(i, takeOnly);
         }
@@ -42,7 +42,10 @@ final class LootMenu extends ChestMenu {
     @Override
     public void clicked(int slotId, int button, ContainerInput input, Player player) {
         if (slotId >= 0 && slotId < CorpseLayout.SIZE) {
-            if (buttons != null && CorpseLayout.isButton(slotId)) {
+            if (buttons == null) {
+                return;
+            }
+            if (CorpseLayout.isButton(slotId)) {
                 if (input == ContainerInput.PICKUP && player instanceof ServerPlayer serverPlayer) {
                     if (slotId == CorpseLayout.EQUIP_ALL_SLOT) {
                         buttons.equipAll(serverPlayer);
@@ -65,7 +68,7 @@ final class LootMenu extends ChestMenu {
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        return index < CorpseLayout.SIZE ? super.quickMoveStack(player, index) : ItemStack.EMPTY;
+        return index < CorpseLayout.SIZE && buttons != null ? super.quickMoveStack(player, index) : ItemStack.EMPTY;
     }
 
     @Override
@@ -80,8 +83,11 @@ final class LootMenu extends ChestMenu {
 
     private static final class TakeOnlySlot extends Slot {
 
-        TakeOnlySlot(Container container, int slot, int x, int y) {
+        private final boolean readOnly;
+
+        TakeOnlySlot(Container container, int slot, int x, int y, boolean readOnly) {
             super(container, slot, x, y);
+            this.readOnly = readOnly;
         }
 
         @Override
@@ -91,7 +97,7 @@ final class LootMenu extends ChestMenu {
 
         @Override
         public boolean mayPickup(Player player) {
-            return !MenuItems.isUi(getItem());
+            return !readOnly && !MenuItems.isUi(getItem());
         }
     }
 }

@@ -33,7 +33,7 @@ Right-click the body to open it and take your stuff back.
   - Two players looting at once share the same menu, so items can't be duplicated.
 - **Corpses stay until emptied.** They survive restarts and disappear once the last item is taken.
 - **Skeletons.** After a set time (60 minutes by default) the body becomes a skull and bones.
-- **Death history.** `/corpse history` lists your recent deaths with time, coordinates and cause. Admins can open a copy of any old death inventory to restore lost items.
+- **Death history.** `/corpse history` lists your recent deaths with time, coordinates and cause. Admins can preview any old death inventory (read-only, nothing can be taken out).
 - **Safe placement.** Deaths in the void, in lava or inside blocks put the corpse somewhere reachable.
 - `keepInventory` is respected: no corpse spawns when you keep your items.
 
@@ -43,7 +43,7 @@ Right-click the body to open it and take your stuff back.
 |---|---|---|---|
 | `/corpse history` | `papercorpes.use` (everyone) | `corpes:use` (everyone) | List your recent deaths |
 | `/corpse history <player>` | `papercorpes.admin` (op) | `corpes:admin` (op level 2) | List someone else's deaths. Click **[View]** to open one |
-| `/corpse view <player> <number>` | `papercorpes.admin` | `corpes:admin` | Open a copy of that death's inventory. Items taken out are created, which is how you restore lost items |
+| `/corpse view <player> <number>` | `papercorpes.admin` | `corpes:admin` | Preview that death's inventory. It is read-only: items can't be taken out |
 | `/corpse reload` | `papercorpes.admin` | `corpes:admin` | Reload the config |
 
 The admin permission also lets you loot any corpse when `allow-anyone-loot` is `false`.

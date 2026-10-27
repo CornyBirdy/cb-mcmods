@@ -40,7 +40,8 @@ final class MenuListener implements Listener {
     public void onClick(InventoryClickEvent event) {
         Inventory top = event.getView().getTopInventory();
         if (top.getHolder(false) instanceof HistoryMenu) {
-            protectHistoryMenu(event, top);
+            // History menus are read-only previews: nothing may be taken out of them.
+            event.setCancelled(true);
             return;
         }
         if (!(top.getHolder(false) instanceof CorpseMenu menu) || !(event.getWhoClicked() instanceof Player player)) {
@@ -80,7 +81,7 @@ final class MenuListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onDrag(InventoryDragEvent event) {
         Inventory top = event.getView().getTopInventory();
-        if (!(top.getHolder(false) instanceof CorpseMenu)) {
+        if (!(top.getHolder(false) instanceof CorpseMenu || top.getHolder(false) instanceof HistoryMenu)) {
             return;
         }
         for (int rawSlot : event.getRawSlots()) {
@@ -95,15 +96,6 @@ final class MenuListener implements Listener {
     public void onClose(InventoryCloseEvent event) {
         if (event.getInventory().getHolder(false) instanceof CorpseMenu menu) {
             manager.menuClosed(menu, event.getPlayer());
-        }
-    }
-
-    /** History menus are copies, so admins can do what they like with the items, but not take the labels and buttons. */
-    private void protectHistoryMenu(InventoryClickEvent event, Inventory top) {
-        boolean inMenu = event.getRawSlot() >= 0 && event.getRawSlot() < top.getSize();
-        if ((inMenu && plugin.menuItems().isUi(event.getCurrentItem()))
-                || event.getAction() == InventoryAction.COLLECT_TO_CURSOR) {
-            event.setCancelled(true);
         }
     }
 
