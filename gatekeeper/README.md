@@ -55,6 +55,7 @@ Everyone starts with PvP **off**. Players can only hurt each other when **both**
 - **Cooldown:** after changing it, a player has to wait 60 seconds before changing it again, so nobody can flip it on for one hit and straight back off.
 - **Combat timer:** after hitting or being hit by another player, both are in combat for 30 seconds and can't turn PvP off until it runs out. Every hit starts the timer again.
 - **Combat logging (off by default):** turn on `combat-log-kill` (`/gatekeeper combatlog on`) and a player who logs out while in combat is killed and drops their items where they stood. Players are warned when a fight starts. Server shutdowns don't count.
+- **Farmland takes several tramples (3 by default):** instead of turning to dirt the first time something jumps or falls on it, farmland survives `farmland-trample-hits` tramples (`/gatekeeper farmland <hits>`). Set it to `1` for vanilla. Counts are per block and forgotten after about 5 minutes without another trample (or at a restart).
 - **Fighting a friend with PvP off:** `/pvp allow <player>` asks to be able to fight someone; once they `/pvp allow` you back, you two can fight each other whatever your PvP settings are. Everyone else still follows your on/off choice. The other player is told when you ask. `/pvp unallow <player>` takes it back (not in the middle of a fight with them), and `/pvp list` shows who you can fight, who you're waiting on and who's asking you.
 - **Admin locks:** `/gatekeeper pvpforce <player> on` locks someone's PvP on, `off` locks it off (nobody can fight them, and they can't fight anyone, allowed or not), and `clear` lets them choose again. Locked players can't change it with `/pvp`. Works for offline players too.
 - Everything is kept across restarts. Paper: choices in player data, allow lists and locks in `plugins/Gatekeeper/pvp.yml`. Fabric: `<world>/gatekeeper/pvp.json`.
@@ -82,6 +83,7 @@ Everything works in the server console (no slash needed there, e.g. `gatekeeper 
 | `/gatekeeper pvpcooldown <seconds>` | Wait between `/pvp` changes (default 60, `0` = none) |
 | `/gatekeeper pvpcombat <seconds>` | How long after a hit players can't turn PvP off (default 30) |
 | `/gatekeeper combatlog on` / `off` / `toggle` | Kill players who log out in combat (default off) |
+| `/gatekeeper farmland <hits>` | How many tramples farmland takes before it turns to dirt (default 3, `1` = vanilla) |
 | `/gatekeeper pvpforce <player> on` / `off` / `clear` | Lock a player's PvP on or off, or let them choose again. Without `on`/`off`/`clear` it shows their setting |
 | `/gatekeeper reload` | Reload the config file |
 | `/pvp` | Everyone: show whether your PvP is on or off |
@@ -125,6 +127,7 @@ Paper: `plugins/Gatekeeper/config.yml`. Fabric: `config/gatekeeper.json`. Both h
 | `pvp-toggle-cooldown-seconds` | `60` | Seconds between `/pvp` changes. `0` = no wait |
 | `pvp-combat-seconds` | `30` | Seconds after a hit during which PvP can't be turned off |
 | `combat-log-kill` | `false` | `true` = logging out in combat kills you |
+| `farmland-trample-hits` | `3` | Tramples farmland survives before turning to dirt. `1` = vanilla |
 | `messages.*` | | All text, in [MiniMessage](https://docs.advntr.dev/minimessage/format.html) format. `<state>` is replaced by the `enabled` or `disabled` message |
 
 If you edit the file by hand, run `/gatekeeper reload` afterwards. Options missing from an older config file use the defaults.

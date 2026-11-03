@@ -40,6 +40,7 @@ import java.util.UUID;
  * /gatekeeper pvpcombat [seconds]             how long after a hit players can't turn PvP off
  * /gatekeeper combatlog [on|off|toggle]       kill players who log out in combat
  * /gatekeeper pvpforce (player) [on|off|clear] lock a player's PvP on or off, or let them choose again
+ * /gatekeeper farmland [hits]                how many tramples farmland survives before it turns to dirt (1 = vanilla)
  * /gatekeeper reload                          reload config/gatekeeper.json
  *
  * /pvp [toggle]                              everyone (gatekeeper:pvp): show or switch your own PvP
@@ -81,6 +82,10 @@ final class GatekeeperCommand {
                         .then(Commands.literal("off").executes(context -> setOption(context.getSource(), Pvp.COMBAT_LOG, false)))
                         .then(Commands.literal("toggle").executes(context -> setOption(context.getSource(), Pvp.COMBAT_LOG,
                                 !Gatekeeper.settings().option(Pvp.COMBAT_LOG)))))
+                .then(Commands.literal("farmland")
+                        .executes(context -> farmlandSetting(context.getSource(), null))
+                        .then(Commands.argument("hits", IntegerArgumentType.integer(1, 1000))
+                                .executes(context -> farmlandSetting(context.getSource(), IntegerArgumentType.getInteger(context, "hits")))))
                 .then(Commands.literal("pvpforce")
                         .then(Commands.argument("player", StringArgumentType.word()).suggests(PLAYERS)
                                 .executes(context -> force(context.getSource(), StringArgumentType.getString(context, "player"), null, false))
@@ -154,6 +159,26 @@ final class GatekeeperCommand {
             LOGGER.info("{} set {} to {}", source.getTextName(), key, value);
         }
         return pvpSettings(source);
+    }
+
+    /** {@code /gatekeeper farmland [hits]}: show or change how many tramples farmland takes. */
+    private static int farmlandSetting(CommandSourceStack source, Integer hits) {
+        Settings settings = Gatekeeper.settings();
+        if (hits != null) {
+            try {
+                settings.set(Farmland.HITS, hits);
+            } catch (Exception e) {
+                LOGGER.error("Could not save config/gatekeeper.json, the change is lost on restart", e);
+                source.sendSystemMessage(Text.parse("<red>Could not save config/gatekeeper.json, see the server log. "
+                        + "The change works until the server restarts.", Map.of()));
+            }
+            if (source.getPlayer() != null) {
+                LOGGER.info("{} set {} to {}", source.getTextName(), Farmland.HITS, hits);
+            }
+        }
+        source.sendSystemMessage(settings.message("farmland-state", null,
+                Map.of("hits", String.valueOf(settings.integer(Farmland.HITS)))));
+        return 1;
     }
 
     private static int pvpShow(CommandSourceStack source) {
@@ -332,6 +357,7 @@ final class GatekeeperCommand {
             show(source, feature);
         }
         pvpSettings(source);
+        farmlandSetting(source, null);
         source.sendSystemMessage(Gatekeeper.settings().message("usage"));
         return 1;
     }

@@ -13,6 +13,7 @@
   "pvp-toggle-cooldown-seconds": 60,
   "pvp-combat-seconds": 30,
   "combat-log-kill": false,
+  "farmland-trample-hits": 3,
   "messages": {
     "ender-chest-blocked": "<red>Ender chests are disabled on this server.",
     "end-blocked": "<red>The End is disabled on this server.",
@@ -69,9 +70,10 @@
     "pvp-forced-you-on": "<red>An admin turned your PvP on and locked it.",
     "pvp-forced-you-off": "<green>An admin turned your PvP off and locked it. Nobody can fight you.",
     "pvp-forced-you-none": "<gray>An admin unlocked your PvP. You can change it with /pvp again.",
+    "farmland-state": "<gray>Farmland turns to dirt after <white><hits></white> trample(s).",
     "enabled": "<green>enabled",
     "disabled": "<red>disabled",
     "reloaded": "<green>Gatekeeper config reloaded.",
-    "usage": "<gray>/gatekeeper status <dark_gray>|</dark_gray> /gatekeeper enderchests|end|nether|netheritearmor|netheritetools|combatlog [on|off|toggle] <dark_gray>|</dark_gray> /gatekeeper pvpdefault [on|off] <dark_gray>|</dark_gray> /gatekeeper pvpcooldown|pvpcombat [seconds] <dark_gray>|</dark_gray> /gatekeeper pvpforce <player> [on|off|clear] <dark_gray>|</dark_gray> /gatekeeper reload"
+    "usage": "<gray>/gatekeeper status <dark_gray>|</dark_gray> /gatekeeper enderchests|end|nether|netheritearmor|netheritetools|combatlog [on|off|toggle] <dark_gray>|</dark_gray> /gatekeeper pvpdefault [on|off] <dark_gray>|</dark_gray> /gatekeeper pvpcooldown|pvpcombat [seconds] <dark_gray>|</dark_gray> /gatekeeper pvpforce <player> [on|off|clear] <dark_gray>|</dark_gray> /gatekeeper farmland [hits] <dark_gray>|</dark_gray> /gatekeeper reload"
   }
 }

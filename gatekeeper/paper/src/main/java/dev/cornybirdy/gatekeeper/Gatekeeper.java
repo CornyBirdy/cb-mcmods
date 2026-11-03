@@ -55,6 +55,7 @@ public final class Gatekeeper extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new LockListener(this, endPortals, netherPortals), this);
         pvp = new Pvp(this);
         getServer().getPluginManager().registerEvents(pvp, this);
+        getServer().getPluginManager().registerEvents(new FarmlandListener(this), this);
         registerCommand("gatekeeper", List.of("gk"), new GatekeeperCommand(this));
         registerCommand("pvp", new PvpCommand(this, pvp));
         applyState(Feature.END, false);

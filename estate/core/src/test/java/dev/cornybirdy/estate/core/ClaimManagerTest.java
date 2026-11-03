@@ -194,6 +194,59 @@ class ClaimManagerTest {
     }
 
     @Test
+    void theMainEndIslandCanBeKeptFree() {
+        String end = "minecraft:the_end";
+        config.claimableWorlds = new java.util.ArrayList<>(java.util.List.of(WORLD, end));
+        config.refresh();
+        Region island = Region.box(-10, -10, 10, 10);
+        Region far = Region.box(2000, 2000, 2010, 2010);
+        assertTrue(manager.check(end, alice, island, 40, 80, null, PlacementOracle.NONE, false).allowed());
+
+        config.blockMainEndIsland = true;
+        assertEquals(Problem.MAIN_END_ISLAND, manager.check(end, alice, island, 40, 80, null, PlacementOracle.NONE, false).problem());
+        assertTrue(manager.check(end, alice, far, 40, 80, null, PlacementOracle.NONE, false).allowed());
+        assertTrue(manager.check(end, alice, island, 40, 80, null, PlacementOracle.NONE, true).allowed());
+        // Other worlds are not affected.
+        assertTrue(manager.check(WORLD, alice, island, 40, 80, null, PlacementOracle.NONE, false).allowed());
+    }
+
+    @Test
+    void aCommunityMemberOnTheTrustListOnlyGetsThatLevel() {
+        Community town = manager.createCommunity(alice, "Town");
+        UUID cy = UUID.randomUUID();
+        manager.seen(cy, "Cy");
+        Claim big = claim(alice, square(0, 0, 8), 60, 80);
+        manager.invite(town, bob, alice);
+        manager.acceptInvite(town, bob);
+        manager.invite(town, cy, alice);
+        manager.acceptInvite(town, cy);
+        assertNull(manager.assignCommunity(big, town, alice));
+        assertTrue(manager.has(big, bob, Permission.TRUST));
+
+        // Holding bob back to containers: he stays in the community, cy is untouched.
+        manager.trust(big, bob, TrustTier.CONTAINERS, alice);
+        assertFalse(manager.isOwnerLike(big, bob));
+        assertTrue(manager.has(big, bob, Permission.CONTAINERS));
+        assertFalse(manager.has(big, bob, Permission.BUILD));
+        assertFalse(manager.has(big, bob, Permission.TRUST));
+        assertTrue(manager.isOwnerLike(big, cy));
+        assertTrue(manager.has(big, cy, Permission.BUILD));
+
+        // Blocked gets nothing, even when everyone else may build.
+        manager.setDefaultTier(big, TrustTier.BUILD, alice);
+        assertTrue(manager.has(big, bob, Permission.BUILD));
+        manager.trust(big, bob, TrustTier.NONE, alice);
+        assertFalse(manager.has(big, bob, Permission.INTERACT));
+        assertFalse(manager.has(big, bob, Permission.BUILD));
+        assertTrue(manager.has(big, cy, Permission.BUILD));
+
+        // Taking him off the list gives him the community's rights back.
+        manager.trust(big, bob, null, alice);
+        assertTrue(manager.isOwnerLike(big, bob));
+        assertTrue(manager.has(big, bob, Permission.TRUST));
+    }
+
+    @Test
     void sharedClaimsAreOwnedByEveryMemberAndPaidByTheCommunity() {
         Community town = manager.createCommunity(alice, "Town");
         assertNull(manager.createCommunity(bob, "TOWN"));

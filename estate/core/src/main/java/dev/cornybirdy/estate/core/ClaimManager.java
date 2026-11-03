@@ -345,6 +345,9 @@ public final class ClaimManager {
             return true;
         }
         TrustTier tier = claim.trust().get(player);
+        if (tier == TrustTier.NONE) {
+            return false;
+        }
         if (tier != null && config.tierAllows(tier, permission)) {
             return true;
         }
@@ -356,13 +359,17 @@ public final class ClaimManager {
         return permission == Permission.BUFFER && claim.isMember(player);
     }
 
-    /** The claim's owner, or a member of the community it's assigned to: they can do everything except unclaim it. */
+    /**
+     * The claim's owner, or a member of the community it's assigned to: they can do everything except unclaim it.
+     * A community member who is on the claim's trust list gets only that level instead, so the owner can hold
+     * one person back (or block them with {@link TrustTier#NONE}) without leaving the community.
+     */
     public boolean isOwnerLike(Claim claim, UUID player) {
         if (claim.owner().equals(player)) {
             return true;
         }
         Community community = claim.communityId() == 0 ? null : communities.get(claim.communityId());
-        return community != null && community.isMember(player);
+        return community != null && community.isMember(player) && !claim.trust().containsKey(player);
     }
 
     /** A flag's value for a claim: its own setting if it has one, otherwise the config default. */
@@ -515,6 +522,11 @@ public final class ClaimManager {
         // Only land that's new to the claim is checked, unless the claim got taller.
         boolean grew = existing == null || minY < existing.minY() || maxY > existing.maxY();
         Region toCheck = grew ? region : region.minus(existing.region());
+        if (!bypass && config.blockMainEndIsland && world.equals("minecraft:the_end") && !toCheck.isEmpty()
+                && toCheck.intersects(Region.box(-config.mainEndIslandRadius, -config.mainEndIslandRadius,
+                        config.mainEndIslandRadius, config.mainEndIslandRadius))) {
+            return Check.fail(Problem.MAIN_END_ISLAND, cost, budgetLeft);
+        }
         List<Claim> others = claimsIn(world);
         others.remove(existing);
 

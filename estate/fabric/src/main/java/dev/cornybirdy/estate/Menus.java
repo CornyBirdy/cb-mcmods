@@ -456,7 +456,7 @@ final class Menus {
     }
 
     static String tierName(EstateRuntime rt, TrustTier tier) {
-        return rt.msg.raw("tier-" + tier.key());
+        return rt.msg.raw(tier == TrustTier.NONE ? "tier-blocked" : "tier-" + tier.key());
     }
 
     private static String allows(EstateRuntime rt, TrustTier tier) {

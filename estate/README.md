@@ -35,6 +35,7 @@ What each level allows is in the config, so it can be changed later. The trust l
 
 **Communities.** A group of players that share claims. `/land community create <name>` (one word), invite people with `/land community invite <player>` (they get Join / Decline buttons), and share a claim with it from the claim's menu (**Community** button, or `/land community assign <name>`). Then:
 - **Everyone in the community counts as an owner of that claim**: build, containers, trust list, flags, resizing. Only the player who made the claim can unclaim it or change who it's shared with.
+- **Holding one member back.** Put a community member on the claim's trust list (**Friends**, or `/land trust <player> <level>`) and they get only that level there instead of owner rights, while everyone else in the community keeps theirs. Use `none` (shown as **Blocked**) to lock them out of that claim completely, even if "Everyone else" can build. Removing them from the list gives them the community's rights back. This only affects that claim, not their place in the community.
 - **The community pays, not the creator.** Sharing a claim moves its cost to the community's budget and gives the creator their blocks back. A community gets `baseBudget` blocks per member, up to `maxCommunityBudget`. Stop sharing and the cost goes back to the owner (only possible if they can afford it).
 - **No buffers between members.** Members' claims can sit right next to each other, and one member's blocks never stop another from claiming.
 - A claim stays while any member of its community is active. People can be in several communities. Leaving (or being removed) stops sharing that person's claims; disbanding stops sharing all of them. Claims always stay with whoever made them.
@@ -101,7 +102,7 @@ Every button says what it does and ends with "» Click to …".
 | `/land claim confirm\|edit\|cancel` | Confirm the box, open the coordinate editor, or stop |
 | `/land unclaim [confirm]` | Remove the claim you're standing in (or your only claim) |
 | `/land resize` | Resize the claim you're standing in (coordinate editor) |
-| `/land trust <player> [access\|containers\|build\|manage]` | Trust someone (Build if no level is given). Works for offline players |
+| `/land trust <player> [access\|containers\|build\|manage\|none]` | Trust someone (Build if no level is given); `none` blocks them from the claim, even a community member. Works for offline players |
 | `/land untrust <player>`, `/land trustlist` | Remove someone, see the list |
 | `/land info` | What's here: whose claim, its size, trust list, flags, expiry |
 | `/land list` | Your claims |
@@ -159,6 +160,8 @@ Give it with a permissions mod that supports the Fabric Permission API, like Luc
 | `maxCommunityBudget` | `16384` | Most blocks one community can claim in total (`baseBudget` per member, up to this) |
 | `maxClaimsPerPlayer` | `5` | Stops many tiny claims |
 | `verticalPadding` | `10` | Blocks above the highest and below the lowest block of a claim |
+| `blockMainEndIsland` | `false` | If `true`, nobody can claim the End's main island (the dragon island and the spawn platform). Only matters if the End is in `claimableWorlds` |
+| `mainEndIslandRadius` | `200` | How far from the middle of the End (0, 0) `blockMainEndIsland` keeps free |
 | `bufferDistance` | `8` | Free space around claims, in blocks. `0` turns buffers off |
 | `bufferHeightCap` | `0` (off) | If set (try `12`), blocks next to someone's claim can't go more than this many blocks above its ground level |
 | `autoClaimThreshold` | `50` | Blocks in one spot before auto-claim claims them (or the build tip shows) |

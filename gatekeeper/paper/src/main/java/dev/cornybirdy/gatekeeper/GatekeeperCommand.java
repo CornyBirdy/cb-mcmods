@@ -55,6 +55,7 @@ final class GatekeeperCommand implements BasicCommand {
                     show(sender, each);
                 }
                 pvpSettings(sender);
+                farmland(sender, new String[0]);
                 sender.sendMessage(plugin.message("usage"));
             }
             case "pvp" -> pvpSettings(sender);
@@ -63,6 +64,7 @@ final class GatekeeperCommand implements BasicCommand {
             case "pvpcooldown" -> seconds(sender, Pvp.COOLDOWN, args);
             case "pvpcombat" -> seconds(sender, Pvp.COMBAT, args);
             case "pvpforce" -> force(sender, args);
+            case "farmland" -> farmland(sender, args);
             case "reload" -> {
                 plugin.reload();
                 sender.sendMessage(plugin.message("reloaded"));
@@ -74,7 +76,7 @@ final class GatekeeperCommand implements BasicCommand {
     @Override
     public Collection<String> suggest(CommandSourceStack source, String[] args) {
         if (args.length <= 1) {
-            List<String> options = new ArrayList<>(List.of("status", "reload", "pvp", "pvpdefault", "pvpcooldown", "pvpcombat", "combatlog", "pvpforce"));
+            List<String> options = new ArrayList<>(List.of("status", "reload", "pvp", "pvpdefault", "pvpcooldown", "pvpcombat", "combatlog", "pvpforce", "farmland"));
             for (Feature feature : Feature.values()) {
                 options.add(feature.command);
             }
@@ -129,6 +131,29 @@ final class GatekeeperCommand implements BasicCommand {
                 }
             }
         }
+    }
+
+    /** {@code /gatekeeper farmland [hits]}: show or change how many tramples farmland takes before it turns to dirt. */
+    private void farmland(CommandSender sender, String[] args) {
+        if (args.length >= 2) {
+            int hits;
+            try {
+                hits = Integer.parseInt(args[1]);
+            } catch (NumberFormatException e) {
+                hits = -1;
+            }
+            if (hits < 1 || hits > 1000) {
+                sender.sendMessage(plugin.message("usage"));
+                return;
+            }
+            plugin.getConfig().set(FarmlandListener.HITS, hits);
+            plugin.saveConfig();
+            if (sender instanceof Player) {
+                plugin.getLogger().info(sender.getName() + " set " + FarmlandListener.HITS + " to " + hits);
+            }
+        }
+        sender.sendMessage(plugin.message("farmland-state",
+                Placeholder.unparsed("hits", String.valueOf(plugin.getConfig().getInt(FarmlandListener.HITS, 3)))));
     }
 
     private void pvpSettings(CommandSender sender) {

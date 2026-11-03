@@ -101,6 +101,11 @@ public final class EstateConfig {
     public boolean enterLeaveMessages = true;
     /** Worlds (dimension ids) where claims can be made. */
     public List<String> claimableWorlds = new ArrayList<>(List.of("minecraft:overworld"));
+    /** If true, nothing can be claimed on the End's main island (inside {@code mainEndIslandRadius} of 0,0). Off by default. */
+    public boolean blockMainEndIsland = false;
+    /** How far from the middle of the End the main island is kept free when {@code blockMainEndIsland} is on. The island and the spawn platform fit inside 150. */
+    @Range(min = 1, max = 900)
+    public int mainEndIslandRadius = 200;
     /** Flag defaults for every claim. true = protected. */
     public Map<String, Boolean> flagDefaults = defaultFlags();
     /** Flags claim owners may change for their own claims. */
@@ -140,6 +145,7 @@ public final class EstateConfig {
         tiers.put("containers", new ArrayList<>(List.of("interact", "containers")));
         tiers.put("build", new ArrayList<>(List.of("interact", "containers", "build", "buffer")));
         tiers.put("manage", new ArrayList<>(List.of("interact", "containers", "build", "buffer", "trust", "resize")));
+        tiers.put("none", new ArrayList<>());
         return tiers;
     }
 
@@ -279,7 +285,7 @@ public final class EstateConfig {
             } else if (canonical.startsWith("trustTiers.")) {
                 TrustTier tier = TrustTier.byKey(canonical.substring("trustTiers.".length()));
                 if (tier == null) {
-                    return "Unknown tier. Tiers: access, containers, build, manage.";
+                    return "Unknown tier. Tiers: access, containers, build, manage, none.";
                 }
                 List<String> permissions = splitList(value);
                 for (String permission : permissions) {

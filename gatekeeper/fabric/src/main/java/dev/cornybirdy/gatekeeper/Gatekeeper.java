@@ -303,6 +303,11 @@ public final class Gatekeeper implements ModInitializer {
         return netherPortals == null || netherPortals.mayLight(level, pos);
     }
 
+    /** Called by {@code FarmlandBlockMixin}. False spares the farmland for now and counts the trample. */
+    public static boolean shouldTrampleFarmland(Level level, BlockPos pos) {
+        return Farmland.shouldTrample(level, pos);
+    }
+
     /** Called by {@code SlotMixin} for crafting result slots. */
     public static boolean mayTakeCraftedItem(Player player, ItemStack result) {
         return !result.is(Items.ENDER_CHEST) || !banned(player, Feature.ENDER_CHESTS);

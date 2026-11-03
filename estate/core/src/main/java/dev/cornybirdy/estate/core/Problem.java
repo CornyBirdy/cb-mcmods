@@ -6,6 +6,7 @@ public enum Problem {
     EMPTY("claim-empty"),
     BAD_HEIGHT("bad-height"),
     TOO_MANY_CLAIMS("too-many-claims"),
+    MAIN_END_ISLAND("main-end-island"),
     OVERLAP("overlap"),
     BUFFER("in-buffer"),
     NO_BUDGET("no-budget"),
