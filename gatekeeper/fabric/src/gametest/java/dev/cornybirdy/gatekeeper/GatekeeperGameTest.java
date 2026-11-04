@@ -1,6 +1,8 @@
 package dev.cornybirdy.gatekeeper;
 
+import com.mojang.authlib.GameProfile;
 import net.fabricmc.fabric.api.entity.FakePlayer;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
@@ -12,6 +14,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.SmithingMenu;
@@ -26,6 +29,8 @@ import net.minecraft.world.level.block.EndPortalFrameBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.UUID;
 
 /** Runs on a real (headless) server in CI: turns each feature off and on and checks the game follows. */
 public class GatekeeperGameTest {
@@ -283,6 +288,60 @@ public class GatekeeperGameTest {
             throw helper.assertionException("The smithing table should offer " + netherite + ", found " + resultSlot(menu).getItem());
         }
         return menu;
+    }
+
+    @GameTest
+    public void pvpIsOptIn(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        FakePlayer a = FakePlayer.get(level, new GameProfile(UUID.randomUUID(), "PvpTestA"));
+        FakePlayer b = FakePlayer.get(level, new GameProfile(UUID.randomUUID(), "PvpTestB"));
+        Pvp pvp = Gatekeeper.pvp();
+        DamageSource hit = level.damageSources().playerAttack(a);
+        if (ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(b, hit, 1)) {
+            throw helper.assertionException("Players start with PvP off, so they can't hurt each other");
+        }
+        if (pvp.set(a.getUUID(), true).outcome() != Pvp.Outcome.CHANGED) {
+            throw helper.assertionException("/pvp on should work the first time");
+        }
+        if (ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(b, hit, 1)) {
+            throw helper.assertionException("PvP needs both players to have it on");
+        }
+        pvp.set(b.getUUID(), true);
+        if (!ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(b, hit, 1)) {
+            throw helper.assertionException("Players with PvP on can hurt each other");
+        }
+        pvp.tag(a.getUUID());
+        if (pvp.set(a.getUUID(), false).outcome() != Pvp.Outcome.IN_COMBAT) {
+            throw helper.assertionException("PvP can't be turned off in combat");
+        }
+        pvp.endCombat(a.getUUID());
+        if (pvp.set(a.getUUID(), false).outcome() != Pvp.Outcome.COOLDOWN) {
+            throw helper.assertionException("PvP can't be changed again straight away");
+        }
+
+        // Exceptions: two players with PvP off who have allowed each other, and admin locks.
+        FakePlayer c = FakePlayer.get(level, new GameProfile(UUID.randomUUID(), "PvpTestC"));
+        FakePlayer d = FakePlayer.get(level, new GameProfile(UUID.randomUUID(), "PvpTestD"));
+        DamageSource cHits = level.damageSources().playerAttack(c);
+        pvp.setAllowed(c.getUUID(), d.getUUID(), true);
+        if (ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(d, cHits, 1)) {
+            throw helper.assertionException("Allowing someone only counts once they allow you back");
+        }
+        pvp.setAllowed(d.getUUID(), c.getUUID(), true);
+        if (!ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(d, cHits, 1)) {
+            throw helper.assertionException("Players who allowed each other can fight with PvP off");
+        }
+        pvp.force(d.getUUID(), false);
+        if (ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(d, cHits, 1)) {
+            throw helper.assertionException("Nobody can hurt a player an admin locked off");
+        }
+        pvp.force(d.getUUID(), null);
+        pvp.force(c.getUUID(), true);
+        if (pvp.set(c.getUUID(), false).outcome() != Pvp.Outcome.FORCED) {
+            throw helper.assertionException("Players can't change PvP an admin locked");
+        }
+        pvp.force(c.getUUID(), null);
+        helper.succeed();
     }
 
     private static Slot resultSlot(SmithingMenu menu) {

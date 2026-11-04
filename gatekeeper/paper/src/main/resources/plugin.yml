@@ -2,13 +2,16 @@ name: Gatekeeper
 version: '${version}'
 main: dev.cornybirdy.gatekeeper.Gatekeeper
 api-version: '26.1'
-description: Turn ender chests, the End, the Nether, netherite armor and netherite tools on or off with /gatekeeper while the server runs, also from the console.
+description: Turn ender chests, the End, the Nether, netherite armor and netherite tools on or off with /gatekeeper while the server runs, also from the console. Opt-in PvP with /pvp.
 author: cornybirdy
 
 permissions:
   gatekeeper.admin:
     description: Use /gatekeeper (or /gk) to turn ender chests, the End, the Nether and netherite gear on or off.
     default: op
+  gatekeeper.pvp:
+    description: Use /pvp to turn your own PvP on or off.
+    default: true
   gatekeeper.bypass.enderchests:
     description: Keep using ender chests while they are turned off.
     default: false

@@ -5,6 +5,7 @@
   "mixins": [
     "BaseFireBlockMixin",
     "EndPortalBlockMixin",
+    "FarmlandBlockMixin",
     "ItemCombinerMenuMixin",
     "NetherPortalBlockMixin",
     "SlotMixin"
