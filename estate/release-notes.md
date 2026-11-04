@@ -1,3 +1,7 @@
+### New in 1.7.0
+- **Hold one community member back on a claim.** Everyone in a community counts as an owner of a shared claim. Put a member on that claim's trust list (**Friends**, or `/land trust <player> <level>`) and they get only that level there, while the rest of the community keeps full rights. The new `none` level (shown as **Blocked**) locks them out of that claim completely, even if "Everyone else" can build. Taking them off the list gives them the community's rights back. Members you had already put on a shared claim's trust list now get just that level.
+- **Keep the End's main island free.** New setting `blockMainEndIsland` (off by default) with `mainEndIslandRadius` (200). Only matters if the End is in `claimableWorlds`.
+
 ### New in 1.6.0
 - **Orange borders for shared claims.** Claims other members shared with a community you're in are drawn orange, so you can tell them from your own (green) and strangers' (red).
 - **Your claim list is only your claims.** Claims other members shared with a community no longer show up in `/land list`. They're on the community's page instead.
